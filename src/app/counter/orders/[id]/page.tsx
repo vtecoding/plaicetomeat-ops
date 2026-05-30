@@ -1,15 +1,22 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { demoPickupWindows, getDemoOrders } from "@/lib/data/demo";
+import { demoPickupWindows } from "@/lib/data/demo";
+import { getOrderById } from "@/lib/server/orders";
 import { formatCurrency, formatDisplayDate, formatTimeRange } from "@/lib/utils";
 
 export default async function CounterOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const order = getDemoOrders().find((item) => item.id === id) ?? getDemoOrders()[0];
+  const order = await getOrderById(id);
+
+  if (!order) {
+    notFound();
+  }
+
   const pickupWindow = demoPickupWindows.find((item) => item.id === order.pickupWindowId);
 
   return (

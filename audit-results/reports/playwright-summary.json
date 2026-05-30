@@ -1,0 +1,635 @@
+{
+  "base": "https://plaicetomeat-ops.vercel.app",
+  "startedAt": "2026-05-30T14:05:38.997Z",
+  "routes": [
+    {
+      "route": "/",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/whole-chicken?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\public\\_root__desktop-1440x900__2026-05-30T1405.png",
+      "error": null
+    },
+    {
+      "route": "/shop",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/shop",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Shop the counter",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/lamb-leg-steaks?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\public\\_shop__desktop-1440x900__2026-05-30T1405.png",
+      "error": null
+    },
+    {
+      "route": "/basket",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/basket",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Basket",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\public\\_basket__desktop-1440x900__2026-05-30T1405.png",
+      "error": null
+    },
+    {
+      "route": "/checkout",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/checkout",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Checkout",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\public\\_checkout__desktop-1440x900__2026-05-30T1405.png",
+      "error": null
+    },
+    {
+      "route": "/privacy",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/privacy",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Privacy notice",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\public\\_privacy__desktop-1440x900__2026-05-30T1405.png",
+      "error": null
+    },
+    {
+      "route": "/counter",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\admin\\_counter__desktop-1440x900__2026-05-30T1405.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/counter/compliance",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/lamb-leg-steaks?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\admin\\_counter_compliance__desktop-1440x900__2026-05-30T1405.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/admin",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\admin\\_admin__desktop-1440x900__2026-05-30T1405.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/admin/products",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/whole-chicken?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_products__desktop-1440x900__2026-05-30T1405.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/admin/orders",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/whole-chicken?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_orders__desktop-1440x900__2026-05-30T1405.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/admin/pickup-windows",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_pickup-windows__desktop-1440x900__2026-05-30T1405.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/admin/shop-closures",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_shop-closures__desktop-1440x900__2026-05-30T1406.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/admin/compliance",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/whole-chicken?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_compliance__desktop-1440x900__2026-05-30T1406.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/admin/settings",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/lamb-leg-steaks?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_settings__desktop-1440x900__2026-05-30T1406.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/compliance",
+      "viewport": "desktop-1440x900",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/whole-chicken?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/lamb-leg-steaks?_rsc=1p-R_iEY6bj0jY31 :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\admin\\_compliance__desktop-1440x900__2026-05-30T1406.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/",
+      "viewport": "laptop-1280x800",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_root__laptop-1280x800__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/shop",
+      "viewport": "laptop-1280x800",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/shop",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Shop the counter",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/lamb-leg-steaks?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/whole-chicken?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\responsive\\_shop__laptop-1280x800__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/basket",
+      "viewport": "laptop-1280x800",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/basket",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Basket",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_basket__laptop-1280x800__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/checkout",
+      "viewport": "laptop-1280x800",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/checkout",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Checkout",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_checkout__laptop-1280x800__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/",
+      "viewport": "tablet-768x1024",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_root__tablet-768x1024__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/shop",
+      "viewport": "tablet-768x1024",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/shop",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Shop the counter",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/lamb-leg-steaks?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/whole-chicken?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\responsive\\_shop__tablet-768x1024__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/basket",
+      "viewport": "tablet-768x1024",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/basket",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Basket",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_basket__tablet-768x1024__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/checkout",
+      "viewport": "tablet-768x1024",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/checkout",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Checkout",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_checkout__tablet-768x1024__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/",
+      "viewport": "mobile-390x844",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_root__mobile-390x844__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/shop",
+      "viewport": "mobile-390x844",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/shop",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Shop the counter",
+      "consoleErrors": [],
+      "networkErrors": [
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/chicken-breast-fillets?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED",
+        "FAILED GET https://plaicetomeat-ops.vercel.app/product/whole-chicken?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED"
+      ],
+      "screenshot": "audit-results\\screenshots\\responsive\\_shop__mobile-390x844__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/basket",
+      "viewport": "mobile-390x844",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/basket",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Basket",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_basket__mobile-390x844__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/checkout",
+      "viewport": "mobile-390x844",
+      "expectedAccess": "public",
+      "httpStatus": 200,
+      "redirected": false,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/checkout",
+      "title": "PlaiceToMeat Ops",
+      "h1": "Checkout",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_checkout__mobile-390x844__2026-05-30T1406.png",
+      "error": null
+    },
+    {
+      "route": "/counter",
+      "viewport": "mobile-390x844",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_counter__mobile-390x844__2026-05-30T1406.png",
+      "error": null,
+      "protectionPass": true
+    },
+    {
+      "route": "/admin",
+      "viewport": "mobile-390x844",
+      "expectedAccess": "protected",
+      "httpStatus": 200,
+      "redirected": true,
+      "finalUrl": "https://plaicetomeat-ops.vercel.app/",
+      "title": "PlaiceToMeat Ops",
+      "h1": "PlaiceToMeat Wylde Green",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "screenshot": "audit-results\\screenshots\\responsive\\_admin__mobile-390x844__2026-05-30T1406.png",
+      "error": null,
+      "protectionPass": true
+    }
+  ],
+  "customer": {
+    "steps": [
+      {
+        "step": "checkout with empty basket",
+        "submitDisabled": true
+      },
+      {
+        "step": "shop loaded",
+        "addButtonsFound": 7
+      },
+      {
+        "step": "added products",
+        "clicked": 3,
+        "basketItems": 3
+      },
+      {
+        "step": "basket page",
+        "mentionsCheckout": true
+      },
+      {
+        "step": "checkout with items",
+        "submitEnabled": true
+      },
+      {
+        "step": "html5 validity (empty)",
+        "validity": [
+          {
+            "id": "customerName",
+            "present": true,
+            "required": true,
+            "valid": false
+          },
+          {
+            "id": "customerPhone",
+            "present": true,
+            "required": true,
+            "valid": false
+          },
+          {
+            "id": "pickupDate",
+            "present": true,
+            "required": true,
+            "valid": false
+          },
+          {
+            "id": "pickupWindowId",
+            "present": true,
+            "required": true,
+            "valid": false
+          }
+        ]
+      },
+      {
+        "step": "phone pattern probe",
+        "phoneProbe": {
+          "bad": true,
+          "short": true,
+          "good": true
+        }
+      }
+    ],
+    "issues": [],
+    "consoleErrors": [
+      "Pattern attribute value (?:\\+44|0)7[0-9 -]{9,13} is not a valid regular expression: Uncaught SyntaxError: Failed to execute 'checkValidity' on 'HTMLInputElement': Invalid regular expression: /(?:\\+44|0)7[0-9 -]{9,13}/v: Invalid character in character class"
+    ],
+    "networkErrors": [
+      "FAILED GET https://plaicetomeat-ops.vercel.app/_next/static/chunks/a296e730a6dfdf6c.js :: net::ERR_ABORTED",
+      "FAILED GET https://plaicetomeat-ops.vercel.app/ :: net::ERR_ABORTED",
+      "FAILED GET https://plaicetomeat-ops.vercel.app/product/lean-lamb-mince?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED",
+      "FAILED GET https://plaicetomeat-ops.vercel.app/product/whole-chicken?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED",
+      "FAILED GET https://plaicetomeat-ops.vercel.app/product/family-curry-pack?_rsc=qXN8NJmu_w0Hw17h :: net::ERR_ABORTED",
+      "FAILED GET https://plaicetomeat-ops.vercel.app/ :: net::ERR_ABORTED"
+    ]
+  },
+  "security": [
+    {
+      "route": "/counter",
+      "viewport": "desktop-1440x900",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\admin\\_counter__desktop-1440x900__2026-05-30T1405.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/counter/compliance",
+      "viewport": "desktop-1440x900",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\admin\\_counter_compliance__desktop-1440x900__2026-05-30T1405.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/admin",
+      "viewport": "desktop-1440x900",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\admin\\_admin__desktop-1440x900__2026-05-30T1405.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/admin/products",
+      "viewport": "desktop-1440x900",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_products__desktop-1440x900__2026-05-30T1405.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/admin/orders",
+      "viewport": "desktop-1440x900",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_orders__desktop-1440x900__2026-05-30T1405.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/admin/pickup-windows",
+      "viewport": "desktop-1440x900",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_pickup-windows__desktop-1440x900__2026-05-30T1405.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/admin/shop-closures",
+      "viewport": "desktop-1440x900",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_shop-closures__desktop-1440x900__2026-05-30T1406.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/admin/compliance",
+      "viewport": "desktop-1440x900",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_compliance__desktop-1440x900__2026-05-30T1406.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/admin/settings",
+      "viewport": "desktop-1440x900",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\admin\\_admin_settings__desktop-1440x900__2026-05-30T1406.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/compliance",
+      "viewport": "desktop-1440x900",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\admin\\_compliance__desktop-1440x900__2026-05-30T1406.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/counter",
+      "viewport": "mobile-390x844",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\responsive\\_counter__mobile-390x844__2026-05-30T1406.png",
+      "severity": "ok"
+    },
+    {
+      "route": "/admin",
+      "viewport": "mobile-390x844",
+      "expected": "redirect to / or deny",
+      "actual": "redirected to /",
+      "screenshot": "audit-results\\screenshots\\responsive\\_admin__mobile-390x844__2026-05-30T1406.png",
+      "severity": "ok"
+    }
+  ],
+  "finishedAt": "2026-05-30T14:06:30.279Z"
+}

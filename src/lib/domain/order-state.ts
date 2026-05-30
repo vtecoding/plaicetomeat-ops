@@ -3,7 +3,7 @@ import type { OrderStatus } from "./types";
 export const VALID_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   incoming: ["prepping", "cancelled"],
   prepping: ["ready", "cancelled"],
-  ready: ["collected"],
+  ready: ["collected", "cancelled"],
   collected: [],
   cancelled: [],
 };

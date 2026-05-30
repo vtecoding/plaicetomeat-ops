@@ -1,17 +1,24 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { CheckCircle2, Clock3, CreditCard, XCircle } from "lucide-react";
 
 import { PayOnCollectionNote } from "@/components/pay-on-collection-note";
 import { PageFrame } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { demoBranchSettings, demoPickupWindows, getDemoOrders } from "@/lib/data/demo";
+import { demoBranchSettings, demoPickupWindows } from "@/lib/data/demo";
 import { canCustomerCancelOrder } from "@/lib/domain/cancellation";
+import { getOrderByRef } from "@/lib/server/orders";
 import { formatCurrency, formatDisplayDate, formatTimeRange } from "@/lib/utils";
 
 export default async function OrderPage({ params }: { params: Promise<{ orderRef: string }> }) {
   const { orderRef } = await params;
-  const order = getDemoOrders().find((item) => item.orderRef === orderRef) ?? getDemoOrders()[0];
+  const order = await getOrderByRef(orderRef);
+
+  if (!order) {
+    notFound();
+  }
+
   const pickupWindow = demoPickupWindows.find((window) => window.id === order.pickupWindowId);
   const cancellation = canCustomerCancelOrder({
     status: order.status,

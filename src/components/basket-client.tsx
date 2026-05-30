@@ -93,7 +93,7 @@ export function BasketClient() {
             Prices shown here are for display. The server recalculates all totals at checkout.
           </p>
           {basket.items.length === 0 ? (
-            <Button className="mt-5 w-full" disabled>
+            <Button className="mt-5 w-full" disabled title="Add items to continue">
               Continue to checkout
             </Button>
           ) : (

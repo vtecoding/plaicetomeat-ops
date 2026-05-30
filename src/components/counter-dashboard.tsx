@@ -1,13 +1,27 @@
 "use client";
 
-import { Bell, CheckCircle2, MessageSquareWarning, PauseCircle, PlayCircle, RotateCcw, XCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  MessageSquare,
+  MessageSquareWarning,
+  PlayCircle,
+  RefreshCw,
+  RotateCcw,
+  Wifi,
+  WifiOff,
+  XCircle,
+} from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 
+import { addOrderNote, getCounterSnapshot, updateOrderStatus } from "@/app/actions/counter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { demoPickupWindows } from "@/lib/data/demo";
+import { Textarea } from "@/components/ui/textarea";
+import { type CounterConnectionState, useCounterRealtime } from "@/lib/client/use-counter-realtime";
 import { getNextOrderActions } from "@/lib/domain/order-state";
-import type { Order, OrderStatus, PickupWindow } from "@/lib/domain/types";
+import { getSmsBadgeState } from "@/lib/domain/sms";
+import type { Order, OrderNote, OrderStatus, PickupWindow } from "@/lib/domain/types";
 import { getOrderUrgency } from "@/lib/domain/urgency";
 import { cn, formatCurrency, formatTimeRange } from "@/lib/utils";
 
@@ -18,85 +32,128 @@ const columns: { status: OrderStatus; label: string }[] = [
   { status: "collected", label: "Collected" },
 ];
 
-export function CounterDashboard({ initialOrders }: { initialOrders: Order[] }) {
-  const [orders, setOrders] = useState(initialOrders);
-  const [incomingAlertCount, setIncomingAlertCount] = useState(0);
-  const [liveMode, setLiveMode] = useState<"realtime" | "polling">("realtime");
+const CONNECTION_META: Record<CounterConnectionState, { tone: "green" | "amber" | "red" | "neutral"; label: string }> = {
+  connecting: { tone: "neutral", label: "Connecting..." },
+  live: { tone: "green", label: "Realtime connected" },
+  reconnecting: { tone: "amber", label: "Reconnecting..." },
+  stale: { tone: "amber", label: "Updates may be stale" },
+  failed: { tone: "red", label: "Realtime unavailable" },
+  polling: { tone: "amber", label: "Polling every 15s (realtime off)" },
+};
 
-  const windowsById = useMemo(
-    () => new Map(demoPickupWindows.map((window) => [window.id, window])),
-    [],
+export function CounterDashboard({
+  initialOrders,
+  initialNotes,
+  pickupWindows,
+  branchId,
+}: {
+  initialOrders: Order[];
+  initialNotes: Record<string, OrderNote[]>;
+  pickupWindows: PickupWindow[];
+  branchId: string;
+}) {
+  const [orders, setOrders] = useState(initialOrders);
+  const [notesByOrderId, setNotesByOrderId] = useState(initialNotes);
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [forcePolling, setForcePolling] = useState(false);
+
+  const windowsById = useMemo(() => new Map(pickupWindows.map((window) => [window.id, window])), [pickupWindows]);
+
+  const refetch = useCallback(async () => {
+    const result = await getCounterSnapshot(branchId);
+    if ("error" in result) {
+      return false;
+    }
+    setOrders(result.orders);
+    setNotesByOrderId(result.notesByOrderId);
+    return true;
+  }, [branchId]);
+
+  const { state: connectionState } = useCounterRealtime({ branchId, refetch, forcePolling });
+
+  const setPendingFor = useCallback((orderId: string, value: boolean) => {
+    setPending((current) => {
+      const next = new Set(current);
+      if (value) {
+        next.add(orderId);
+      } else {
+        next.delete(orderId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleMove = useCallback(
+    async (orderId: string, nextStatus: OrderStatus) => {
+      setError(null);
+      setPendingFor(orderId, true);
+
+      const previousOrders = orders;
+      // Optimistic move; rolled back on failure.
+      setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, status: nextStatus } : order)));
+
+      const result = await updateOrderStatus({ orderId, nextStatus });
+      setPendingFor(orderId, false);
+
+      if (!result.ok) {
+        setOrders(previousOrders);
+        setError(result.message);
+        return;
+      }
+
+      setOrders((current) => current.map((order) => (order.id === orderId ? result.order : order)));
+    },
+    [orders, setPendingFor],
   );
 
-  function playNewOrderTone() {
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const context = new AudioContextClass();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
+  const handleAddNote = useCallback(async (orderId: string, note: string) => {
+    const result = await addOrderNote({ orderId, note });
+    if (!result.ok) {
+      return result.message;
+    }
+    setNotesByOrderId((current) => ({ ...current, [orderId]: result.notes }));
+    return null;
+  }, []);
 
-    oscillator.type = "sine";
-    oscillator.frequency.value = 880;
-    gain.gain.value = 0.05;
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.18);
-  }
-
-  function simulateNewOrder() {
-    const nextOrder: Order = {
-      ...orders[0],
-      id: crypto.randomUUID(),
-      orderRef: `PTM-${new Date().toISOString().slice(2, 10).replaceAll("-", "")}-${String(orders.length + 45).padStart(4, "0")}`,
-      customerName: "New customer",
-      status: "incoming",
-      createdAt: new Date().toISOString(),
-      readySmsSentAt: null,
-    };
-
-    setOrders((current) => [nextOrder, ...current]);
-    setIncomingAlertCount((current) => current + 1);
-    playNewOrderTone();
-  }
-
-  function moveOrder(orderId: string, nextStatus: OrderStatus) {
-    setOrders((current) =>
-      current.map((order) =>
-        order.id === orderId
-          ? {
-              ...order,
-              status: nextStatus,
-              readySmsSentAt: nextStatus === "ready" ? new Date().toISOString() : order.readySmsSentAt,
-            }
-          : order,
-      ),
-    );
-  }
+  const connection = CONNECTION_META[connectionState];
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#ded6ca] bg-white p-4">
         <div className="flex items-center gap-3">
-          <Badge tone={liveMode === "realtime" ? "green" : "amber"}>
-            {liveMode === "realtime" ? "Realtime connected" : "Live updates paused"}
+          <Badge tone={connection.tone}>
+            {connectionState === "live" ? (
+              <Wifi className="mr-1 h-3 w-3" aria-hidden />
+            ) : (
+              <WifiOff className="mr-1 h-3 w-3" aria-hidden />
+            )}
+            {connection.label}
           </Badge>
-          {liveMode === "polling" && (
-            <span className="text-sm text-[#7a4b00]">Checking every 30 seconds.</span>
-          )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => setLiveMode(liveMode === "realtime" ? "polling" : "realtime")}>
-            <RotateCcw className="h-4 w-4" aria-hidden />
-            Toggle fallback
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            <RefreshCw className="h-4 w-4" aria-hidden />
+            Refresh
           </Button>
-          <Button size="sm" onClick={simulateNewOrder}>
-            <Bell className="h-4 w-4" aria-hidden />
-            Simulate new order
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setForcePolling((value) => !value)}
+            title="Switch between realtime and polling"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden />
+            {forcePolling ? "Resume realtime" : "Use polling"}
           </Button>
         </div>
       </div>
+
+      {error ? (
+        <div className="flex gap-3 rounded-lg border border-[#f0a3a3] bg-[#fdeaea] p-4 text-sm text-[#7a1b1b]" role="alert">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+          <span>{error}</span>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-4">
         {columns.map((column) => {
@@ -106,17 +163,18 @@ export function CounterDashboard({ initialOrders }: { initialOrders: Order[] }) 
             <section key={column.status} className="min-h-[520px] rounded-lg border border-[#ded6ca] bg-[#f7f3ed]">
               <header className="flex h-14 items-center justify-between border-b border-[#ded6ca] px-4">
                 <h2 className="font-black">{column.label}</h2>
-                <Badge tone={column.status === "incoming" && incomingAlertCount > 0 ? "amber" : "neutral"}>
-                  {column.status === "incoming" && incomingAlertCount > 0 ? incomingAlertCount : columnOrders.length}
-                </Badge>
+                <Badge tone="neutral">{columnOrders.length}</Badge>
               </header>
               <div className="space-y-3 p-3">
                 {columnOrders.map((order) => (
                   <CounterOrderCard
                     key={order.id}
                     order={order}
+                    notes={notesByOrderId[order.id] ?? []}
                     pickupWindow={order.pickupWindowId ? windowsById.get(order.pickupWindowId) : undefined}
-                    onMove={moveOrder}
+                    isPending={pending.has(order.id)}
+                    onMove={handleMove}
+                    onAddNote={handleAddNote}
                   />
                 ))}
               </div>
@@ -130,16 +188,22 @@ export function CounterDashboard({ initialOrders }: { initialOrders: Order[] }) 
 
 function CounterOrderCard({
   order,
+  notes,
   pickupWindow,
+  isPending,
   onMove,
+  onAddNote,
 }: {
   order: Order;
+  notes: OrderNote[];
   pickupWindow: PickupWindow | undefined;
+  isPending: boolean;
   onMove: (orderId: string, nextStatus: OrderStatus) => void;
+  onAddNote: (orderId: string, note: string) => Promise<string | null>;
 }) {
   const urgency = getOrderUrgency(order, pickupWindow);
   const nextActions = getNextOrderActions(order.status);
-  const smsState = order.readySmsSentAt ? "sent" : order.smsFailureReason ? "failed" : "pending";
+  const smsState = getSmsBadgeState(order.readySmsSentAt, order.smsFailureReason);
 
   return (
     <article
@@ -177,8 +241,10 @@ function CounterOrderCard({
             </li>
           ))}
         </ul>
-        {order.notes && <p className="mt-2 text-xs font-semibold text-[#7a4b00]">Notes attached</p>}
+        {order.notes && <p className="mt-2 text-xs font-semibold text-[#7a4b00]">Customer note attached</p>}
       </div>
+
+      <StaffNotes notes={notes} orderId={order.id} onAddNote={onAddNote} />
 
       {nextActions.length > 0 && (
         <div className="mt-4 grid gap-2">
@@ -187,24 +253,93 @@ function CounterOrderCard({
               key={action}
               variant={action === "cancelled" ? "destructive" : "default"}
               size="lg"
+              disabled={isPending}
               onClick={() => {
                 if (action === "cancelled" && !window.confirm("Cancel this order?")) {
                   return;
                 }
-
                 onMove(order.id, action);
               }}
             >
               {action === "prepping" && <PlayCircle className="h-4 w-4" aria-hidden />}
-              {action === "ready" && <PauseCircle className="h-4 w-4" aria-hidden />}
+              {action === "ready" && <CheckCircle2 className="h-4 w-4" aria-hidden />}
               {action === "collected" && <CheckCircle2 className="h-4 w-4" aria-hidden />}
               {action === "cancelled" && <XCircle className="h-4 w-4" aria-hidden />}
-              {labelForAction(action)}
+              {isPending ? "Working..." : labelForAction(action)}
             </Button>
           ))}
         </div>
       )}
     </article>
+  );
+}
+
+function StaffNotes({
+  notes,
+  orderId,
+  onAddNote,
+}: {
+  notes: OrderNote[];
+  orderId: string;
+  onAddNote: (orderId: string, note: string) => Promise<string | null>;
+}) {
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+
+  async function submit() {
+    const trimmed = draft.trim();
+    if (trimmed.length === 0) {
+      setNoteError("Note cannot be empty.");
+      return;
+    }
+    setSaving(true);
+    setNoteError(null);
+    const message = await onAddNote(orderId, trimmed);
+    setSaving(false);
+    if (message) {
+      setNoteError(message);
+      return;
+    }
+    setDraft("");
+  }
+
+  return (
+    <div className="mt-4 border-t border-[#eee5d8] pt-3">
+      <p className="flex items-center gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">
+        <MessageSquare className="h-3 w-3" aria-hidden />
+        Staff notes (internal)
+      </p>
+
+      {notes.length > 0 && (
+        <ul className="mt-2 space-y-2">
+          {notes.map((note) => (
+            <li key={note.id} data-testid="staff-note" className="rounded-md bg-[#f7f3ed] p-2 text-xs text-[#5c5148]">
+              <p>{note.note}</p>
+              <p className="mt-1 text-[10px] text-[#8a7d70]">
+                {note.authorName ?? "Staff"} · {new Date(note.createdAt).toLocaleTimeString()}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-2 grid gap-2">
+        <Textarea
+          aria-label="Add staff note"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          maxLength={1000}
+          rows={2}
+          placeholder="Add an internal note"
+          disabled={saving}
+        />
+        {noteError ? <p className="text-xs text-[#b42318]">{noteError}</p> : null}
+        <Button variant="outline" size="sm" onClick={() => void submit()} disabled={saving || draft.trim().length === 0}>
+          {saving ? "Saving..." : "Add note"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -222,7 +357,7 @@ function SmsBadge({ state }: { state: "sent" | "failed" | "pending" }) {
     );
   }
 
-  return <Badge tone="neutral">SMS pending</Badge>;
+  return <Badge tone="neutral">SMS off</Badge>;
 }
 
 function labelForAction(status: OrderStatus) {

@@ -1,0 +1,32 @@
+   ▲ Next.js 15.5.18 (Turbopack)
+   - Local:        http://localhost:3100
+   - Network:      http://192.168.0.41:3100
+
+ ✓ Starting...
+ ✓ Compiled middleware in 134ms
+ ✓ Ready in 1199ms
+ ○ Compiling / ...
+ ✓ Compiled / in 2.1s
+ GET / 200 in 2674ms
+ ✓ Compiled /counter in 497ms
+ GET /counter 200 in 919ms
+ GET /counter 200 in 230ms
+ ✓ Compiled /counter/compliance in 349ms
+ GET /counter/compliance 200 in 599ms
+ ✓ Compiled /admin in 176ms
+ GET /admin 200 in 311ms
+ ✓ Compiled /admin/products in 161ms
+ GET /admin/products 200 in 337ms
+ ✓ Compiled /admin/orders in 191ms
+ GET /admin/orders 200 in 297ms
+ ✓ Compiled /admin/pickup-windows in 160ms
+ GET /admin/pickup-windows 200 in 272ms
+ ✓ Compiled /admin/shop-closures in 160ms
+ GET /admin/shop-closures 200 in 278ms
+ ✓ Compiled /admin/compliance in 378ms
+ GET /admin/compliance 200 in 590ms
+ ✓ Compiled /admin/settings in 276ms
+ GET /admin/settings 200 in 485ms
+ ✓ Compiled middleware in 11ms
+ ✓ Compiled in 69ms
+[?25h

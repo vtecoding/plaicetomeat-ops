@@ -1,18 +1,38 @@
 import Link from "next/link";
-import { Beef, ClipboardCheck, LayoutDashboard, ShoppingBasket } from "lucide-react";
+import { Beef, ClipboardCheck, LayoutDashboard, LogIn, Settings, ShoppingBasket } from "lucide-react";
 
+import { LogoutButton } from "@/components/logout-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { demoBranch } from "@/lib/data/demo";
+import { getCurrentProfile } from "@/lib/server/auth";
 
-const links = [
+type NavLink = { href: string; label: string; icon: typeof Beef };
+
+const PUBLIC_LINKS: NavLink[] = [
   { href: "/shop", label: "Shop", icon: Beef },
   { href: "/basket", label: "Basket", icon: ShoppingBasket },
+];
+
+const STAFF_LINKS: NavLink[] = [
   { href: "/counter", label: "Counter", icon: LayoutDashboard },
   { href: "/counter/compliance", label: "Compliance", icon: ClipboardCheck },
 ];
 
-export function SiteHeader() {
+const MANAGER_LINKS: NavLink[] = [{ href: "/admin", label: "Admin", icon: Settings }];
+
+export async function SiteHeader() {
+  const profile = await getCurrentProfile();
+
+  const isStaff = profile?.role === "staff" || profile?.role === "manager" || profile?.role === "owner";
+  const isManager = profile?.role === "manager" || profile?.role === "owner";
+
+  const links: NavLink[] = [
+    ...PUBLIC_LINKS,
+    ...(isStaff ? STAFF_LINKS : []),
+    ...(isManager ? MANAGER_LINKS : []),
+  ];
+
   return (
     <header className="sticky top-0 z-30 border-b border-[#e2d9cc] bg-[#fbfaf7]/95 backdrop-blur">
       <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
@@ -39,9 +59,23 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <Badge tone="green" className="hidden sm:inline-flex">
-          Pay on collection
-        </Badge>
+        <div className="flex items-center gap-2">
+          {profile ? (
+            <>
+              <Badge tone="green" className="hidden sm:inline-flex">
+                {profile.fullName ?? profile.email} · {profile.role}
+              </Badge>
+              <LogoutButton />
+            </>
+          ) : (
+            <Button asChild variant="outline" size="sm">
+              <Link href="/login">
+                <LogIn className="h-4 w-4" aria-hidden />
+                Staff login
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
     </header>
   );

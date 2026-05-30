@@ -27,6 +27,8 @@ export type BranchSettings = {
   smsReadyTemplate: string;
   cancellationWindowMinutes: number;
   maxOrdersPerDay: number | null;
+  minOrderValue: number;
+  sameDayCutoffTime: string;
 };
 
 export type ProductCategory = {
@@ -109,6 +111,14 @@ export type Order = {
   smsFailureReason?: string | null;
   createdAt: string;
   items: OrderItem[];
+};
+
+export type OrderNote = {
+  id: string;
+  orderId: string;
+  note: string;
+  authorName: string | null;
+  createdAt: string;
 };
 
 export type ComplianceLog = {

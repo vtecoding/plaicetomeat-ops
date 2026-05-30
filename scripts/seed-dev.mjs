@@ -1,0 +1,164 @@
+// Dev/test seed: auth users, a second branch, profiles, and today's orders.
+// Idempotent — safe to run repeatedly against the LOCAL Supabase stack only.
+//
+// Usage: node scripts/seed-dev.mjs
+import { createClient } from "@supabase/supabase-js";
+
+const URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
+const SERVICE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+
+const BRANCH_A = "00000000-0000-4000-8000-000000000001";
+const BRANCH_B = "00000000-0000-4000-8000-0000000000b2";
+const WINDOW_LUNCH = "00000000-0000-4000-8000-000000000302";
+export const TEST_PASSWORD = "PlaiceTest123!";
+
+const supabase = createClient(URL, SERVICE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+const USERS = [
+  { email: "owner@ptm.test", role: "owner", branch_id: BRANCH_A, full_name: "Olivia Owner" },
+  { email: "manager@ptm.test", role: "manager", branch_id: BRANCH_A, full_name: "Mara Manager" },
+  { email: "staff@ptm.test", role: "staff", branch_id: BRANCH_A, full_name: "Sam Staff" },
+  { email: "staff.b@ptm.test", role: "staff", branch_id: BRANCH_B, full_name: "Bea BranchB" },
+  { email: "inactive@ptm.test", role: "staff", branch_id: BRANCH_A, full_name: "Ina Inactive", is_active: false },
+];
+
+function todayIso() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+async function findUserByEmail(email) {
+  let page = 1;
+  for (;;) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const match = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    if (match) return match;
+    if (data.users.length < 200) return null;
+    page += 1;
+  }
+}
+
+async function upsertUser(spec) {
+  let user = await findUserByEmail(spec.email);
+
+  if (!user) {
+    const { data, error } = await supabase.auth.admin.createUser({
+      email: spec.email,
+      password: TEST_PASSWORD,
+      email_confirm: true,
+    });
+    if (error) throw error;
+    user = data.user;
+  } else {
+    await supabase.auth.admin.updateUserById(user.id, { password: TEST_PASSWORD, email_confirm: true });
+  }
+
+  const { error: profileError } = await supabase.from("profiles").upsert(
+    {
+      id: user.id,
+      email: spec.email,
+      full_name: spec.full_name,
+      role: spec.role,
+      branch_id: spec.branch_id,
+      is_active: spec.is_active ?? true,
+    },
+    { onConflict: "id" },
+  );
+  if (profileError) throw profileError;
+
+  console.log(`  user ${spec.email} (${spec.role}) -> ${user.id}`);
+  return user.id;
+}
+
+async function ensureBranchB() {
+  const { error } = await supabase.from("branches").upsert(
+    {
+      id: BRANCH_B,
+      name: "PlaiceToMeat Kings Heath",
+      slug: "kings-heath",
+      address: "12 High Street, Kings Heath",
+      phone: "+441213550012",
+      timezone: "Europe/London",
+      is_active: true,
+    },
+    { onConflict: "id" },
+  );
+  if (error) throw error;
+  console.log("  branch B (kings-heath) ready");
+}
+
+async function seedOrders() {
+  const pickupDate = todayIso();
+  // Remove previously seeded orders (idempotency keys are stable below).
+  const keys = ["seed-incoming-1", "seed-prepping-1", "seed-ready-1"];
+  const { data: existing } = await supabase.from("orders").select("id, idempotency_key").in("idempotency_key", keys);
+  for (const row of existing ?? []) {
+    await supabase.from("orders").delete().eq("id", row.id);
+  }
+
+  const orders = [
+    { ref: "PTM-2026-90001", key: "seed-incoming-1", name: "Aisha Khan", phone: "+447700900111", status: "incoming", subtotal: 24.98 },
+    { ref: "PTM-2026-90002", key: "seed-prepping-1", name: "Imran Patel", phone: "+447700900222", status: "prepping", subtotal: 35.0 },
+    { ref: "PTM-2026-90003", key: "seed-ready-1", name: "Sarah Mahmood", phone: "+447700900333", status: "ready", subtotal: 18.49 },
+  ];
+
+  for (const o of orders) {
+    const { data: inserted, error } = await supabase
+      .from("orders")
+      .insert({
+        branch_id: BRANCH_A,
+        order_ref: o.ref,
+        customer_name: o.name,
+        customer_phone: o.phone,
+        status: o.status,
+        pickup_window_id: WINDOW_LUNCH,
+        pickup_date: pickupDate,
+        subtotal: o.subtotal,
+        idempotency_key: o.key,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+
+    const { error: itemError } = await supabase.from("order_items").insert({
+      branch_id: BRANCH_A,
+      order_id: inserted.id,
+      product_name_snapshot: "Chicken Breast Fillets",
+      quantity: 1,
+      unit_type: "kg",
+      unit_price_snapshot: 8.99,
+      line_total: 8.99,
+    });
+    if (itemError) throw itemError;
+
+    await supabase.from("order_status_events").insert({
+      branch_id: BRANCH_A,
+      order_id: inserted.id,
+      status: o.status,
+      note: "Seeded for development.",
+    });
+
+    console.log(`  order ${o.ref} (${o.status}) -> ${inserted.id}`);
+  }
+}
+
+async function main() {
+  console.log("Seeding auth users...");
+  await ensureBranchB();
+  for (const spec of USERS) {
+    await upsertUser(spec);
+  }
+  console.log("Seeding today's orders...");
+  await seedOrders();
+  console.log("Done. Test password for all users:", TEST_PASSWORD);
+}
+
+main().catch((error) => {
+  console.error("Seed failed:", error.message ?? error);
+  process.exit(1);
+});

@@ -1,15 +1,22 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ArrowLeft, XCircle } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { demoBranchSettings, getDemoOrders } from "@/lib/data/demo";
+import { demoBranchSettings } from "@/lib/data/demo";
 import { canCustomerCancelOrder } from "@/lib/domain/cancellation";
+import { getOrderByRef } from "@/lib/server/orders";
 
 export default async function CancelOrderPage({ params }: { params: Promise<{ orderRef: string }> }) {
   const { orderRef } = await params;
-  const order = getDemoOrders().find((item) => item.orderRef === orderRef) ?? getDemoOrders()[0];
+  const order = await getOrderByRef(orderRef);
+
+  if (!order) {
+    notFound();
+  }
+
   const cancellation = canCustomerCancelOrder({
     status: order.status,
     createdAt: order.createdAt,
