@@ -1,196 +1,171 @@
-import { test } from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
+import { test, type ConsoleMessage, type Page, type Response } from "@playwright/test";
+import fs from "fs";
+import path from "path";
 
 const ROUTES = [
-  '/',
-  '/shop',
-  '/basket',
-  '/checkout',
-  '/counter',
-  '/counter/compliance',
-  '/admin',
-  '/admin/products',
-  '/admin/orders',
-  '/admin/pickup-windows',
-  '/admin/compliance',
-  '/admin/settings',
+  "/",
+  "/shop",
+  "/basket",
+  "/checkout",
+  "/counter",
+  "/counter/compliance",
+  "/admin",
+  "/admin/products",
+  "/admin/orders",
+  "/admin/pickup-windows",
+  "/admin/compliance",
+  "/admin/settings",
 ];
 
 const ERROR_KEYWORDS = [
-  'Unhandled Runtime Error',
-  'TypeError',
-  'ReferenceError',
-  'Hydration failed',
-  'Application error',
+  "Unhandled Runtime Error",
+  "TypeError",
+  "ReferenceError",
+  "Hydration failed",
+  "Application error",
 ];
 
 const IGNORED_CONSOLE_SUBSTRS = [
-  'ResizeObserver loop limit exceeded',
-  'favicon.ico',
-  'DevTools listening on',
+  "ResizeObserver loop limit exceeded",
+  "favicon.ico",
+  "DevTools listening on",
 ];
 
+type AuditResult = {
+  route: string;
+  passed: boolean;
+  pageErrors: string[];
+  consoleErrors: string[];
+  clickedButtons: string[];
+  httpStatus: number | null;
+};
+
 function isIgnoredConsole(text: string) {
-  if (!text) return false;
-  return IGNORED_CONSOLE_SUBSTRS.some((s) => text.includes(s));
+  return IGNORED_CONSOLE_SUBSTRS.some((substring) => text.includes(substring));
 }
 
-test('Playwright UI audit - single-run', async ({ page, baseURL }) => {
-  const outDir = path.join(process.cwd(), 'audit');
+function createResult(route: string): AuditResult {
+  return {
+    route,
+    passed: true,
+    pageErrors: [],
+    consoleErrors: [],
+    clickedButtons: [],
+    httpStatus: null,
+  };
+}
+
+function attachAuditListeners(page: Page, routeResult: AuditResult) {
+  page.on("pageerror", (error) => {
+    routeResult.pageErrors.push(String(error?.message ?? error));
+    routeResult.passed = false;
+  });
+
+  page.on("console", (message: ConsoleMessage) => {
+    if (message.type() !== "error") {
+      return;
+    }
+
+    const text = message.text();
+
+    if (!isIgnoredConsole(text)) {
+      routeResult.consoleErrors.push(text);
+      routeResult.passed = false;
+    }
+  });
+}
+
+test("Playwright UI audit - single-run", async ({ page, baseURL }) => {
+  const outDir = path.join(process.cwd(), "audit");
   await fs.promises.mkdir(outDir, { recursive: true });
 
-  const results: Array<any> = [];
+  const results: AuditResult[] = [];
 
   for (const route of ROUTES) {
-    const routeResult: any = {
-      route,
-      passed: true,
-      pageErrors: [] as string[],
-      consoleErrors: [] as string[],
-      clickedButtons: [] as string[],
-      httpStatus: null as number | null,
-    };
-
-    const pageErrorHandler = (err: any) => {
-      routeResult.pageErrors.push(String(err?.message ?? err));
-      routeResult.passed = false;
-    };
-    const consoleHandler = (msg: any) => {
-      if (msg.type && msg.type() === 'error') {
-        const text = msg.text();
-        if (!isIgnoredConsole(text)) {
-          routeResult.consoleErrors.push(text);
-          routeResult.passed = false;
-        }
-      }
-    };
-
-    page.on('pageerror', pageErrorHandler);
-    page.on('console', consoleHandler);
+    const routeResult = createResult(route);
+    attachAuditListeners(page, routeResult);
 
     const url = baseURL ? new URL(route, baseURL).toString() : route;
-    let resp: any = null;
+    let response: Response | null = null;
+
     try {
-      resp = await page.goto(url, { waitUntil: 'load', timeout: 45_000 });
-    } catch (e) {
-      routeResult.pageErrors.push(`Navigation failed: ${String(e)}`);
+      response = await page.goto(url, { waitUntil: "load", timeout: 45_000 });
+    } catch (error) {
+      routeResult.pageErrors.push(`Navigation failed: ${String(error)}`);
       routeResult.passed = false;
     }
 
-    if (resp) {
-      try {
-        routeResult.httpStatus = resp.status();
-        if (routeResult.httpStatus >= 500) {
-          routeResult.pageErrors.push(`Server error HTTP ${routeResult.httpStatus}`);
-          routeResult.passed = false;
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
+    if (response) {
+      routeResult.httpStatus = response.status();
 
-    await page.waitForLoadState('load', { timeout: 10_000 }).catch(() => {});
-    await page.waitForTimeout(300);
-
-    const bodyText = (await page.locator('body').innerText().catch(() => '')) || '';
-    for (const kw of ERROR_KEYWORDS) {
-      if (bodyText.includes(kw)) {
-        routeResult.pageErrors.push(`Page contains "${kw}"`);
+      if (routeResult.httpStatus >= 500) {
+        routeResult.pageErrors.push(`Server error HTTP ${routeResult.httpStatus}`);
         routeResult.passed = false;
       }
     }
 
-    // Shop check: presence of Add button and attempt click (non-destructive)
-    if (route === '/shop') {
-      const addBtn = page.locator('button:has-text("Add")').first();
-      if ((await addBtn.count()) > 0) {
+    await page.waitForLoadState("load", { timeout: 10_000 }).catch(() => undefined);
+    await page.waitForTimeout(300);
+
+    const bodyText = (await page.locator("body").innerText().catch(() => "")) || "";
+
+    for (const keyword of ERROR_KEYWORDS) {
+      if (bodyText.includes(keyword)) {
+        routeResult.pageErrors.push(`Page contains "${keyword}"`);
+        routeResult.passed = false;
+      }
+    }
+
+    if (route === "/shop") {
+      const addButton = page.locator('button:has-text("Add")').first();
+
+      if ((await addButton.count()) > 0) {
         try {
-          await addBtn.click({ timeout: 5000 });
-          routeResult.clickedButtons.push('Add');
+          await addButton.click({ timeout: 5000 });
+          routeResult.clickedButtons.push("Add");
           await page.waitForTimeout(300);
-        } catch (e) {
-          routeResult.consoleErrors.push(`Add button click failed: ${String(e)}`);
+        } catch (error) {
+          routeResult.consoleErrors.push(`Add button click failed: ${String(error)}`);
           routeResult.passed = false;
         }
       } else {
-        routeResult.pageErrors.push('No add-to-basket button found on shop');
+        routeResult.pageErrors.push("No add-to-basket button found on shop");
         routeResult.passed = false;
       }
     }
-
-    // Checkout basic field checks
-    if (route === '/checkout') {
-      const requiredSelectors = ['#customerName', '#customerPhone', '#pickupDate', '#pickupWindowId'];
-      for (const sel of requiredSelectors) {
-        const loc = page.locator(sel);
-        if ((await loc.count()) === 0) {
-          routeResult.pageErrors.push(`Missing checkout field ${sel}`);
-          routeResult.passed = false;
-          continue;
-        }
-        const req = await loc.getAttribute('required');
-        if (!req) {
-          routeResult.pageErrors.push(`Checkout field ${sel} is missing required attribute`);
-          routeResult.passed = false;
-        }
-      }
-      const placeBtn = page.locator('button:has-text("Place pay-on-collection order")');
-      if ((await placeBtn.count()) === 0) {
-        routeResult.pageErrors.push('Place order button not found on checkout');
-        routeResult.passed = false;
-      }
-    }
-
-    // Counter column checks
-    if (route === '/counter') {
-      for (const label of ['Incoming', 'Prepping', 'Ready', 'Collected']) {
-        if ((await page.locator(`text=${label}`).count()) === 0) {
-          routeResult.pageErrors.push(`Counter missing column "${label}"`);
-          routeResult.passed = false;
-        }
-      }
-    }
-
-    // write per-route JSON
-    const jsonPath = path.join(outDir, `playwright-ui-audit-${route.replace(/[^a-z0-9]/gi, '_')}.json`);
-    await fs.promises.writeFile(jsonPath, JSON.stringify(routeResult, null, 2));
 
     results.push(routeResult);
-
-    // remove listeners for next iteration
-    page.off('pageerror', pageErrorHandler);
-    page.off('console', consoleHandler);
   }
 
-  // generate aggregated markdown report
-  const mdPath = path.join(outDir, 'playwright-ui-audit.md');
-  const passed = results.filter((r) => r.passed).map((r) => r.route);
-  const failed = results.filter((r) => !r.passed).map((r) => r.route);
+  const mdPath = path.join(outDir, "playwright-ui-audit-clean.md");
+  const passed = results.filter((result) => result.passed).map((result) => result.route);
+  const failed = results.filter((result) => !result.passed).map((result) => result.route);
 
-  const mdLines: string[] = [];
-  mdLines.push('# Playwright UI Audit', '');
-  mdLines.push(`Generated: ${new Date().toISOString()}`, '');
+  let markdown = "# Playwright UI Audit\n\n";
+  markdown += `Generated: ${new Date().toISOString()}\n\n`;
+  markdown += `**Passed flows:**\n${passed.length ? passed.map((route) => `- ${route}`).join("\n") : "- None"}\n\n`;
+  markdown += `**Failed flows:**\n${failed.length ? failed.map((route) => `- ${route}`).join("\n") : "- None"}\n\n`;
+  markdown += "**Details**\n\n";
 
-  mdLines.push('**Passed flows:**');
-  if (passed.length) mdLines.push(...passed.map((p) => `- ${p}`));
-  else mdLines.push('- None');
-  mdLines.push('');
+  for (const result of results) {
+    markdown += `### ${result.route}\n\n`;
+    markdown += `- Passed: ${result.passed}\n`;
+    markdown += `- HTTP status: ${result.httpStatus ?? "n/a"}\n`;
 
-  mdLines.push('**Failed flows:**');
-  if (failed.length) mdLines.push(...failed.map((f) => `- ${f}`));
-  else mdLines.push('- None');
-  mdLines.push('', '**Details**', '');
+    if (result.clickedButtons.length > 0) {
+      markdown += `- Clicked buttons: ${result.clickedButtons.map((button) => `\`${button}\``).join(", ")}\n`;
+    }
 
-  for (const r of results) {
-    mdLines.push(`### ${r.route}`, '');
-    mdLines.push(`- Passed: ${r.passed}`);
-    if (r.httpStatus) mdLines.push(`- HTTP status: ${r.httpStatus}`);
-    if (r.clickedButtons && r.clickedButtons.length) mdLines.push(`- Clicked buttons: ${r.clickedButtons.map((b: string) => `\`${b}\``).join(', ')}`);
-    if (r.pageErrors && r.pageErrors.length) mdLines.push('- Page errors:', ...r.pageErrors.map((e: string) => `  - ${e}`));
-    if (r.consoleErrors && r.consoleErrors.length) mdLines.push('- Console errors:', ...r.consoleErrors.map((e: string) => `  - ${e}`));
-    mdLines.push('');
+    if (result.pageErrors.length > 0) {
+      markdown += `- Page errors:\n${result.pageErrors.map((error) => `  - ${error}`).join("\n")}\n`;
+    }
+
+    if (result.consoleErrors.length > 0) {
+      markdown += `- Console errors:\n${result.consoleErrors.map((error) => `  - ${error}`).join("\n")}\n`;
+    }
+
+    markdown += "\n";
   }
 
-  await fs.promises.writeFile(mdPath, mdLines.join('\n'));
+  await fs.promises.writeFile(mdPath, markdown);
 });

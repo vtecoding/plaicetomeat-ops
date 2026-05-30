@@ -44,6 +44,9 @@ corepack pnpm typecheck
 - All core tables include `branch_id`.
 - Public basket data lives in `localStorage` under `ptm_basket_{branchId}` and expires after 24 hours.
 - Server-side code must recalculate order totals from database product prices.
+- Checkout now has three validation layers: native form constraints, shared Zod parsing, and the `create_checkout_order` Postgres RPC before any order write.
+- Staff routes are middleware-protected by Supabase role (`staff`, `manager`, `owner`) with a four-hour idle cookie timeout.
+- V2 order references use `PTM-{YEAR}-{5-digit-sequence}` and reset annually per branch.
 - `SUPABASE_SERVICE_ROLE_KEY` and Twilio credentials must stay server-only.
 - The app supports compliance record-keeping. It must not claim to guarantee an EHO hygiene rating.
 

@@ -1,4 +1,5 @@
 import type { Basket, BasketItem, Product } from "./types";
+import { DEFAULT_MAX_QUANTITY_PER_SKU } from "./checkout-rules";
 
 export const BASKET_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -76,8 +77,10 @@ export function recalculateBasket(items: BasketItem[], products: Product[]): Rec
       throw new Error(`${product.name} minimum order is ${product.minOrderQuantity}${product.unitType}.`);
     }
 
-    if (product.maxOrderQuantity !== null && item.quantity > product.maxOrderQuantity) {
-      throw new Error(`${product.name} maximum order is ${product.maxOrderQuantity}${product.unitType}.`);
+    const maxOrderQuantity = product.maxOrderQuantity ?? DEFAULT_MAX_QUANTITY_PER_SKU;
+
+    if (item.quantity > maxOrderQuantity) {
+      throw new Error(`${product.name} maximum order is ${maxOrderQuantity}${product.unitType}.`);
     }
 
     const lineTotal = roundMoney(item.quantity * product.pricePerUnit);

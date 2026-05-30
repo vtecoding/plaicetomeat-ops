@@ -25,6 +25,8 @@ export const demoBranchSettings: BranchSettings = {
     "Your PlaiceToMeat order {order_ref} is ready at {address}. Please collect during your pickup window. Reply HERE when you arrive.",
   cancellationWindowMinutes: 60,
   maxOrdersPerDay: null,
+  minOrderValue: 0,
+  sameDayCutoffTime: "16:00",
 };
 
 export const demoCategories: ProductCategory[] = [

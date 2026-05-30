@@ -1,29 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, CalendarDays, ShieldCheck } from "lucide-react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 
+import { createOrderAction, type CheckoutActionState } from "@/app/actions/checkout";
 import { PayOnCollectionNote } from "@/components/pay-on-collection-note";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { demoBranch, demoPickupWindows } from "@/lib/data/demo";
+import { demoBranch, demoBranchSettings, demoPickupWindows } from "@/lib/data/demo";
+import { formatCutoffHour, getLocalIsoDate } from "@/lib/domain/checkout-rules";
 import { createEmptyBasket, getBasketStorageKey, isBasketExpired } from "@/lib/domain/basket";
 import type { Basket } from "@/lib/domain/types";
 import { formatCurrency, formatTimeRange } from "@/lib/utils";
 
+const initialActionState: CheckoutActionState = {
+  ok: false,
+  message: "",
+};
+
 export function CheckoutClient() {
   const [basket, setBasket] = useState<Basket>(() => createEmptyBasket(demoBranch.id));
   const [idempotencyKey, setIdempotencyKey] = useState("local-preview-key");
+  const [minPickupDate, setMinPickupDate] = useState("");
+  const [actionState, formAction, isPending] = useActionState(createOrderAction, initialActionState);
   const subtotal = useMemo(
     () => basket.items.reduce((total, item) => total + item.quantity * item.unitPriceSnapshot, 0),
     [basket.items],
   );
+  const meetsMinimumOrder = subtotal >= demoBranchSettings.minOrderValue;
+  const disabledReason =
+    basket.items.length === 0
+      ? "Add items to continue"
+      : !meetsMinimumOrder
+        ? `Minimum order is ${formatCurrency(demoBranchSettings.minOrderValue)}`
+        : "";
 
   useEffect(() => {
     setIdempotencyKey(window.crypto.randomUUID());
+    setMinPickupDate(getInitialPickupDate());
 
     const rawBasket = window.localStorage.getItem(getBasketStorageKey(demoBranch.id));
 
@@ -42,13 +59,22 @@ export function CheckoutClient() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!actionState.ok || !actionState.orderRef) {
+      return;
+    }
+
+    window.localStorage.removeItem(getBasketStorageKey(demoBranch.id));
+    window.location.assign(`/order/${actionState.orderRef}`);
+  }, [actionState]);
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
       <section className="rounded-lg border border-[#ded6ca] bg-white p-5">
         <h1 className="text-2xl font-black">Checkout</h1>
         <p className="mt-2 text-sm text-[#6c5e52]">Enter customer details and choose a pickup window.</p>
 
-        <form className="mt-6 grid gap-5">
+        <form action={formAction} className="mt-6 grid gap-5">
           <input type="hidden" name="branchId" value={demoBranch.id} />
           <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
           <input type="hidden" name="basket" value={JSON.stringify(basket.items)} />
@@ -57,14 +83,24 @@ export function CheckoutClient() {
             <label className="text-sm font-semibold" htmlFor="customerName">
               Name
             </label>
-            <Input id="customerName" name="customerName" required placeholder="Customer name" />
+            <Input id="customerName" name="customerName" required minLength={2} maxLength={80} placeholder="Customer name" />
           </div>
 
           <div className="grid gap-2">
             <label className="text-sm font-semibold" htmlFor="customerPhone">
               UK mobile number
             </label>
-            <Input id="customerPhone" name="customerPhone" required placeholder="+447700900000" />
+            <Input
+              id="customerPhone"
+              name="customerPhone"
+              required
+              minLength={11}
+              maxLength={16}
+              pattern="(?:\+44|0)7[0-9 -]{9,13}"
+              inputMode="tel"
+              title="Use 07XXX XXXXXX or +447XXX XXXXXX"
+              placeholder="07700 900000"
+            />
           </div>
 
           <div className="grid gap-2">
@@ -79,7 +115,7 @@ export function CheckoutClient() {
               <label className="text-sm font-semibold" htmlFor="pickupDate">
                 Pickup date
               </label>
-              <Input id="pickupDate" name="pickupDate" type="date" required />
+              <Input id="pickupDate" name="pickupDate" type="date" required min={minPickupDate} />
             </div>
             <div className="grid gap-2">
               <label className="text-sm font-semibold" htmlFor="pickupWindowId">
@@ -102,23 +138,35 @@ export function CheckoutClient() {
             <label className="text-sm font-semibold" htmlFor="notes">
               Notes
             </label>
-            <Textarea id="notes" name="notes" placeholder="Cutting notes or collection context" />
+            <Textarea id="notes" name="notes" maxLength={500} placeholder="Cutting notes or collection context" />
           </div>
 
           <div className="rounded-lg border border-[#ded6ca] bg-[#fbfaf7] p-4 text-sm text-[#5c5148]">
             <p className="font-bold text-[#231f20]">Server checks still run at submission.</p>
             <p className="mt-1">
-              Pickup cutoff, closure dates, product availability, quantity bounds, rate limits, and prices are all validated on the server.
+              Same-day orders close at {formatCutoffHour(16)}. Pickup cutoff, closure dates, product availability, quantity bounds, and prices are all validated on the server.
             </p>
           </div>
+
+          {actionState.message && !actionState.ok && (
+            <div className="flex gap-3 rounded-lg border border-[#f0c66e] bg-[#fff6df] p-4 text-sm text-[#5a3900]" role="alert">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+              <span>{actionState.message}</span>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Link href="/privacy" className="inline-flex items-center gap-2 text-sm font-semibold text-[#0f5132]">
               <ShieldCheck className="h-4 w-4" aria-hidden />
               Privacy notice
             </Link>
-            <Button type="button" size="lg" disabled={basket.items.length === 0}>
-              Place pay-on-collection order
+            <Button
+              type="submit"
+              size="lg"
+              disabled={Boolean(disabledReason) || isPending}
+              title={disabledReason || undefined}
+            >
+              {isPending ? "Placing order..." : "Place pay-on-collection order"}
             </Button>
           </div>
         </form>
@@ -159,4 +207,17 @@ export function CheckoutClient() {
       </aside>
     </div>
   );
+}
+
+function getInitialPickupDate() {
+  const now = new Date();
+
+  if (now.getHours() < 16) {
+    return getLocalIsoDate(now);
+  }
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  return getLocalIsoDate(tomorrow);
 }
