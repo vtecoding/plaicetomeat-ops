@@ -25,17 +25,20 @@ export function CheckoutClient({
   pickupWindows,
   minOrderValue,
   sameDayCutoffTime,
+  testModeEnabled = false,
 }: {
   branchId: string;
   pickupWindows: PickupWindow[];
   minOrderValue: number;
   sameDayCutoffTime: string;
+  testModeEnabled?: boolean;
 }) {
   const [basket, setBasket] = useState<Basket>(() => createEmptyBasket(branchId));
   const [idempotencyKey, setIdempotencyKey] = useState("local-preview-key");
   const [minPickupDate, setMinPickupDate] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneTouched, setPhoneTouched] = useState(false);
+  const [isTestOrder, setIsTestOrder] = useState(false);
   const [actionState, formAction, isPending] = useActionState(createOrderAction, initialActionState);
 
   const cutoffHour = useMemo(() => Number(sameDayCutoffTime.slice(0, 2)) || 16, [sameDayCutoffTime]);
@@ -115,6 +118,7 @@ export function CheckoutClient({
           <input type="hidden" name="branchId" value={branchId} />
           <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
           <input type="hidden" name="basket" value={JSON.stringify(basket.items)} />
+          <input type="hidden" name="isTest" value={isTestOrder ? "true" : "false"} />
 
           <div className="grid gap-2">
             <label className="text-sm font-semibold" htmlFor="customerName">
@@ -195,6 +199,16 @@ export function CheckoutClient({
               quantity bounds, and prices are all validated on the server.
             </p>
           </div>
+
+          {testModeEnabled && (
+            <label
+              data-testid="test-order-toggle"
+              className="flex items-center gap-2 rounded-lg border border-dashed border-[#d99b22] bg-[#fff8ea] p-3 text-sm font-semibold text-[#7a4b00]"
+            >
+              <input type="checkbox" checked={isTestOrder} onChange={(e) => setIsTestOrder(e.target.checked)} />
+              Place as TEST ORDER (no real SMS; visibly marked; dev/staging only)
+            </label>
+          )}
 
           {actionState.message && !actionState.ok && (
             <div className="flex gap-3 rounded-lg border border-[#f0c66e] bg-[#fff6df] p-4 text-sm text-[#5a3900]" role="alert">

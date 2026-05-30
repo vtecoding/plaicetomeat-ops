@@ -8,6 +8,8 @@ export const ORDER_STATUSES = [
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+import type { SmsStatus } from "@/lib/domain/sms";
+
 export type UnitType = "kg" | "each" | "box";
 export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
 export type PickupWindowType = "standard" | "commuter" | "weekend";
@@ -108,7 +110,9 @@ export type Order = {
   subtotal: number;
   notes: string | null;
   readySmsSentAt: string | null;
+  smsStatus?: SmsStatus | null;
   smsFailureReason?: string | null;
+  isTest?: boolean;
   createdAt: string;
   items: OrderItem[];
 };

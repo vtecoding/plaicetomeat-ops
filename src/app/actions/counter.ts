@@ -3,6 +3,7 @@
 import { ORDER_STATUSES, type Order, type OrderNote, type OrderStatus } from "@/lib/domain/types";
 import { getCurrentProfile } from "@/lib/server/auth";
 import { getCounterOrders, getOrderById, getOrderNotes } from "@/lib/server/orders";
+import { buildReadySmsOutcome } from "@/lib/server/sms";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type UpdateOrderStatusResult =
@@ -76,10 +77,35 @@ export async function updateOrderStatus(input: {
     return { ok: false, message: safeMessage(error.message, "Could not update this order. Please refresh and try again.") };
   }
 
-  const order = await getOrderById(input.orderId);
+  let order = await getOrderById(input.orderId);
 
   if (!order) {
     return { ok: false, message: "Order updated, but it could not be reloaded. Please refresh." };
+  }
+
+  // On transition to "ready", attempt the ready SMS. Business rule: the status
+  // change must NOT be undone if SMS fails — we record the failure and surface it.
+  if (input.nextStatus === "ready") {
+    try {
+      const outcome = await buildReadySmsOutcome(order);
+      await supabase.rpc("record_sms_attempt", {
+        p_order_id: order.id,
+        p_event_type: "ready",
+        p_status: outcome.status,
+        p_template_key: outcome.templateKey,
+        p_recipient_redacted: outcome.recipientRedacted,
+        p_message_preview: outcome.messagePreview,
+        p_provider_response: outcome.providerResponse,
+        p_failure_reason: outcome.failureReason,
+      });
+      const refreshed = await getOrderById(input.orderId);
+      if (refreshed) {
+        order = refreshed;
+      }
+    } catch {
+      // Never let an SMS bookkeeping failure corrupt the (already committed)
+      // status transition. The order remains "ready"; SMS simply stays unknown.
+    }
   }
 
   return { ok: true, order };

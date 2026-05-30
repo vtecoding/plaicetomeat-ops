@@ -20,6 +20,7 @@ export default async function CheckoutPage() {
           pickupWindows={pickupWindows}
           minOrderValue={settings.minOrderValue}
           sameDayCutoffTime={settings.sameDayCutoffTime}
+          testModeEnabled={process.env.NEXT_PUBLIC_CHECKOUT_TEST_MODE === "true"}
         />
       </main>
     </PageFrame>

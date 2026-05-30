@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, XCircle } from "lucide-react";
 
+import { CancelOrderForm } from "@/components/cancel-order-form";
 import { PageFrame } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { demoBranchSettings } from "@/lib/data/demo";
 import { canCustomerCancelOrder } from "@/lib/domain/cancellation";
+import { getBranchSettings } from "@/lib/server/catalog";
 import { getOrderByRef } from "@/lib/server/orders";
+
+export const dynamic = "force-dynamic";
 
 export default async function CancelOrderPage({ params }: { params: Promise<{ orderRef: string }> }) {
   const { orderRef } = await params;
@@ -17,10 +19,11 @@ export default async function CancelOrderPage({ params }: { params: Promise<{ or
     notFound();
   }
 
+  const settings = await getBranchSettings(order.branchId);
   const cancellation = canCustomerCancelOrder({
     status: order.status,
     createdAt: order.createdAt,
-    cancellationWindowMinutes: demoBranchSettings.cancellationWindowMinutes,
+    cancellationWindowMinutes: settings.cancellationWindowMinutes,
   });
 
   return (
@@ -37,17 +40,7 @@ export default async function CancelOrderPage({ params }: { params: Promise<{ or
           <XCircle className="h-8 w-8 text-[#b42318]" aria-hidden />
           <h1 className="mt-4 text-3xl font-black">Cancel {order.orderRef}</h1>
           {cancellation.allowed ? (
-            <form className="mt-6 grid gap-5">
-              <div className="grid gap-2">
-                <label className="text-sm font-semibold" htmlFor="reason">
-                  Reason
-                </label>
-                <Textarea id="reason" name="reason" placeholder="Optional" />
-              </div>
-              <Button type="button" variant="destructive" size="lg">
-                Confirm cancellation
-              </Button>
-            </form>
+            <CancelOrderForm orderRef={order.orderRef} />
           ) : (
             <p className="mt-4 text-sm text-[#6c5e52]">{cancellation.reason}</p>
           )}

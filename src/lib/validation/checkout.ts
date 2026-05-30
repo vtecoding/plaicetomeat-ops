@@ -59,6 +59,7 @@ export function createCheckoutSchema(
     ),
     idempotencyKey: z.string().trim().min(12),
     basket: z.array(checkoutBasketItemSchema).min(1, "Basket cannot be empty."),
+    isTest: z.preprocess((value) => value === true || value === "true", z.boolean()).optional(),
   });
 }
 

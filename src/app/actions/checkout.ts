@@ -31,6 +31,7 @@ export async function createOrderAction(_: CheckoutActionState, formData: FormDa
     notes: formData.get("notes"),
     idempotencyKey: formData.get("idempotencyKey"),
     basket: parsedBasket,
+    isTest: formData.get("isTest") === "true",
   });
 
   if (!result.ok) {

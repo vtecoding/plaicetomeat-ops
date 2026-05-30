@@ -40,6 +40,9 @@ type OrderRow = {
   subtotal: string | number;
   notes: string | null;
   ready_sms_sent_at: string | null;
+  sms_status: Order["smsStatus"];
+  sms_failure_reason: string | null;
+  is_test: boolean | null;
   created_at: string;
   order_items?: OrderItemRow[];
 };
@@ -57,6 +60,9 @@ const ORDER_SELECT = `
   subtotal,
   notes,
   ready_sms_sent_at,
+  sms_status,
+  sms_failure_reason,
+  is_test,
   created_at,
   order_items (
     id,
@@ -87,7 +93,16 @@ export async function submitCheckout(rawInput: unknown, options: { now?: Date } 
     };
   }
 
-  return createCheckoutOrder(parsed.data);
+  // Test orders are only honoured when explicitly enabled server-side, so the
+  // flag cannot be abused from the public client in production.
+  const isTest = Boolean(parsed.data.isTest) && isCheckoutTestModeEnabled();
+
+  return createCheckoutOrder({ ...parsed.data, isTest });
+}
+
+/** Server-side gate for safe test orders. Default OFF. */
+export function isCheckoutTestModeEnabled(): boolean {
+  return process.env.CHECKOUT_TEST_MODE_ENABLED === "true";
 }
 
 export async function getCounterOrders(branchId: string, now = new Date()): Promise<Order[]> {
@@ -199,6 +214,7 @@ async function createCheckoutOrder(input: CheckoutInput): Promise<CheckoutResult
     p_notes: input.notes ?? null,
     p_idempotency_key: input.idempotencyKey,
     p_items: input.basket.map(toRpcBasketItem),
+    p_is_test: input.isTest ?? false,
   });
 
   if (error) {
@@ -237,6 +253,9 @@ function mapOrderRow(row: OrderRow): Order {
     subtotal: toNumber(row.subtotal),
     notes: row.notes,
     readySmsSentAt: row.ready_sms_sent_at,
+    smsStatus: row.sms_status ?? null,
+    smsFailureReason: row.sms_failure_reason,
+    isTest: row.is_test ?? false,
     createdAt: row.created_at,
     items: (row.order_items ?? []).map(mapOrderItemRow),
   };

@@ -6,10 +6,13 @@ import { PayOnCollectionNote } from "@/components/pay-on-collection-note";
 import { PageFrame } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { demoBranchSettings, demoPickupWindows } from "@/lib/data/demo";
 import { canCustomerCancelOrder } from "@/lib/domain/cancellation";
+import { getBranchSettings } from "@/lib/server/catalog";
 import { getOrderByRef } from "@/lib/server/orders";
+import { getPickupWindows } from "@/lib/server/pickup-windows";
 import { formatCurrency, formatDisplayDate, formatTimeRange } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
 
 export default async function OrderPage({ params }: { params: Promise<{ orderRef: string }> }) {
   const { orderRef } = await params;
@@ -19,11 +22,15 @@ export default async function OrderPage({ params }: { params: Promise<{ orderRef
     notFound();
   }
 
-  const pickupWindow = demoPickupWindows.find((window) => window.id === order.pickupWindowId);
+  const [pickupWindows, settings] = await Promise.all([
+    getPickupWindows(order.branchId),
+    getBranchSettings(order.branchId),
+  ]);
+  const pickupWindow = pickupWindows.find((window) => window.id === order.pickupWindowId);
   const cancellation = canCustomerCancelOrder({
     status: order.status,
     createdAt: order.createdAt,
-    cancellationWindowMinutes: demoBranchSettings.cancellationWindowMinutes,
+    cancellationWindowMinutes: settings.cancellationWindowMinutes,
   });
 
   return (
@@ -38,7 +45,10 @@ export default async function OrderPage({ params }: { params: Promise<{ orderRef
 
         <section className="grid gap-6 lg:grid-cols-[1fr_340px]">
           <div className="rounded-lg border border-[#ded6ca] bg-white p-6">
-            <Badge tone="green">Live status</Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="green">Live status</Badge>
+              {order.isTest && <Badge tone="amber" data-testid="test-order-badge">TEST ORDER</Badge>}
+            </div>
             <h1 className="mt-4 text-5xl font-black tracking-normal">{order.orderRef}</h1>
             <p className="mt-2 text-[#6c5e52]">Order for {order.customerName}</p>
 

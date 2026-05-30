@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { type CounterConnectionState, useCounterRealtime } from "@/lib/client/use-counter-realtime";
 import { getNextOrderActions } from "@/lib/domain/order-state";
-import { getSmsBadgeState } from "@/lib/domain/sms";
+import { getSmsBadgeState, SMS_BADGE_LABELS, type SmsStatus } from "@/lib/domain/sms";
 import type { Order, OrderNote, OrderStatus, PickupWindow } from "@/lib/domain/types";
 import { getOrderUrgency } from "@/lib/domain/urgency";
 import { cn, formatCurrency, formatTimeRange } from "@/lib/utils";
@@ -203,7 +203,7 @@ function CounterOrderCard({
 }) {
   const urgency = getOrderUrgency(order, pickupWindow);
   const nextActions = getNextOrderActions(order.status);
-  const smsState = getSmsBadgeState(order.readySmsSentAt, order.smsFailureReason);
+  const smsState = getSmsBadgeState(order.readySmsSentAt, order.smsFailureReason, order.smsStatus);
 
   return (
     <article
@@ -217,7 +217,14 @@ function CounterOrderCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-2xl font-black tracking-normal">{order.orderRef}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-2xl font-black tracking-normal">{order.orderRef}</p>
+            {order.isTest && (
+              <Badge tone="amber" data-testid="test-order-badge">
+                TEST ORDER
+              </Badge>
+            )}
+          </div>
           <p className="font-semibold text-[#5c5148]">{order.customerName}</p>
         </div>
         <SmsBadge state={smsState} />
@@ -343,21 +350,39 @@ function StaffNotes({
   );
 }
 
-function SmsBadge({ state }: { state: "sent" | "failed" | "pending" }) {
-  if (state === "sent") {
-    return <Badge tone="green">SMS sent</Badge>;
-  }
+function SmsBadge({ state }: { state: SmsStatus }) {
+  const label = SMS_BADGE_LABELS[state];
 
-  if (state === "failed") {
+  if (state === "sent") {
     return (
-      <Badge tone="red">
-        <MessageSquareWarning className="mr-1 h-3 w-3" aria-hidden />
-        SMS failed
+      <Badge tone="green" data-testid="sms-badge" data-sms-status={state}>
+        {label}
       </Badge>
     );
   }
 
-  return <Badge tone="neutral">SMS off</Badge>;
+  if (state === "failed") {
+    return (
+      <Badge tone="red" data-testid="sms-badge" data-sms-status={state}>
+        <MessageSquareWarning className="mr-1 h-3 w-3" aria-hidden />
+        {label}
+      </Badge>
+    );
+  }
+
+  if (state === "dry_run" || state === "queued") {
+    return (
+      <Badge tone="amber" data-testid="sms-badge" data-sms-status={state}>
+        {label}
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge tone="neutral" data-testid="sms-badge" data-sms-status={state}>
+      {label}
+    </Badge>
+  );
 }
 
 function labelForAction(status: OrderStatus) {
