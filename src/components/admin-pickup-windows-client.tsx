@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
@@ -33,11 +34,15 @@ export function AdminPickupWindowsClient({
   branchId: string;
   initialWindows: PickupWindow[];
 }) {
+  const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
 
   function announce(r: AdminScheduleResult) {
     setFeedback(r.ok ? { tone: "ok", message: r.message } : { tone: "error", message: r.message });
+    if (r.ok) {
+      router.refresh();
+    }
   }
 
   return (
@@ -202,6 +207,9 @@ function WindowRow({ window, onResult }: { window: PickupWindow; onResult: (r: A
 
   return (
     <article data-testid="window-row" data-label={window.label} className="rounded-lg border border-[#ded6ca] bg-white p-5">
+      <h3 data-testid="window-row-name" className="mb-3 text-lg font-black">
+        {window.label}
+      </h3>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-semibold">
           Label

@@ -1,11 +1,26 @@
 import { CheckoutClient } from "@/components/checkout-client";
 import { PageFrame } from "@/components/site-header";
+import { getBranchSettings, getPublicBranch } from "@/lib/server/catalog";
+import { getActivePickupWindows } from "@/lib/server/pickup-windows";
 
-export default function CheckoutPage() {
+export const dynamic = "force-dynamic";
+
+export default async function CheckoutPage() {
+  const branch = await getPublicBranch();
+  const [pickupWindows, settings] = await Promise.all([
+    getActivePickupWindows(branch.id),
+    getBranchSettings(branch.id),
+  ]);
+
   return (
     <PageFrame>
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <CheckoutClient />
+        <CheckoutClient
+          branchId={branch.id}
+          pickupWindows={pickupWindows}
+          minOrderValue={settings.minOrderValue}
+          sameDayCutoffTime={settings.sameDayCutoffTime}
+        />
       </main>
     </PageFrame>
   );

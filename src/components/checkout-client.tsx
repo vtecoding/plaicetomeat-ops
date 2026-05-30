@@ -10,10 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { demoBranch, demoBranchSettings, demoPickupWindows } from "@/lib/data/demo";
-import { formatCutoffHour, getLocalIsoDate } from "@/lib/domain/checkout-rules";
 import { createEmptyBasket, getBasketStorageKey, isBasketExpired } from "@/lib/domain/basket";
-import type { Basket } from "@/lib/domain/types";
+import { formatCutoffHour, getLocalIsoDate, isUkMobileNumber } from "@/lib/domain/checkout-rules";
+import type { Basket, PickupWindow } from "@/lib/domain/types";
 import { formatCurrency, formatTimeRange } from "@/lib/utils";
 
 const initialActionState: CheckoutActionState = {
@@ -21,28 +20,56 @@ const initialActionState: CheckoutActionState = {
   message: "",
 };
 
-export function CheckoutClient() {
-  const [basket, setBasket] = useState<Basket>(() => createEmptyBasket(demoBranch.id));
+export function CheckoutClient({
+  branchId,
+  pickupWindows,
+  minOrderValue,
+  sameDayCutoffTime,
+}: {
+  branchId: string;
+  pickupWindows: PickupWindow[];
+  minOrderValue: number;
+  sameDayCutoffTime: string;
+}) {
+  const [basket, setBasket] = useState<Basket>(() => createEmptyBasket(branchId));
   const [idempotencyKey, setIdempotencyKey] = useState("local-preview-key");
   const [minPickupDate, setMinPickupDate] = useState("");
+  const [phone, setPhone] = useState("");
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [actionState, formAction, isPending] = useActionState(createOrderAction, initialActionState);
+
+  const cutoffHour = useMemo(() => Number(sameDayCutoffTime.slice(0, 2)) || 16, [sameDayCutoffTime]);
+
   const subtotal = useMemo(
     () => basket.items.reduce((total, item) => total + item.quantity * item.unitPriceSnapshot, 0),
     [basket.items],
   );
-  const meetsMinimumOrder = subtotal >= demoBranchSettings.minOrderValue;
+  const meetsMinimumOrder = subtotal >= minOrderValue;
+
+  // Inline phone validation shares the exact server rule (isUkMobileNumber), so the
+  // client never accepts something the server will reject, and vice versa.
+  const phoneError = useMemo(() => {
+    const trimmed = phone.trim();
+    if (trimmed === "") return "Enter a UK mobile number.";
+    if (!isUkMobileNumber(trimmed)) return "Enter a UK mobile number starting 07 or +447.";
+    return null;
+  }, [phone]);
+  const showPhoneError = phoneTouched && phoneError !== null;
+
   const disabledReason =
     basket.items.length === 0
       ? "Add items to continue"
       : !meetsMinimumOrder
-        ? `Minimum order is ${formatCurrency(demoBranchSettings.minOrderValue)}`
-        : "";
+        ? `Minimum order is ${formatCurrency(minOrderValue)}`
+        : phoneError
+          ? "Enter a valid UK mobile number"
+          : "";
 
   useEffect(() => {
     setIdempotencyKey(window.crypto.randomUUID());
-    setMinPickupDate(getInitialPickupDate());
+    setMinPickupDate(getInitialPickupDate(cutoffHour));
 
-    const rawBasket = window.localStorage.getItem(getBasketStorageKey(demoBranch.id));
+    const rawBasket = window.localStorage.getItem(getBasketStorageKey(branchId));
 
     if (!rawBasket) {
       return;
@@ -55,18 +82,18 @@ export function CheckoutClient() {
         setBasket(parsed);
       }
     } catch {
-      window.localStorage.removeItem(getBasketStorageKey(demoBranch.id));
+      window.localStorage.removeItem(getBasketStorageKey(branchId));
     }
-  }, []);
+  }, [branchId, cutoffHour]);
 
   useEffect(() => {
     if (!actionState.ok || !actionState.orderRef) {
       return;
     }
 
-    window.localStorage.removeItem(getBasketStorageKey(demoBranch.id));
+    window.localStorage.removeItem(getBasketStorageKey(branchId));
     window.location.assign(`/order/${actionState.orderRef}`);
-  }, [actionState]);
+  }, [actionState, branchId]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
@@ -74,8 +101,18 @@ export function CheckoutClient() {
         <h1 className="text-2xl font-black">Checkout</h1>
         <p className="mt-2 text-sm text-[#6c5e52]">Enter customer details and choose a pickup window.</p>
 
-        <form action={formAction} className="mt-6 grid gap-5">
-          <input type="hidden" name="branchId" value={demoBranch.id} />
+        <form
+          action={formAction}
+          className="mt-6 grid gap-5"
+          onSubmit={(e) => {
+            // Client guard mirrors the server rule; the server still re-validates.
+            if (phoneError) {
+              e.preventDefault();
+              setPhoneTouched(true);
+            }
+          }}
+        >
+          <input type="hidden" name="branchId" value={branchId} />
           <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
           <input type="hidden" name="basket" value={JSON.stringify(basket.items)} />
 
@@ -94,13 +131,20 @@ export function CheckoutClient() {
               id="customerPhone"
               name="customerPhone"
               required
-              minLength={11}
-              maxLength={16}
-              pattern="(?:\+44|0)7[0-9 -]{9,13}"
               inputMode="tel"
-              title="Use 07XXX XXXXXX or +447XXX XXXXXX"
+              autoComplete="tel"
               placeholder="07700 900000"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onBlur={() => setPhoneTouched(true)}
+              aria-invalid={showPhoneError}
+              aria-describedby="customerPhone-error"
             />
+            {showPhoneError && (
+              <p id="customerPhone-error" data-testid="phone-error" className="text-sm font-semibold text-[#b42318]">
+                {phoneError}
+              </p>
+            )}
           </div>
 
           <div className="grid gap-2">
@@ -121,16 +165,19 @@ export function CheckoutClient() {
               <label className="text-sm font-semibold" htmlFor="pickupWindowId">
                 Pickup window
               </label>
-              <Select id="pickupWindowId" name="pickupWindowId" required defaultValue="">
+              <Select id="pickupWindowId" name="pickupWindowId" required defaultValue="" data-testid="pickup-window-select">
                 <option value="" disabled>
                   Select a window
                 </option>
-                {demoPickupWindows.map((window) => (
+                {pickupWindows.map((window) => (
                   <option key={window.id} value={window.id}>
                     {window.label} ({formatTimeRange(window.startTime, window.endTime)})
                   </option>
                 ))}
               </Select>
+              {pickupWindows.length === 0 && (
+                <p className="text-sm text-[#b42318]">No pickup windows are currently open.</p>
+              )}
             </div>
           </div>
 
@@ -144,7 +191,8 @@ export function CheckoutClient() {
           <div className="rounded-lg border border-[#ded6ca] bg-[#fbfaf7] p-4 text-sm text-[#5c5148]">
             <p className="font-bold text-[#231f20]">Server checks still run at submission.</p>
             <p className="mt-1">
-              Same-day orders close at {formatCutoffHour(16)}. Pickup cutoff, closure dates, product availability, quantity bounds, and prices are all validated on the server.
+              Same-day orders close at {formatCutoffHour(cutoffHour)}. Pickup cutoff, closure dates, product availability,
+              quantity bounds, and prices are all validated on the server.
             </p>
           </div>
 
@@ -209,10 +257,10 @@ export function CheckoutClient() {
   );
 }
 
-function getInitialPickupDate() {
+function getInitialPickupDate(cutoffHour: number) {
   const now = new Date();
 
-  if (now.getHours() < 16) {
+  if (now.getHours() < cutoffHour) {
     return getLocalIsoDate(now);
   }
 
