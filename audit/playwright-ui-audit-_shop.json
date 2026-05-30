@@ -1,0 +1,10 @@
+{
+  "route": "/shop",
+  "passed": true,
+  "pageErrors": [],
+  "consoleErrors": [],
+  "clickedButtons": [
+    "Add"
+  ],
+  "httpStatus": 200
+}

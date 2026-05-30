@@ -1,0 +1,13 @@
+{
+  "route": "/checkout",
+  "passed": false,
+  "pageErrors": [
+    "Checkout field #customerName is missing required attribute",
+    "Checkout field #customerPhone is missing required attribute",
+    "Checkout field #pickupDate is missing required attribute",
+    "Checkout field #pickupWindowId is missing required attribute"
+  ],
+  "consoleErrors": [],
+  "clickedButtons": [],
+  "httpStatus": 200
+}

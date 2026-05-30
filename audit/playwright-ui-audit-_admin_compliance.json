@@ -1,0 +1,8 @@
+{
+  "route": "/admin/compliance",
+  "passed": true,
+  "pageErrors": [],
+  "consoleErrors": [],
+  "clickedButtons": [],
+  "httpStatus": 200
+}
