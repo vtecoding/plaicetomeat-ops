@@ -15,9 +15,11 @@ ON CONFLICT (slug) DO UPDATE SET
   timezone = EXCLUDED.timezone,
   is_active = EXCLUDED.is_active;
 
-INSERT INTO public.branch_settings (branch_id)
-VALUES ('00000000-0000-4000-8000-000000000001')
-ON CONFLICT (branch_id) DO NOTHING;
+INSERT INTO public.branch_settings (branch_id, min_order_value, same_day_cutoff_time)
+VALUES ('00000000-0000-4000-8000-000000000001', 0, '16:00')
+ON CONFLICT (branch_id) DO UPDATE SET
+  min_order_value = EXCLUDED.min_order_value,
+  same_day_cutoff_time = EXCLUDED.same_day_cutoff_time;
 
 INSERT INTO public.product_categories (id, branch_id, name, slug, sort_order)
 VALUES

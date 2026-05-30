@@ -1,17 +1,27 @@
 "use server";
 
-import { checkoutSchema } from "@/lib/validation/checkout";
+import { submitCheckout } from "@/lib/server/orders";
 
 export type CheckoutActionState = {
   ok: boolean;
   message: string;
+  orderRef?: string;
 };
 
 export async function createOrderAction(_: CheckoutActionState, formData: FormData): Promise<CheckoutActionState> {
   const rawBasket = formData.get("basket");
-  const parsedBasket = rawBasket ? JSON.parse(String(rawBasket)) : [];
+  let parsedBasket: unknown[] = [];
 
-  const parsed = checkoutSchema.safeParse({
+  try {
+    parsedBasket = rawBasket ? JSON.parse(String(rawBasket)) : [];
+  } catch {
+    return {
+      ok: false,
+      message: "Basket data could not be read. Please refresh and try again.",
+    };
+  }
+
+  const result = await submitCheckout({
     branchId: formData.get("branchId"),
     customerName: formData.get("customerName"),
     customerPhone: formData.get("customerPhone"),
@@ -23,15 +33,16 @@ export async function createOrderAction(_: CheckoutActionState, formData: FormDa
     basket: parsedBasket,
   });
 
-  if (!parsed.success) {
+  if (!result.ok) {
     return {
       ok: false,
-      message: parsed.error.issues[0]?.message ?? "Checkout details are invalid.",
+      message: result.message,
     };
   }
 
   return {
-    ok: false,
-    message: "Supabase order creation is scaffolded, but credentials and transaction wiring are required before live checkout.",
+    ok: true,
+    message: result.message,
+    orderRef: result.orderRef,
   };
 }

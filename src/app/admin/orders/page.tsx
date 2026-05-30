@@ -1,10 +1,11 @@
 import { PageFrame } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
-import { getDemoOrders } from "@/lib/data/demo";
+import { demoBranch } from "@/lib/data/demo";
+import { getCounterOrders } from "@/lib/server/orders";
 import { formatCurrency } from "@/lib/utils";
 
-export default function AdminOrdersPage() {
-  const orders = getDemoOrders();
+export default async function AdminOrdersPage() {
+  const orders = await getCounterOrders(demoBranch.id);
 
   return (
     <PageFrame>

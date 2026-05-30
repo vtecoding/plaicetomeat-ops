@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { ORDER_STATUSES } from "@/lib/domain/types";
 
-export const orderRefSchema = z.string().regex(/^PTM-\d{6}-\d{4}$/);
+export const orderRefSchema = z.string().regex(/^PTM-\d{4}-\d{5}$/);
 
 export const orderStatusSchema = z.enum(ORDER_STATUSES);
 
