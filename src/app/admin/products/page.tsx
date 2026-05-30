@@ -1,26 +1,30 @@
-import { ProductCard } from "@/components/product-card";
-import { PageFrame } from "@/components/site-header";
-import { Button } from "@/components/ui/button";
-import { demoCategories, demoProducts } from "@/lib/data/demo";
+import { redirect } from "next/navigation";
 
-export default function AdminProductsPage() {
-  const categoriesById = new Map(demoCategories.map((category) => [category.id, category]));
+import { AdminProductsClient } from "@/components/admin-products-client";
+import { PageFrame } from "@/components/site-header";
+import { MANAGER_ROLES } from "@/lib/domain/route-access";
+import { getCurrentProfile } from "@/lib/server/auth";
+import { getAllCategories, getAllProducts, getPublicBranch } from "@/lib/server/catalog";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminProductsPage() {
+  const profile = await getCurrentProfile();
+
+  // Defence in depth: middleware already blocks staff, but never render admin
+  // controls for a non-manager.
+  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
+    redirect("/");
+  }
+
+  const branch = await getPublicBranch();
+  const branchId = profile.branchId ?? branch.id;
+  const [products, categories] = await Promise.all([getAllProducts(branchId), getAllCategories(branchId)]);
 
   return (
     <PageFrame>
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Admin</p>
-            <h1 className="mt-2 text-3xl font-black">Products</h1>
-          </div>
-          <Button type="button">Add product</Button>
-        </div>
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {demoProducts.map((product) => (
-            <ProductCard key={product.id} product={product} category={categoriesById.get(product.categoryId ?? "")} />
-          ))}
-        </div>
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <AdminProductsClient branchId={branchId} initialProducts={products} categories={categories} />
       </main>
     </PageFrame>
   );

@@ -2,10 +2,18 @@ import { CountdownBanner } from "@/components/countdown-banner";
 import { PayOnCollectionNote } from "@/components/pay-on-collection-note";
 import { ProductCard } from "@/components/product-card";
 import { PageFrame } from "@/components/site-header";
-import { demoCategories, demoProducts } from "@/lib/data/demo";
+import { getActiveCategories, getPublicBranch, getPublicProducts } from "@/lib/server/catalog";
 
-export default function ShopPage() {
-  const categoriesById = new Map(demoCategories.map((category) => [category.id, category]));
+export const dynamic = "force-dynamic";
+
+export default async function ShopPage() {
+  const branch = await getPublicBranch();
+  const [categories, products] = await Promise.all([
+    getActiveCategories(branch.id),
+    getPublicProducts(branch.id),
+  ]);
+  const categoriesById = new Map(categories.map((category) => [category.id, category]));
+  const uncategorised = products.filter((product) => !product.categoryId || !categoriesById.has(product.categoryId));
 
   return (
     <PageFrame>
@@ -22,34 +30,54 @@ export default function ShopPage() {
           <CountdownBanner />
         </div>
 
-        <div className="mt-8 flex flex-wrap gap-2">
-          {demoCategories.map((category) => (
-            <a
-              key={category.id}
-              href={`#${category.slug}`}
-              className="rounded-full border border-[#d8d0c5] bg-white px-3 py-2 text-sm font-semibold hover:border-[#0f5132]"
-            >
-              {category.name}
-            </a>
-          ))}
-        </div>
+        {products.length === 0 ? (
+          <p className="mt-8 rounded-lg border border-[#ded6ca] bg-white p-6 text-sm text-[#6c5e52]">
+            No products are available right now. Please check back soon.
+          </p>
+        ) : (
+          <>
+            <div className="mt-8 flex flex-wrap gap-2">
+              {categories.map((category) => (
+                <a
+                  key={category.id}
+                  href={`#${category.slug}`}
+                  className="rounded-full border border-[#d8d0c5] bg-white px-3 py-2 text-sm font-semibold hover:border-[#0f5132]"
+                >
+                  {category.name}
+                </a>
+              ))}
+            </div>
 
-        <div className="mt-8 space-y-10">
-          {demoCategories.map((category) => {
-            const products = demoProducts.filter((product) => product.categoryId === category.id);
+            <div className="mt-8 space-y-10">
+              {categories.map((category) => {
+                const inCategory = products.filter((product) => product.categoryId === category.id);
+                if (inCategory.length === 0) return null;
 
-            return (
-              <section key={category.id} id={category.slug}>
-                <h2 className="text-xl font-black">{category.name}</h2>
-                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {products.map((product) => (
-                    <ProductCard key={product.id} product={product} category={categoriesById.get(product.categoryId ?? "")} />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
+                return (
+                  <section key={category.id} id={category.slug}>
+                    <h2 className="text-xl font-black">{category.name}</h2>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      {inCategory.map((product) => (
+                        <ProductCard key={product.id} product={product} category={category} />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+
+              {uncategorised.length > 0 && (
+                <section id="more">
+                  <h2 className="text-xl font-black">More</h2>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {uncategorised.map((product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          </>
+        )}
       </main>
     </PageFrame>
   );
