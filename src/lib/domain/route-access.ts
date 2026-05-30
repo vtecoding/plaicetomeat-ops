@@ -2,6 +2,9 @@ export const STAFF_SESSION_TIMEOUT_MS = 4 * 60 * 60 * 1000;
 
 export type StaffRole = "staff" | "manager" | "owner";
 
+/** Roles allowed to use the manager/owner admin console. */
+export const MANAGER_ROLES: StaffRole[] = ["manager", "owner"];
+
 const STAFF_ROUTES = ["/counter", "/compliance"] as const;
 const MANAGER_ROUTES = ["/admin"] as const;
 

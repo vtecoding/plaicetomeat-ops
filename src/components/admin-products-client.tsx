@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
@@ -35,11 +36,17 @@ export function AdminProductsClient({
   initialProducts: Product[];
   categories: ProductCategory[];
 }) {
+  const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
 
   function announce(result: AdminProductResult) {
     setFeedback(result.ok ? { tone: "ok", message: result.message } : { tone: "error", message: result.message });
+    if (result.ok) {
+      // Re-derive the product list from the server so the UI never diverges from
+      // the canonical database state (no optimistic-only rows).
+      router.refresh();
+    }
   }
 
   return (
@@ -257,6 +264,9 @@ function ProductRow({
       data-slug={product.slug}
       className="rounded-lg border border-[#ded6ca] bg-white p-5"
     >
+      <h3 data-testid="product-row-name" className="mb-3 text-lg font-black">
+        {product.name}
+      </h3>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-semibold">
           Name
@@ -319,7 +329,7 @@ function ProductRow({
           </label>
           <Button
             type="button"
-            variant={available ? "secondary" : "primary"}
+            variant={available ? "secondary" : "default"}
             data-testid="product-availability-toggle"
             disabled={isPending}
             onClick={() => changeAvailability(!available, available ? "out_of_stock" : "in_stock")}

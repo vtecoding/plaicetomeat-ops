@@ -1,8 +1,15 @@
 import "server-only";
 
-import { demoPickupWindows } from "@/lib/data/demo";
+import { demoPickupWindows, demoShopClosures } from "@/lib/data/demo";
 import type { PickupWindow } from "@/lib/domain/types";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
+
+export type ShopClosure = {
+  id: string;
+  branchId: string;
+  closeDate: string;
+  reason: string | null;
+};
 
 type PickupWindowRow = {
   id: string;
@@ -53,4 +60,41 @@ export async function getPickupWindows(branchId: string): Promise<PickupWindow[]
   }
 
   return (data as PickupWindowRow[]).map(mapRow);
+}
+
+/** Active pickup windows only — used by the public checkout dropdown. */
+export async function getActivePickupWindows(branchId: string): Promise<PickupWindow[]> {
+  const all = await getPickupWindows(branchId);
+  return all.filter((window) => window.isActive);
+}
+
+type ShopClosureRow = {
+  id: string;
+  branch_id: string;
+  close_date: string;
+  reason: string | null;
+};
+
+export async function getShopClosures(branchId: string): Promise<ShopClosure[]> {
+  if (!hasSupabaseServiceEnv()) {
+    return demoShopClosures.map((c) => ({ id: c.id, branchId: c.branchId, closeDate: c.closeDate, reason: c.reason }));
+  }
+
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from("shop_closures")
+    .select("id, branch_id, close_date, reason")
+    .eq("branch_id", branchId)
+    .order("close_date", { ascending: true });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return (data as ShopClosureRow[]).map((row) => ({
+    id: row.id,
+    branchId: row.branch_id,
+    closeDate: row.close_date,
+    reason: row.reason,
+  }));
 }

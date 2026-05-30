@@ -1,6 +1,0 @@
-src/app/actions/admin-products.ts
-src/app/admin/products/page.tsx
-src/app/shop/page.tsx
-src/components/admin-products-client.tsx
-src/lib/server/catalog.ts
-tests/e2e/admin-products.spec.ts

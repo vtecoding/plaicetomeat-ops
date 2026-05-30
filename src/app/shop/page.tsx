@@ -70,7 +70,7 @@ export default async function ShopPage() {
                   <h2 className="text-xl font-black">More</h2>
                   <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {uncategorised.map((product) => (
-                      <ProductCard key={product.id} product={product} />
+                      <ProductCard key={product.id} product={product} category={undefined} />
                     ))}
                   </div>
                 </section>

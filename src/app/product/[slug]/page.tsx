@@ -7,18 +7,22 @@ import { PayOnCollectionNote } from "@/components/pay-on-collection-note";
 import { PageFrame } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { StockBadge } from "@/components/product-card";
-import { demoCategories, demoProducts } from "@/lib/data/demo";
+import { getActiveCategories, getPublicBranch, getPublicProductBySlug } from "@/lib/server/catalog";
 import { formatCurrency } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const product = demoProducts.find((item) => item.slug === slug);
+  const branch = await getPublicBranch();
+  const product = await getPublicProductBySlug(branch.id, slug);
 
   if (!product) {
     notFound();
   }
 
-  const category = demoCategories.find((item) => item.id === product.categoryId);
+  const categories = await getActiveCategories(branch.id);
+  const category = categories.find((item) => item.id === product.categoryId);
   const unavailable = !product.isAvailable || product.stockStatus === "out_of_stock";
 
   return (
