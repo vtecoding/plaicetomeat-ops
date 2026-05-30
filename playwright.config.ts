@@ -2,9 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: 'tests',
-  timeout: 600_000,
+  timeout: 60_000,
   expect: { timeout: 5_000 },
   fullyParallel: false,
+  // Specs share one local Supabase database and a fixed set of seeded orders, so
+  // they must run serially to avoid cross-spec state contamination.
+  workers: 1,
   retries: process.env.CI ? 2 : 0,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
