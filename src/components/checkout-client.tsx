@@ -98,15 +98,6 @@ export function CheckoutClient({
     window.location.assign(`/order/${actionState.orderRef}`);
   }, [actionState, branchId]);
 
-  useEffect(() => {
-    if (!actionState.ok || !actionState.orderRef) {
-      return;
-    }
-
-    window.localStorage.removeItem(getBasketStorageKey(demoBranch.id));
-    window.location.assign(`/order/${actionState.orderRef}`);
-  }, [actionState]);
-
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
       <section className="rounded-lg border border-[#ded6ca] bg-white p-5">
