@@ -9,8 +9,11 @@ _Previous versions documented stale V1 deployment. This version covers the compl
 
 **`https://plaicetomeat-ops-iota.vercel.app`** — V2.0 deployed and validated here.
 
-Note: `https://plaicetomeat-ops.vercel.app` is a separate Vercel project (GitHub-integrated
-from the `vtecoding` account) still serving the V1 Initial commit. It is not the validated URL.
+Live canonical check on `https://plaicetomeat-ops.vercel.app` still shows the stale V1 storefront:
+- `/` renders the old public homepage with `Counter`, `Admin`, and `Compliance` links.
+- `/login` returns 404.
+- `/counter` and `/admin` redirect back to `/`.
+- `npx vercel alias set ... plaicetomeat-ops.vercel.app` failed because the alias is already in use and is not accessible from this scope.
 
 ---
 
@@ -21,11 +24,28 @@ from the `vtecoding` account) still serving the V1 Initial commit. It is not the
 | Pushed commit | `08862c4` — fix: remove stale demoBranch duplicate useEffect from merge |
 | V2.0 commits pushed | YES — all 10 V2.0 commits pushed to `origin/main` after merging remote PR #1 |
 | Vercel project | `chillgamesbusiness-langs-projects/plaicetomeat-ops` |
-| Deployment ID | `dpl_EeBVkcGMb8avTahSYnUmd6zTHuSN` |
+| Deployment ID | `dpl_AnYJQScYNhcosPNqj4NBfpb9Mnzr` |
 | Production alias | `https://plaicetomeat-ops-iota.vercel.app` |
+| Deployed commit (best available mapping) | `08862c48785e2820e2126600ef62fbfbaf6d7889` - inferred from build timing; Vercel CLI deploy did not expose a Git SHA |
+| Canonical alias status | `plaicetomeat-ops.vercel.app` is already claimed elsewhere and cannot be reassigned from this Vercel scope |
 | Build result | PASS — all 21 routes built, including `/login` |
 | `/login` HTTP | 200 |
 | Deployment is current V2.0 | YES |
+
+---
+
+## 2a. Canonical URL Verification
+
+| Check | Result |
+|---|---|
+| Canonical `/` | 200, old storefront with public `Counter`, `Admin`, and `Compliance` links |
+| Canonical `/login` | 404 |
+| Canonical `/counter` | 307 -> `/` |
+| Canonical `/admin` | 307 -> `/` |
+| Alias transfer attempt | `npx vercel alias set https://plaicetomeat-lyrbss41i-chillgamesbusiness-langs-projects.vercel.app plaicetomeat-ops.vercel.app` failed: alias already in use |
+| Ownership | Not accessible from the current `chillgamesbusiness-langs-projects` scope |
+
+No fix was possible from the current CLI session, so the canonical hostname remains stale.
 
 ---
 
@@ -205,10 +225,13 @@ Shop closure create/remove confirmed.
 Counter-persistence: PASS ✓
 Realtime badge: **FAIL — Supabase Realtime WebSocket returns HTTP 500**
 
-Root cause: `https://qwvlzcqmicedxhfafiar.supabase.co/realtime/v1/websocket` returns
-HTTP 500 Internal Server Error. The `supabase_realtime` publication is correctly configured
-(includes `orders`, `order_status_events`, `order_notes`, `sms_log` with REPLICA IDENTITY FULL),
-but the WebSocket service itself is erroring on this project.
+Database-side verification:
+- `select * from pg_publication where pubname = 'supabase_realtime';` returned one publication row.
+- `select schemaname, tablename from pg_publication_tables where pubname = 'supabase_realtime' order by schemaname, tablename;` returned `public.order_notes`, `public.order_status_events`, `public.orders`, and `public.sms_log`.
+- `select c.relname as table_name, c.relreplident as replica_identity ...` returned `f` for `orders`, `order_status_events`, and `order_notes` (`f` = FULL).
+- `select * from pg_extension where extname like '%realtime%';` returned no rows.
+
+The database publication and replica identity look correct, so the remaining failure is the managed Realtime websocket service itself. `https://qwvlzcqmicedxhfafiar.supabase.co/realtime/v1/websocket` still returns HTTP 500 on the hosted project.
 
 The V2.0 code correctly handles this: when the realtime channel cannot be established,
 `useCounterRealtime` honestly degrades to polling mode — no fake "connected" badge.
@@ -288,9 +311,12 @@ All operations were against the staging Supabase project `qwvlzcqmicedxhfafiar`.
 ### BLOCKER 1 — Supabase Realtime WebSocket returns HTTP 500 (HIGH)
 **Severity: HIGH — realtime badge tests fail; counter works via polling fallback**
 
-The Supabase Realtime WebSocket service returns HTTP 500 for this project.
+The Supabase Realtime WebSocket service still returns HTTP 500 for this project.
 Counter functionality degrades honestly to polling (correct V2.0 behavior), but
 the "Realtime connected" badge cannot be confirmed without a working WebSocket.
+
+The SQL checks show the publication and replica identity are already correct, so this
+does not look like a schema or migration problem.
 
 **Resolution options:**
 1. Check Supabase dashboard → Realtime tab for error details
@@ -302,14 +328,18 @@ the "Realtime connected" badge cannot be confirmed without a working WebSocket.
 ### BLOCKER 2 — `https://plaicetomeat-ops.vercel.app` still serves V1 (MEDIUM)
 **Severity: MEDIUM — the user-expected canonical URL serves stale code**
 
-The URL referenced in all documentation serves the Initial commit from the `vtecoding`
-GitHub account's Vercel integration. V2.0 is only at `plaicetomeat-ops-iota.vercel.app`.
+Live checks:
+- `/` returns the old storefront with public `Counter`, `Admin`, and `Compliance` links.
+- `/login` returns 404.
+- `/counter` and `/admin` redirect back to `/`.
+
+Attempting to claim the hostname from the V2 deployment failed:
+- `npx vercel alias set https://plaicetomeat-lyrbss41i-chillgamesbusiness-langs-projects.vercel.app plaicetomeat-ops.vercel.app`
+- Result: `Error: The chosen alias "plaicetomeat-ops.vercel.app" is already in use.`
 
 **Resolution:**
-- Connect `plaicetomeat-ops.vercel.app` Vercel project to the same GitHub repo with
-  `chillgamesbusiness-langs-projects` settings, OR
-- Add `plaicetomeat-ops.vercel.app` as a custom domain alias for the `iota` deployment,
-  OR contact the `vtecoding` Vercel account to update the GitHub integration
+- Use the owning Vercel account/team to remove the existing alias or transfer it, then attach it to the V2 deployment.
+- If the old owner cannot be reached, treat the canonical hostname as blocked until Vercel support clears or transfers the alias.
 
 ---
 
@@ -366,6 +396,22 @@ NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/seed-dev
 # D8 — Playwright hosted
 NEXT_PUBLIC_APP_URL=https://plaicetomeat-ops-iota.vercel.app npx playwright test tests/e2e/ --reporter=list
 # 36/40 PASS (final run with fresh seed)
+
+# D9 - canonical URL and alias verification
+curl.exe -I https://plaicetomeat-ops-iota.vercel.app/login
+curl.exe -I https://plaicetomeat-ops.vercel.app/login
+curl.exe -s https://plaicetomeat-ops.vercel.app/ | Select-Object -First 120
+curl.exe -I https://plaicetomeat-ops.vercel.app/counter
+curl.exe -I https://plaicetomeat-ops.vercel.app/admin
+npx vercel alias set https://plaicetomeat-lyrbss41i-chillgamesbusiness-langs-projects.vercel.app plaicetomeat-ops.vercel.app
+
+# D10 - live Vercel / Supabase inspection
+npx vercel inspect https://plaicetomeat-lyrbss41i-chillgamesbusiness-langs-projects.vercel.app --format=json
+npx vercel inspect https://plaicetomeat-lyrbss41i-chillgamesbusiness-langs-projects.vercel.app --logs
+npx supabase db query --linked -o json "select * from pg_publication where pubname = 'supabase_realtime';"
+npx supabase db query --linked -o json "select schemaname, tablename from pg_publication_tables where pubname = 'supabase_realtime' order by schemaname, tablename;"
+npx supabase db query --linked -o json "select c.relname as table_name, c.relreplident as replica_identity from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname in ('orders', 'order_status_events', 'order_notes');"
+npx supabase db query --linked -o json "select * from pg_extension where extname like '%realtime%';"
 ```
 
 ---
@@ -398,22 +444,21 @@ NEXT_PUBLIC_APP_URL=https://plaicetomeat-ops-iota.vercel.app npx playwright test
 Local V2.0 gate:         PASS
                          eslint/tsc/vitest 43/43/build/verify-ops 11/11 all green
 
-Hosted V2.0 gate:        PASS (with exceptions)
-                         36/40 Playwright tests pass against
-                         https://plaicetomeat-ops-iota.vercel.app
-                         Exceptions:
+Hosted V2.0 gate:        FAIL
+                         iota deployment validation still shows 36/40 Playwright PASS
+                         on https://plaicetomeat-ops-iota.vercel.app, but the
+                         canonical hostname remains stale V1 and cannot be
+                         reassigned from the current Vercel scope.
+                         Exceptions still present:
                            - 2 realtime tests: Supabase Realtime HTTP 500 (infra, not code)
                            - 1 safe-test-order: expected FAIL (test mode off on production)
                            - 1 auth inactive: intermittent rate-limit in rapid serial run,
                              PASS when run in isolation
-                         All V2.0 functional features verified:
-                           auth, route protection, admin CRUD, pickup windows, shop closures,
-                           checkout, phone validation, SMS dry-run, owner dashboard,
-                           counter, staff notes, status transitions
 
 Production release gate: FAIL — until:
                          1. Supabase Realtime WebSocket is confirmed working
                          2. Canonical URL (plaicetomeat-ops.vercel.app) serves V2.0
-                         3. Test seed data removed from the Supabase project if it
+                         3. The canonical alias is transferred out of the stale V1 owner
+                         4. Test seed data removed from the Supabase project if it
                             is the intended production database
 ```
