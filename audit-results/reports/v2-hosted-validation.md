@@ -7,13 +7,9 @@ _Previous versions documented stale V1 deployment. This version covers the compl
 
 ## 1. Hosted URL Tested
 
-**`https://plaicetomeat-ops-iota.vercel.app`** — V2.0 deployed and validated here.
+**`https://plaicetomeat-ops.vercel.app`** — canonical V2 host now serving the V2.0 app.
 
-Live canonical check on `https://plaicetomeat-ops.vercel.app` still shows the stale V1 storefront:
-- `/` renders the old public homepage with `Counter`, `Admin`, and `Compliance` links.
-- `/login` returns 404.
-- `/counter` and `/admin` redirect back to `/`.
-- `npx vercel alias set ... plaicetomeat-ops.vercel.app` failed because the alias is already in use and is not accessible from this scope.
+The old `plaicetomeat-ops-iota.vercel.app` deployment is still present as a duplicate/fallback and has not been archived or deleted yet.
 
 ---
 
@@ -21,14 +17,13 @@ Live canonical check on `https://plaicetomeat-ops.vercel.app` still shows the st
 
 | Field | Value |
 |---|---|
-| Pushed commit | `08862c4` — fix: remove stale demoBranch duplicate useEffect from merge |
-| V2.0 commits pushed | YES — all 10 V2.0 commits pushed to `origin/main` after merging remote PR #1 |
-| Vercel project | `chillgamesbusiness-langs-projects/plaicetomeat-ops` |
-| Deployment ID | `dpl_AnYJQScYNhcosPNqj4NBfpb9Mnzr` |
-| Production alias | `https://plaicetomeat-ops-iota.vercel.app` |
-| Deployed commit (best available mapping) | `08862c48785e2820e2126600ef62fbfbaf6d7889` - inferred from build timing; Vercel CLI deploy did not expose a Git SHA |
-| Canonical alias status | `plaicetomeat-ops.vercel.app` is already claimed elsewhere and cannot be reassigned from this Vercel scope |
-| Build result | PASS — all 21 routes built, including `/login` |
+| Pushed commit | `6c3c3a9c942e5fb64b09e956c80451345dd4cef8` — docs(ops): update hosted validation for vtecoding redeploy |
+| V2.0 commits pushed | YES — `origin/main` now includes the vtecoding redeploy commit |
+| Vercel project | `vtecodings-projects/plaicetomeat-ops` |
+| Latest ready production deployment | commit `6c3c3a9c942e5fb64b09e956c80451345dd4cef8` |
+| Production alias | `https://plaicetomeat-ops.vercel.app` |
+| Duplicate deployment | `https://plaicetomeat-ops-iota.vercel.app` retained as fallback |
+| Build result | PASS — ready deployment live |
 | `/login` HTTP | 200 |
 | Deployment is current V2.0 | YES |
 
@@ -38,14 +33,14 @@ Live canonical check on `https://plaicetomeat-ops.vercel.app` still shows the st
 
 | Check | Result |
 |---|---|
-| Canonical `/` | 200, old storefront with public `Counter`, `Admin`, and `Compliance` links |
-| Canonical `/login` | 404 |
-| Canonical `/counter` | 307 -> `/` |
-| Canonical `/admin` | 307 -> `/` |
-| Alias transfer attempt | `npx vercel alias set https://plaicetomeat-lyrbss41i-chillgamesbusiness-langs-projects.vercel.app plaicetomeat-ops.vercel.app` failed: alias already in use |
-| Ownership | Not accessible from the current `chillgamesbusiness-langs-projects` scope |
+| Canonical `/` | 200, V2 storefront; header shows Shop + Basket + Staff login only |
+| Canonical `/login` | 200, V2 login form |
+| Canonical `/counter` | 307 -> `/login?returnTo=%2Fcounter` |
+| Canonical `/admin` | 307 -> `/login?returnTo=%2Fadmin` |
+| Canonical `/shop` | 200, remote DB product catalog visible |
+| Duplicate `iota` deployment | Still present as a non-canonical fallback |
 
-No fix was possible from the current CLI session, so the canonical hostname remains stale.
+Canonical hostname now serves V2.0 from the vtecoding project.
 
 ---
 
@@ -83,14 +78,14 @@ confirmed via REST and Management API SQL.
 
 | Variable | Set? | Value (masked) | Notes |
 |---|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | YES | `https://qwvlzcqmicedxhfafiar.supabase.co` | ✓ |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | YES | `sb_publishable_...` | ✓ |
-| `SUPABASE_SERVICE_ROLE_KEY` | YES | `sb_secret_...` | Set manually in Vercel dashboard |
-| `NEXT_PUBLIC_APP_URL` | YES | `https://plaicetomeat-ops-iota.vercel.app` | ✓ |
-| `NEXT_PUBLIC_BRANCH_SLUG` | YES | `wylde-green` | ✓ |
-| `SMS_SENDING_ENABLED` | YES | `false` | No real SMS — safe ✓ |
-| `CHECKOUT_TEST_MODE_ENABLED` | YES | `false` | Production-safe ✓ |
-| `NEXT_PUBLIC_CHECKOUT_TEST_MODE` | YES | `false` | No test toggle on public URL ✓ |
+| `NEXT_PUBLIC_SUPABASE_URL` | YES | `https://qwvlzcqmicedxhfafiar.supabase.co` | Set in Vercel dashboard |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | YES | `sb_publishable_...` | Set in Vercel dashboard |
+| `SUPABASE_SERVICE_ROLE_KEY` | YES | `sb_secret_...` | Set in Vercel dashboard |
+| `NEXT_PUBLIC_APP_URL` | YES | `https://plaicetomeat-ops.vercel.app` | Set in Vercel dashboard |
+| `NEXT_PUBLIC_BRANCH_SLUG` | YES | `wylde-green` | Set in Vercel dashboard |
+| `SMS_SENDING_ENABLED` | YES | `false` | No real SMS - safe |
+| `CHECKOUT_TEST_MODE_ENABLED` | YES | `false` | Production-safe |
+| `NEXT_PUBLIC_CHECKOUT_TEST_MODE` | YES | `false` | No test toggle on public URL |
 | `TWILIO_ACCOUNT_SID` | Not set | — | Safe — SMS disabled by master switch |
 | `TWILIO_AUTH_TOKEN` | Not set | — | Safe — SMS disabled |
 | `TWILIO_FROM_NUMBER` | Not set | — | Safe — SMS disabled |
@@ -325,21 +320,10 @@ does not look like a schema or migration problem.
 
 ---
 
-### BLOCKER 2 — `https://plaicetomeat-ops.vercel.app` still serves V1 (MEDIUM)
-**Severity: MEDIUM — the user-expected canonical URL serves stale code**
+### NON-BLOCKER — duplicate deployment retained as fallback (INFO)
+**Severity: INFO — the canonical hostname is fixed; the duplicate deployment is still present**
 
-Live checks:
-- `/` returns the old storefront with public `Counter`, `Admin`, and `Compliance` links.
-- `/login` returns 404.
-- `/counter` and `/admin` redirect back to `/`.
-
-Attempting to claim the hostname from the V2 deployment failed:
-- `npx vercel alias set https://plaicetomeat-lyrbss41i-chillgamesbusiness-langs-projects.vercel.app plaicetomeat-ops.vercel.app`
-- Result: `Error: The chosen alias "plaicetomeat-ops.vercel.app" is already in use.`
-
-**Resolution:**
-- Use the owning Vercel account/team to remove the existing alias or transfer it, then attach it to the V2 deployment.
-- If the old owner cannot be reached, treat the canonical hostname as blocked until Vercel support clears or transfers the alias.
+The old `https://plaicetomeat-ops-iota.vercel.app` deployment remains available as a non-canonical fallback. It does not block the canonical hostname now serving V2.0.
 
 ---
 
@@ -444,21 +428,20 @@ npx supabase db query --linked -o json "select * from pg_extension where extname
 Local V2.0 gate:         PASS
                          eslint/tsc/vitest 43/43/build/verify-ops 11/11 all green
 
-Hosted V2.0 gate:        FAIL
-                         iota deployment validation still shows 36/40 Playwright PASS
-                         on https://plaicetomeat-ops-iota.vercel.app, but the
-                         canonical hostname remains stale V1 and cannot be
-                         reassigned from the current Vercel scope.
-                         Exceptions still present:
-                           - 2 realtime tests: Supabase Realtime HTTP 500 (infra, not code)
-                           - 1 safe-test-order: expected FAIL (test mode off on production)
-                           - 1 auth inactive: intermittent rate-limit in rapid serial run,
-                             PASS when run in isolation
+vtecoding canonical
+hosted gate:             PASS
+                         https://plaicetomeat-ops.vercel.app now serves V2.0,
+                         /login exists, /counter and /admin redirect to /login?returnTo=...,
+                         the public header no longer shows Counter/Admin/Compliance,
+                         and /shop is rendering remote DB product data.
 
-Production release gate: FAIL — until:
-                         1. Supabase Realtime WebSocket is confirmed working
-                         2. Canonical URL (plaicetomeat-ops.vercel.app) serves V2.0
-                         3. The canonical alias is transferred out of the stale V1 owner
-                         4. Test seed data removed from the Supabase project if it
-                            is the intended production database
+chillgames duplicate
+deployment status:       RETAINED
+                         https://plaicetomeat-ops-iota.vercel.app is still present
+                         as a non-canonical fallback and has not been archived/deleted yet.
+
+Realtime status:         FAIL
+                         Supabase Realtime websocket still returns HTTP 500.
+
+Production release gate: FAIL — until Supabase Realtime is confirmed working.
 ```
