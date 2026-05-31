@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { login, USERS } from "./helpers";
+import { resetStateBeforeEach } from "./reset-state";
 
 // Phase 8: a full checkout that is safe to run in CI — a visibly marked TEST
 // order that writes a real row, gets a real PTM ref, appears on the counter,
@@ -25,6 +26,8 @@ async function addItemAndCheckout(page: Page) {
 }
 
 test.describe("safe test order", () => {
+  resetStateBeforeEach();
+
   test("submits a TEST order end to end without sending SMS", async ({ page, browser }) => {
     await addItemAndCheckout(page);
 

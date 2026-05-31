@@ -14,6 +14,7 @@ export function ProductCard({
   category: ProductCategory | undefined;
 }) {
   const outOfStock = !product.isAvailable || product.stockStatus === "out_of_stock";
+  const tags = getProductTags(product);
 
   return (
     <article className="flex h-full flex-col rounded-lg border border-[#ded6ca] bg-white p-5 shadow-sm">
@@ -31,6 +32,16 @@ export function ProductCard({
 
       <p className="line-clamp-3 flex-1 text-sm leading-6 text-[#5c5148]">{product.description}</p>
 
+      {tags.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <span key={tag} className="rounded-full bg-[#f7f3ed] px-2.5 py-1 text-xs font-bold text-[#5c5148]">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
       {product.requiresWeightConfirmation && (
         <div className="mt-4 flex gap-2 rounded-md bg-[#f7f3ed] p-3 text-xs text-[#5c5148]">
           <Scale className="h-4 w-4 shrink-0 text-[#0f5132]" aria-hidden />
@@ -47,6 +58,17 @@ export function ProductCard({
       </div>
     </article>
   );
+}
+
+function getProductTags(product: Product) {
+  const text = `${product.name} ${product.description ?? ""}`.toLowerCase();
+  const tags: string[] = [];
+  if (/mince|diced|curry|leg|shoulder/.test(text)) tags.push("Best for curry");
+  if (/steak|chop|kebab|wing|grill/.test(text)) tags.push("Best for grill");
+  if (/breast|lean|fillet/.test(text)) tags.push("Lean option");
+  if (/pack|box|whole/.test(text)) tags.push("Family pack");
+  if (product.unitType === "kg") tags.push("Freezer friendly");
+  return Array.from(new Set(tags)).slice(0, 3);
 }
 
 export function StockBadge({

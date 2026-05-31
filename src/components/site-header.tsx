@@ -11,6 +11,7 @@ type NavLink = { href: string; label: string; icon: typeof Beef };
 
 const PUBLIC_LINKS: NavLink[] = [
   { href: "/shop", label: "Shop", icon: Beef },
+  { href: "/our-halal-promise", label: "Halal Promise", icon: ClipboardCheck },
   { href: "/basket", label: "Basket", icon: ShoppingBasket },
 ];
 

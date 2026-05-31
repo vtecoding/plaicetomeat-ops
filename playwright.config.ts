@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const port = process.env.PORT ?? '3100';
+const baseURL = process.env.NEXT_PUBLIC_APP_URL ?? `http://127.0.0.1:${port}`;
+const usesLocalServer = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(baseURL);
+
 export default defineConfig({
   testDir: 'tests',
   timeout: 60_000,
@@ -11,7 +15,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
-    baseURL: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    baseURL,
     trace: 'on-first-retry',
     headless: true,
     viewport: { width: 1280, height: 800 },
@@ -27,10 +31,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'corepack pnpm dev',
-    url: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: usesLocalServer
+    ? {
+        command: `npx next start -p ${port}`,
+        url: baseURL,
+        reuseExistingServer: false,
+        timeout: 120_000,
+      }
+    : undefined,
 });

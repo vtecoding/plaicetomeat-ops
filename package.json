@@ -5,13 +5,19 @@
   "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "playwright:smoke": "node scripts/run-playwright.mjs smoke",
+    "playwright:v2_1": "node scripts/run-playwright.mjs v2_1",
+    "playwright:full": "node scripts/run-playwright.mjs full",
+    "playwright:legacy-audit": "node scripts/run-playwright.mjs legacy-audit",
+    "playwright:hosted": "node scripts/run-playwright.mjs hosted",
+    "release:report": "node scripts/release-report.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

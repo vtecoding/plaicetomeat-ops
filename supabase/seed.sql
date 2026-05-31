@@ -96,3 +96,53 @@ ON CONFLICT (id) DO UPDATE SET
   days_of_week = EXCLUDED.days_of_week,
   window_type = EXCLUDED.window_type,
   is_active = EXCLUDED.is_active;
+
+INSERT INTO public.suppliers (
+  id, branch_id, name, halal_certifying_body, cert_number, cert_expiry, active, notes
+)
+VALUES
+  ('00000000-0000-4000-8000-000000000501', '00000000-0000-4000-8000-000000000001', 'Midlands Halal Poultry', 'Supplier certificate body', 'CERT-VALID-001', current_date + 90, true, 'Local seed supplier.'),
+  ('00000000-0000-4000-8000-000000000502', '00000000-0000-4000-8000-000000000001', 'Expired Cert Meats', 'Supplier certificate body', 'CERT-EXPIRED-001', current_date - 5, true, 'Local seed supplier.'),
+  ('00000000-0000-4000-8000-000000000503', '00000000-0000-4000-8000-000000000001', 'Verification Pending Foods', null, null, null, true, 'Local seed supplier.')
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  halal_certifying_body = EXCLUDED.halal_certifying_body,
+  cert_number = EXCLUDED.cert_number,
+  cert_expiry = EXCLUDED.cert_expiry,
+  active = EXCLUDED.active,
+  notes = EXCLUDED.notes;
+
+INSERT INTO public.supplier_documents (
+  id, supplier_id, document_type, expiry_date, document_url, verified_at, notes
+)
+VALUES
+  ('00000000-0000-4000-8000-000000000511', '00000000-0000-4000-8000-000000000501', 'halal_cert', current_date + 90, 'metadata-only', now(), 'Local seed valid certificate metadata.'),
+  ('00000000-0000-4000-8000-000000000512', '00000000-0000-4000-8000-000000000502', 'halal_cert', current_date - 5, 'metadata-only', now(), 'Local seed expired certificate metadata.')
+ON CONFLICT (id) DO UPDATE SET
+  expiry_date = EXCLUDED.expiry_date,
+  document_url = EXCLUDED.document_url,
+  verified_at = EXCLUDED.verified_at,
+  notes = EXCLUDED.notes;
+
+INSERT INTO public.inventory_batches (
+  id, branch_id, product_id, supplier_id, received_date, expiry_date,
+  received_weight_kg, remaining_weight_kg, invoice_cost, cost_per_kg,
+  halal_cert_ref, country_of_origin, storage_location, batch_number, status
+)
+VALUES
+  ('00000000-0000-4000-8000-000000000601', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000201', '00000000-0000-4000-8000-000000000501', current_date - 1, current_date + 2, 25.000, 18.500, 125.00, 5.00, 'CERT-VALID-001', 'UK', 'Chiller 1', 'BATCH-SEED-001', 'active')
+ON CONFLICT (id) DO UPDATE SET
+  expiry_date = EXCLUDED.expiry_date,
+  remaining_weight_kg = EXCLUDED.remaining_weight_kg,
+  invoice_cost = EXCLUDED.invoice_cost,
+  cost_per_kg = EXCLUDED.cost_per_kg,
+  status = EXCLUDED.status;
+
+INSERT INTO public.inventory_movements (
+  id, batch_id, branch_id, movement_type, quantity_kg, reason
+)
+VALUES
+  ('00000000-0000-4000-8000-000000000611', '00000000-0000-4000-8000-000000000601', '00000000-0000-4000-8000-000000000001', 'RECEIVED', 25.000, 'local seed received')
+ON CONFLICT (id) DO UPDATE SET
+  quantity_kg = EXCLUDED.quantity_kg,
+  reason = EXCLUDED.reason;

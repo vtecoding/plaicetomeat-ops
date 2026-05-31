@@ -11,6 +11,14 @@ _Previous versions documented stale V1 deployment. This version covers the compl
 
 The old `plaicetomeat-ops-iota.vercel.app` deployment is still present as a duplicate/fallback and has not been archived or deleted yet.
 
+V2.1 deployment note:
+
+- Canonical production: `https://plaicetomeat-ops.vercel.app`
+- Non-canonical fallback: `https://plaicetomeat-ops-iota.vercel.app`
+- Owner/account of canonical: `vtecoding`
+- Owner/account of fallback: `chillgames`
+- Do not use fallback for customer-facing links.
+
 ---
 
 ## 2. Deployment State

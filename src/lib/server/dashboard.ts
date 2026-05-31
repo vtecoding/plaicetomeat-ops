@@ -1,6 +1,8 @@
 import "server-only";
 
+import { getRealtimeMode } from "@/lib/domain/compliance-inventory";
 import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
+import { getBatchesAtRisk, getInventoryBatches, getSuppliers, summariseCompliance } from "@/lib/server/compliance-inventory";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
 export type DashboardMetrics = {
@@ -13,6 +15,13 @@ export type DashboardMetrics = {
   failedSmsCount: number;
   testOrderCount: number;
   inventoryConfigured: boolean;
+  realtimeMode: "websocket" | "polling" | "auto";
+  expiredCertificates: number;
+  expiringCertificates: number;
+  missingCertificates: number;
+  certificateRecordsConfigured: boolean;
+  batchesExpiringWithin3Days: number;
+  stockValueAtRisk: number;
 };
 
 type OrderMetricRow = {
@@ -44,6 +53,13 @@ export async function getDashboardMetrics(branchId: string, now = new Date()): P
     failedSmsCount: 0,
     testOrderCount: 0,
     inventoryConfigured: false,
+    realtimeMode: getRealtimeMode(),
+    expiredCertificates: 0,
+    expiringCertificates: 0,
+    missingCertificates: 0,
+    certificateRecordsConfigured: false,
+    batchesExpiringWithin3Days: 0,
+    stockValueAtRisk: 0,
   };
 
   if (!hasSupabaseServiceEnv()) {
@@ -88,6 +104,10 @@ export async function getDashboardMetrics(branchId: string, now = new Date()): P
     .select("id", { count: "exact", head: true })
     .eq("branch_id", branchId);
 
+  const [suppliers, batches] = await Promise.all([getSuppliers(branchId), getInventoryBatches(branchId)]);
+  const compliance = summariseCompliance(suppliers);
+  const batchesAtRisk = getBatchesAtRisk(batches);
+
   return {
     configured: true,
     date,
@@ -98,5 +118,12 @@ export async function getDashboardMetrics(branchId: string, now = new Date()): P
     failedSmsCount: failedSmsCount ?? 0,
     testOrderCount,
     inventoryConfigured: (inventoryCount ?? 0) > 0,
+    realtimeMode: getRealtimeMode(),
+    expiredCertificates: compliance.expired,
+    expiringCertificates: compliance.expiringSoon,
+    missingCertificates: compliance.missing,
+    certificateRecordsConfigured: compliance.configured,
+    batchesExpiringWithin3Days: batchesAtRisk.length,
+    stockValueAtRisk: batchesAtRisk.reduce((sum, batch) => sum + batch.estimatedValueAtRisk, 0),
   };
 }

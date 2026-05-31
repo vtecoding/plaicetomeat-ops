@@ -1,12 +1,15 @@
 import { expect, test } from "@playwright/test";
 
 import { login, USERS } from "./helpers";
+import { resetStateBeforeEach } from "./reset-state";
 
 function columnSection(page: import("@playwright/test").Page, label: string) {
   return page.locator("section").filter({ has: page.getByRole("heading", { name: label, exact: true }) });
 }
 
 test.describe("counter status persistence", () => {
+  resetStateBeforeEach();
+
   test("moving an order persists across a refresh", async ({ page }) => {
     await login(page, USERS.staff, { expectLanding: /\/counter/ });
 

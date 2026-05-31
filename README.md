@@ -1,8 +1,23 @@
 # PlaiceToMeat Ops
 
-PlaiceToMeat Ops is a Next.js 15 click-and-collect ordering system and counter dashboard for a premium HMC halal butcher.
+PlaiceToMeat Ops is a Next.js 15 click-and-collect ordering system and counter dashboard for a halal-focused butcher.
 
 V1 is pay-on-collection only: customers place an order online, collect from the counter, and pay using the shop till or card reader.
+
+## Deployment Notes
+
+- Canonical production: https://plaicetomeat-ops.vercel.app
+- Non-canonical fallback: https://plaicetomeat-ops-iota.vercel.app
+- Owner/account of canonical: vtecoding
+- Owner/account of fallback: chillgames
+- Do not use the fallback for customer-facing links.
+- Recommended cleanup: delete or archive the chillgames fallback after 7 stable canonical production days.
+
+## V2.1 Readiness Notes
+
+- `REALTIME_MODE` supports `websocket`, `polling`, and `auto`. Production should stay on `auto` or `polling` while Supabase Realtime WebSocket returns HTTP 500.
+- Temporary owner access for `vtecoding@gmail.com` must be created through Supabase Auth invite/reset or Dashboard manual setup. Do not commit a password or seed a production password.
+- Disable or rotate temporary `vtecoding@gmail.com` owner access before real shop launch.
 
 ## Stack
 

@@ -1,12 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { login, USERS } from "./helpers";
+import { resetStateBeforeEach } from "./reset-state";
 
 function columnSection(page: Page, label: string) {
   return page.locator("section").filter({ has: page.getByRole("heading", { name: label, exact: true }) });
 }
 
 test.describe("counter realtime", () => {
+  resetStateBeforeEach();
+
   test("a status change in one context appears in another within 3s", async ({ browser }) => {
     const contextA = await browser.newContext();
     const contextB = await browser.newContext();

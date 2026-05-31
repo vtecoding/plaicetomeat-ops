@@ -1,11 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 import { login, USERS } from "./helpers";
+import { resetStateBeforeEach } from "./reset-state";
 
 // Phase 10: owner dashboard shows real, branch-scoped DB metrics.
 // The dev seed creates exactly 3 real orders for today: one incoming, one
 // prepping, one ready (subtotals 24.98 + 35.00 + 18.49 = 78.47).
 test.describe("owner dashboard", () => {
+  resetStateBeforeEach();
+
   test("shows correct counts and revenue from seeded orders", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await page.goto("/admin");
@@ -17,8 +20,9 @@ test.describe("owner dashboard", () => {
     await expect(page.getByTestId("metric-ready")).toHaveText("1");
     await expect(page.getByTestId("metric-revenue")).toHaveText("£78.47");
 
-    // Inventory is not seeded -> honest empty state, not a fake metric.
-    await expect(page.getByTestId("inventory-status")).toContainText(/not configured/i);
+    await expect(page.getByText("Stock risk")).toBeVisible();
+    await expect(page.getByText("Compliance risk")).toBeVisible();
+    await expect(page.getByTestId("metric-realtime-mode")).toBeVisible();
   });
 
   test("staff cannot reach the admin dashboard", async ({ page }) => {

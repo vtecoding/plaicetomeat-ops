@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { login, USERS } from "./helpers";
+import { resetStateBeforeEach } from "./reset-state";
 
 // Phase 9: SMS status reflects reality. With SMS_SENDING_ENABLED=false, an order
 // that becomes "ready" must record a truthful non-"sent" status (disabled here)
@@ -14,6 +15,8 @@ function card(page: Page, orderRef: string) {
 }
 
 const SEED_ORDERS = ["PTM-2026-90001", "PTM-2026-90002", "PTM-2026-90003"];
+
+resetStateBeforeEach();
 
 test("marking an order ready records a disabled SMS, never a fake 'sent'", async ({ page }) => {
   await login(page, USERS.staff, { expectLanding: /\/counter/ });

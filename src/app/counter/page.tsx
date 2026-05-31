@@ -4,6 +4,7 @@ import { demoBranch } from "@/lib/data/demo";
 import { getCurrentProfile } from "@/lib/server/auth";
 import { getCounterOrders, getOrderNotes } from "@/lib/server/orders";
 import { getPickupWindows } from "@/lib/server/pickup-windows";
+import { getRealtimeMode } from "@/lib/domain/compliance-inventory";
 
 export default async function CounterPage() {
   const profile = await getCurrentProfile();
@@ -24,6 +25,7 @@ export default async function CounterPage() {
           initialNotes={notesByOrderId}
           pickupWindows={pickupWindows}
           branchId={branchId}
+          realtimeMode={getRealtimeMode()}
         />
       </main>
     </PageFrame>

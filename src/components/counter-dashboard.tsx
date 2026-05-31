@@ -46,17 +46,19 @@ export function CounterDashboard({
   initialNotes,
   pickupWindows,
   branchId,
+  realtimeMode,
 }: {
   initialOrders: Order[];
   initialNotes: Record<string, OrderNote[]>;
   pickupWindows: PickupWindow[];
   branchId: string;
+  realtimeMode: "websocket" | "polling" | "auto";
 }) {
   const [orders, setOrders] = useState(initialOrders);
   const [notesByOrderId, setNotesByOrderId] = useState(initialNotes);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [forcePolling, setForcePolling] = useState(false);
+  const [forcePolling, setForcePolling] = useState(realtimeMode === "polling");
 
   const windowsById = useMemo(() => new Map(pickupWindows.map((window) => [window.id, window])), [pickupWindows]);
 
@@ -70,7 +72,11 @@ export function CounterDashboard({
     return true;
   }, [branchId]);
 
-  const { state: connectionState } = useCounterRealtime({ branchId, refetch, forcePolling });
+  const { state: connectionState } = useCounterRealtime({
+    branchId,
+    refetch,
+    forcePolling: realtimeMode === "polling" || forcePolling,
+  });
 
   const setPendingFor = useCallback((orderId: string, value: boolean) => {
     setPending((current) => {
@@ -130,6 +136,9 @@ export function CounterDashboard({
             )}
             {connection.label}
           </Badge>
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#6c5e52]">
+            REALTIME_MODE={realtimeMode}
+          </span>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => void refetch()}>
@@ -157,7 +166,13 @@ export function CounterDashboard({
 
       <div className="grid gap-4 xl:grid-cols-4">
         {columns.map((column) => {
-          const columnOrders = orders.filter((order) => order.status === column.status);
+          const columnOrders = orders
+            .filter((order) => order.status === column.status)
+            .sort((a, b) => {
+              const aWindow = a.pickupWindowId ? windowsById.get(a.pickupWindowId) : undefined;
+              const bWindow = b.pickupWindowId ? windowsById.get(b.pickupWindowId) : undefined;
+              return (aWindow?.startTime ?? "99:99").localeCompare(bWindow?.startTime ?? "99:99");
+            });
 
           return (
             <section key={column.status} className="min-h-[520px] rounded-lg border border-[#ded6ca] bg-[#f7f3ed]">
@@ -204,6 +219,7 @@ function CounterOrderCard({
   const urgency = getOrderUrgency(order, pickupWindow);
   const nextActions = getNextOrderActions(order.status);
   const smsState = getSmsBadgeState(order.readySmsSentAt, order.smsFailureReason, order.smsStatus);
+  const phoneHref = `tel:${order.customerPhone.replace(/[^\d+]/g, "")}`;
 
   return (
     <article
@@ -226,6 +242,9 @@ function CounterOrderCard({
             )}
           </div>
           <p className="font-semibold text-[#5c5148]">{order.customerName}</p>
+          <a className="mt-1 block text-sm font-bold text-[#0f5132]" href={phoneHref}>
+            {formatPhone(order.customerPhone)}
+          </a>
         </div>
         <SmsBadge state={smsState} />
       </div>
@@ -235,6 +254,8 @@ function CounterOrderCard({
         {pickupWindow && (
           <p className="text-[#6c5e52]">{formatTimeRange(pickupWindow.startTime, pickupWindow.endTime)}</p>
         )}
+        <p className="mt-1 font-semibold text-[#7a4b00]">{urgencyLabel(order, pickupWindow)}</p>
+        <p className="text-xs text-[#6c5e52]">{statusAge(order)}</p>
       </div>
 
       <div className="mt-4 text-sm">
@@ -242,7 +263,7 @@ function CounterOrderCard({
           {order.items.length} item{order.items.length === 1 ? "" : "s"} - {formatCurrency(order.subtotal)}
         </p>
         <ul className="mt-2 space-y-1 text-[#5c5148]">
-          {order.items.slice(0, 2).map((item) => (
+          {order.items.map((item) => (
             <li key={item.id}>
               {item.quantity} {item.unitType} {item.productNameSnapshot}
             </li>
@@ -315,7 +336,7 @@ function StaffNotes({
     <div className="mt-4 border-t border-[#eee5d8] pt-3">
       <p className="flex items-center gap-1 text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">
         <MessageSquare className="h-3 w-3" aria-hidden />
-        Staff notes (internal)
+        Staff notes (internal) · {notes.length}
       </p>
 
       {notes.length > 0 && (
@@ -348,6 +369,28 @@ function StaffNotes({
       </div>
     </div>
   );
+}
+
+function formatPhone(phone: string) {
+  return phone.replace(/^\+44/, "0").replace(/(\d{5})(\d{3})(\d+)/, "$1 $2 $3");
+}
+
+function statusAge(order: Order) {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60_000));
+  const label = order.status === "incoming" ? "received" : order.status;
+  return `${label} ${minutes < 1 ? "just now" : `${minutes} min ago`}`;
+}
+
+function urgencyLabel(order: Order, pickupWindow: PickupWindow | undefined) {
+  if (!pickupWindow) return "Pickup time not set";
+  const [hours, minutes] = pickupWindow.startTime.split(":").map(Number);
+  const pickup = new Date(`${order.pickupDate}T00:00:00`);
+  pickup.setHours(hours ?? 0, minutes ?? 0, 0, 0);
+  const diffMinutes = Math.round((pickup.getTime() - Date.now()) / 60_000);
+  if (diffMinutes < 0) return "Overdue";
+  if (diffMinutes <= 15) return "Due now";
+  if (diffMinutes <= 60) return "Due in 15 min";
+  return "Later today";
 }
 
 function SmsBadge({ state }: { state: SmsStatus }) {

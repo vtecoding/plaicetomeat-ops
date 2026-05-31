@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { login, USERS } from "./helpers";
+import { resetStateBeforeEach } from "./reset-state";
 
 function card(page: Page, orderRef: string) {
   return page.locator("article", { hasText: orderRef });
@@ -11,6 +12,8 @@ function noteItem(page: Page, orderRef: string, text: string) {
 }
 
 test.describe("staff notes", () => {
+  resetStateBeforeEach();
+
   test("a note persists, is visible to other staff, and stays internal", async ({ browser }) => {
     const noteText = `Trim the fat ${Date.now()}`;
 

@@ -29,7 +29,7 @@ export default function Home() {
               <div className="mb-5 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm font-bold backdrop-blur">
                   <ShieldCheck className="h-4 w-4" aria-hidden />
-                  HMC halal trust signal
+                  Halal-focused butcher
                 </span>
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm font-bold backdrop-blur">
                   <MapPin className="h-4 w-4" aria-hidden />
@@ -38,7 +38,7 @@ export default function Home() {
               </div>
               <h1 className="text-4xl font-black leading-tight sm:text-6xl">PlaiceToMeat Wylde Green</h1>
               <p className="mt-5 max-w-xl text-lg leading-8 text-white/90">
-                Order fresh HMC halal meat ahead, collect from the counter, and pay on collection.
+                Order fresh halal-focused meat ahead, collect from the counter, and pay on collection.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button asChild size="lg">
@@ -59,6 +59,17 @@ export default function Home() {
           <div className="mx-auto grid max-w-7xl gap-5 px-4 py-8 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-8">
             <CountdownBanner />
             <PayOnCollectionNote compact />
+          </div>
+        </section>
+
+        <section className="border-b border-[#e2d9cc] bg-white">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-5 text-sm font-bold sm:px-6 lg:px-8">
+            {["Halal-focused", "Fresh collection", "Pay on collection", "Custom cuts available", "Supplier certs tracked"].map((item) => (
+              <span key={item} className="rounded-full bg-[#f7f3ed] px-3 py-2">{item}</span>
+            ))}
+            <Link href="/our-halal-promise" className="font-black text-[#0f5132] underline underline-offset-4">
+              Our halal promise
+            </Link>
           </div>
         </section>
 
