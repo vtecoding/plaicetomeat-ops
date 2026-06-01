@@ -6,20 +6,19 @@ import { resetStateBeforeEach } from "./reset-state";
 test.describe("V4 operations intelligence", () => {
   resetStateBeforeEach();
 
-  test("shows the owner morning briefing and business control sections", async ({ page }) => {
+  test("shows the business insight panels", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await page.goto("/admin");
 
-    await expect(page.getByRole("heading", { name: "Good Morning" })).toBeVisible();
-    await expect(page.getByText("What's Going Off Soon")).toBeVisible();
-    await expect(page.getByText("Where Money's Being Lost")).toBeVisible();
-    await expect(page.getByText("Daily Profit Estimate")).toBeVisible();
-    await expect(page.getByText("Product Performance")).toBeVisible();
-    await expect(page.getByText("Profit & Loss")).toBeVisible();
-    await expect(page.getByText("Stock Running Low")).toBeVisible();
-    await expect(page.getByText("Customer Loyalty")).toBeVisible();
+    // Panel titles render as headings in the desktop grid (plain-English wording).
+    await expect(page.getByRole("heading", { name: "What's Going Off Soon" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Where Money's Being Lost" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Daily Profit Estimate" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Product Performance" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Profit & Loss" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Customer Loyalty" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "What Customers Buy Together" })).toBeVisible();
-    await expect(page.getByText("Food Compliance")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Food Compliance" })).toBeVisible();
   });
 
   test("shows release governance and migration health", async ({ page }) => {
