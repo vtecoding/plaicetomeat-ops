@@ -15,9 +15,11 @@ test.describe("V4 operations intelligence", () => {
     await expect(page.getByText("Waste Intelligence")).toBeVisible();
     await expect(page.getByText("Daily Profit Estimate")).toBeVisible();
     await expect(page.getByText("Product Performance")).toBeVisible();
-    await expect(page.getByText("Customer Value Tracking")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Basket Intelligence" })).toBeVisible();
-    await expect(page.getByText("Compliance Intelligence")).toBeVisible();
+    await expect(page.getByText("Profit & Loss")).toBeVisible();
+    await expect(page.getByText("Stock Running Low")).toBeVisible();
+    await expect(page.getByText("Customer Loyalty")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What Customers Buy Together" })).toBeVisible();
+    await expect(page.getByText("Food Compliance")).toBeVisible();
   });
 
   test("shows release governance and migration health", async ({ page }) => {

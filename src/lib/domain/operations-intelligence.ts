@@ -112,7 +112,7 @@ export function buildDailyProfitEstimate(input: {
     inventoryCost: input.inventoryCost === null ? null : roundMoney(input.inventoryCost),
     wasteCost: roundMoney(input.wasteCost),
     estimatedGrossProfit: input.inventoryCost === null ? null : roundMoney(input.revenue - input.inventoryCost - input.wasteCost),
-    unavailableReason: input.inventoryCost === null ? "Margin unavailable - missing product cost." : null,
+    unavailableReason: input.inventoryCost === null ? "Margin unavailable - product cost not entered." : null,
   };
 }
 
@@ -130,7 +130,7 @@ export function buildProductPerformance(rows: ProductPerformanceInput[]) {
       row.estimatedCost === null || row.revenue <= 0
         ? null
         : Math.round(((row.revenue - row.estimatedCost - row.wasteValue) / row.revenue) * 1000) / 10,
-    marginUnavailableReason: row.estimatedCost === null ? "Margin unavailable - missing product cost." : null,
+    marginUnavailableReason: row.estimatedCost === null ? "Margin unavailable - product cost not entered." : null,
   }));
   const withMargin = products.filter((product) => product.grossProfit !== null);
 
@@ -184,7 +184,7 @@ export function buildBasketIntelligence(orders: BasketOrderInput[]) {
       averageBasketValue: orders.length === 0 ? 0 : roundMoney(sum(orders.map((order) => order.subtotal)) / orders.length),
       topPairings: [],
       bundleSuggestion: null,
-      message: "Basket intelligence needs more real orders.",
+      message: "More customer orders are needed before recommendations can be shown.",
     };
   }
 
@@ -217,9 +217,9 @@ export function buildBasketIntelligence(orders: BasketOrderInput[]) {
     averageBasketValue: roundMoney(sum(orders.map((order) => order.subtotal)) / orders.length),
     topPairings,
     bundleSuggestion: top
-      ? `Customers buying ${top.productA} also often buy ${top.productB}. Suggested bundle: Family Protein Pack.`
+      ? `Customers buying ${top.productA} often also buy ${top.productB}. Suggested bundle: Family Protein Pack.`
       : null,
-    message: top ? null : "Basket intelligence needs orders with more than one product.",
+      message: top ? null : "More orders with more than one product are needed before recommendations can be shown.",
   };
 }
 
@@ -245,7 +245,7 @@ export function buildInventoryDepletionForecast(
 
     const productSales = salesByProduct.get(batch.productId) ?? [];
     if (productSales.length < 3) {
-      return depletionRow(batch, "insufficient_sales_history", "Insufficient sales history to forecast.", null);
+      return depletionRow(batch, "insufficient_sales_history", "Need more sales history before stock predictions can be shown.", null);
     }
 
     const earliest = Math.min(...productSales.map((sale) => new Date(sale.createdAt).getTime()));
@@ -253,7 +253,7 @@ export function buildInventoryDepletionForecast(
     const dailyVelocity = sum(productSales.map((sale) => sale.quantity)) / historyDays;
 
     if (dailyVelocity <= 0) {
-      return depletionRow(batch, "insufficient_sales_history", "Insufficient sales history to forecast.", null);
+      return depletionRow(batch, "insufficient_sales_history", "Need more sales history before stock predictions can be shown.", null);
     }
 
     const daysUntilRunout = Math.round((batch.remainingWeightKg / dailyVelocity) * 10) / 10;
