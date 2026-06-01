@@ -89,7 +89,9 @@ export function AdminPickupWindowsClient({
 
       <div className="mt-8 grid gap-4">
         {initialWindows.length === 0 && (
-          <p className="rounded-lg border border-[#ded6ca] bg-white p-5 text-sm text-[#6c5e52]">No pickup windows yet.</p>
+          <p className="rounded-lg border border-[#ded6ca] bg-white p-5 text-sm text-[#6c5e52]">
+            Action required: add a pickup window before customers can choose collection times.
+          </p>
         )}
         {initialWindows.map((window) => (
           <WindowRow key={window.id} window={window} onResult={announce} />
@@ -206,7 +208,14 @@ function WindowRow({ window, onResult }: { window: PickupWindow; onResult: (r: A
   }
 
   return (
-    <article data-testid="window-row" data-label={window.label} className="rounded-lg border border-[#ded6ca] bg-white p-5">
+    <article
+      data-testid="window-row"
+      data-label={window.label}
+      className={
+        "rounded-lg border p-5 " +
+        (active ? "border-[#ded6ca] bg-white" : "border-[#b42318] bg-[#fff4f2]")
+      }
+    >
       <h3 data-testid="window-row-name" className="mb-3 text-lg font-black">
         {window.label}
       </h3>
@@ -215,7 +224,9 @@ function WindowRow({ window, onResult }: { window: PickupWindow; onResult: (r: A
           Label
           <Input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={60} />
         </label>
-        <p className="self-end text-sm text-[#6c5e52]">{formatTimeRange(window.startTime, window.endTime)}</p>
+        <p className="self-end text-sm text-[#6c5e52]">
+          {formatTimeRange(window.startTime, window.endTime)} - {active ? "Visible at checkout" : "Hidden from public checkout"}
+        </p>
         <label className="grid gap-1 text-sm font-semibold">
           Start
           <Input value={startTime} onChange={(e) => setStartTime(e.target.value)} type="time" />

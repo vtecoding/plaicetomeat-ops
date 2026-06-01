@@ -22,6 +22,8 @@ export type DashboardMetrics = {
   certificateRecordsConfigured: boolean;
   batchesExpiringWithin3Days: number;
   stockValueAtRisk: number;
+  wasteEventsThisWeek: number;
+  expiringBatchCount: number;
 };
 
 type OrderMetricRow = {
@@ -60,6 +62,8 @@ export async function getDashboardMetrics(branchId: string, now = new Date()): P
     certificateRecordsConfigured: false,
     batchesExpiringWithin3Days: 0,
     stockValueAtRisk: 0,
+    wasteEventsThisWeek: 0,
+    expiringBatchCount: 0,
   };
 
   if (!hasSupabaseServiceEnv()) {
@@ -107,6 +111,12 @@ export async function getDashboardMetrics(branchId: string, now = new Date()): P
   const [suppliers, batches] = await Promise.all([getSuppliers(branchId), getInventoryBatches(branchId)]);
   const compliance = summariseCompliance(suppliers);
   const batchesAtRisk = getBatchesAtRisk(batches);
+  const weekStart = new Date(now);
+  weekStart.setUTCDate(weekStart.getUTCDate() - 7);
+  const { count: wasteEventsThisWeek } = await supabase
+    .from("inventory_waste_events")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", weekStart.toISOString());
 
   return {
     configured: true,
@@ -124,6 +134,8 @@ export async function getDashboardMetrics(branchId: string, now = new Date()): P
     missingCertificates: compliance.missing,
     certificateRecordsConfigured: compliance.configured,
     batchesExpiringWithin3Days: batchesAtRisk.length,
+    expiringBatchCount: batchesAtRisk.length,
     stockValueAtRisk: batchesAtRisk.reduce((sum, batch) => sum + batch.estimatedValueAtRisk, 0),
+    wasteEventsThisWeek: wasteEventsThisWeek ?? 0,
   };
 }

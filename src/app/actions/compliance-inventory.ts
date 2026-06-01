@@ -12,6 +12,8 @@ const SAFE_PATTERNS = [
   "Not authorised",
   "Not authenticated",
   "Supplier name is required",
+  "Certifying body is required",
+  "Certificate expiry is required",
   "Supplier not found",
   "Product is required",
   "Supplier is required",
@@ -23,6 +25,8 @@ const SAFE_PATTERNS = [
   "Waste quantity must be greater than zero",
   "Waste quantity cannot exceed remaining weight",
   "Waste reason is required",
+  "Invalid waste reason",
+  "Adjustment reason is required",
 ];
 
 function safeMessage(raw: string | undefined, fallback: string) {
@@ -62,6 +66,10 @@ export async function saveSupplier(input: {
   const auth = await requireManager();
   if (!auth.ok) return auth;
   if (!input.name.trim()) return { ok: false, message: "Supplier name is required." };
+  if (!input.certifyingBody?.trim()) return { ok: false, message: "Certifying body is required." };
+  if (!input.certExpiry || Number.isNaN(new Date(`${input.certExpiry}T00:00:00.000Z`).getTime())) {
+    return { ok: false, message: "Certificate expiry is required." };
+  }
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("admin_upsert_supplier_cert", {
@@ -81,6 +89,9 @@ export async function saveSupplier(input: {
   revalidateOps();
   return { ok: true, message: "Supplier saved.", id: String(data) };
 }
+
+export const createSupplierCertificate = saveSupplier;
+export const updateSupplierCertificate = saveSupplier;
 
 export async function createInventoryBatch(input: {
   branchId: string;
@@ -122,6 +133,8 @@ export async function createInventoryBatch(input: {
   return { ok: true, message: "Batch received.", id: String(data) };
 }
 
+export const receiveInventoryBatch = createInventoryBatch;
+
 export async function recordWaste(input: {
   batchId: string;
   quantityKg: number;
@@ -140,4 +153,26 @@ export async function recordWaste(input: {
   if (error) return { ok: false, message: safeMessage(error.message, "Could not record waste.") };
   revalidateOps();
   return { ok: true, message: "Waste recorded.", id: String(data) };
+}
+
+export const recordWasteEvent = recordWaste;
+
+export async function adjustInventoryRemainingWithReason(input: {
+  batchId: string;
+  newRemainingKg: number;
+  reason: string;
+}): Promise<ActionResult> {
+  const auth = await requireManager();
+  if (!auth.ok) return auth;
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("admin_adjust_inventory_remaining", {
+    p_batch_id: input.batchId,
+    p_new_remaining_kg: input.newRemainingKg,
+    p_reason: input.reason,
+  });
+
+  if (error) return { ok: false, message: safeMessage(error.message, "Could not adjust this batch.") };
+  revalidateOps();
+  return { ok: true, message: "Tracked remaining kg adjusted.", id: String(data) };
 }

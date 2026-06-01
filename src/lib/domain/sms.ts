@@ -6,6 +6,19 @@ export type ReadySmsTemplateInput = {
   address: string;
 };
 
+export const READY_SMS_PLACEHOLDERS = ["order_ref", "address"] as const;
+
+export function validateReadySmsTemplate(template: string) {
+  const unsupported = Array.from(template.matchAll(/\{([^{}]+)\}/g))
+    .map((match) => match[1])
+    .filter((placeholder): placeholder is string => !READY_SMS_PLACEHOLDERS.includes(placeholder as (typeof READY_SMS_PLACEHOLDERS)[number]));
+
+  return {
+    ok: unsupported.length === 0,
+    unsupported: Array.from(new Set(unsupported)),
+  };
+}
+
 export function renderReadySmsTemplate({ template, orderRef, address }: ReadySmsTemplateInput) {
   return template.replaceAll("{order_ref}", orderRef).replaceAll("{address}", address);
 }

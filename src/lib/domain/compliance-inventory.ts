@@ -1,4 +1,5 @@
-export type CertificateState = "valid" | "expiring_soon" | "expired" | "missing" | "unverified";
+export type CertificateState = "valid" | "expiring_soon" | "expired" | "missing_expiry" | "inactive";
+export type ExpiryRisk = "expired" | "expires_today" | "expiring_soon" | "ok";
 
 export function daysUntil(date: string, now = new Date()) {
   const target = new Date(`${date}T00:00:00.000Z`);
@@ -8,11 +9,12 @@ export function daysUntil(date: string, now = new Date()) {
 
 export function getCertificateState(input: {
   certExpiry: string | null;
-  verifiedAt: string | null;
+  active?: boolean | null;
+  verifiedAt?: string | null;
   documentUrl?: string | null;
 }, now = new Date()): CertificateState {
-  if (!input.certExpiry) return "missing";
-  if (!input.verifiedAt) return "unverified";
+  if (input.active === false) return "inactive";
+  if (!input.certExpiry) return "missing_expiry";
 
   const days = daysUntil(input.certExpiry, now);
   if (days < 0) return "expired";
@@ -28,11 +30,48 @@ export function certificateStateLabel(state: CertificateState) {
       return "Expiring soon";
     case "expired":
       return "Expired";
-    case "unverified":
-      return "Missing verification";
-    case "missing":
-      return "Missing verification";
+    case "missing_expiry":
+      return "Missing expiry";
+    case "inactive":
+      return "Inactive";
   }
+}
+
+export function getExpiryRisk(expiryDate: string, now = new Date()): ExpiryRisk {
+  const days = daysUntil(expiryDate, now);
+  if (days < 0) return "expired";
+  if (days === 0) return "expires_today";
+  if (days <= 3) return "expiring_soon";
+  return "ok";
+}
+
+export function calculateWasteValue(wasteKg: number, costPerKg: number) {
+  return Math.round(wasteKg * costPerKg * 100) / 100;
+}
+
+export function calculateTrackedRemainingKg(input: {
+  receivedKg: number;
+  wasteKg?: number;
+  manualAdjustmentKg?: number;
+}) {
+  const remaining = input.receivedKg - (input.wasteKg ?? 0) + (input.manualAdjustmentKg ?? 0);
+  return Math.max(0, Math.round(remaining * 1000) / 1000);
+}
+
+export function buildAuditEventPayload(input: {
+  eventType: string;
+  entityType: string;
+  entityId?: string | null;
+  summary: string;
+  metadata?: Record<string, unknown>;
+}) {
+  return {
+    event_type: input.eventType,
+    entity_type: input.entityType,
+    entity_id: input.entityId ?? null,
+    summary: input.summary,
+    metadata: input.metadata ?? {},
+  };
 }
 
 export function getRealtimeMode(): "websocket" | "polling" | "auto" {

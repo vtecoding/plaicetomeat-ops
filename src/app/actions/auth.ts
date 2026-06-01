@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { resolvePostLoginPath } from "@/lib/domain/auth";
 import type { StaffRole } from "@/lib/domain/route-access";
 import { isLoginLocked, recordLoginAttempt } from "@/lib/server/login-attempts";
-import { createSupabaseServerClient, hasSupabasePublicEnv } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient, hasSupabasePublicEnv } from "@/lib/supabase/server";
 
 const STAFF_LAST_SEEN_COOKIE = "ptm_staff_last_seen";
 
@@ -67,18 +67,30 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.user) {
+      console.error("loginAction signIn failed", {
+        email,
+        message: error?.message ?? null,
+        status: error?.status ?? null,
+        code: error?.code ?? null,
+      });
       await recordLoginAttempt({ email, success: false, ipAddress: ip });
       return { error: genericError };
     }
 
-    const { data: profile } = await supabase
+    const profileClient = createSupabaseServiceClient();
+    const { data: profile } = await profileClient
       .from("profiles")
       .select("role,is_active")
       .eq("id", data.user.id)
       .maybeSingle<ProfileRow>();
 
     if (!profile || profile.is_active !== true || !profile.role) {
-      // Authenticated but not an active staff member — refuse and clear session.
+      console.error("loginAction profile missing or inactive", {
+        email,
+        userId: data.user.id,
+        profile,
+      });
+      // Authenticated but not an active staff member - refuse and clear session.
       await supabase.auth.signOut();
       await recordLoginAttempt({ email, success: false, ipAddress: ip });
       return { error: genericError };
@@ -99,7 +111,7 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
     path: "/",
   });
 
-  // redirect() throws NEXT_REDIRECT — must be outside the try/catch above.
+  // redirect() throws NEXT_REDIRECT - must be outside the try/catch above.
   redirect(resolvePostLoginPath(role, returnTo));
 }
 
@@ -109,7 +121,7 @@ export async function logoutAction(): Promise<void> {
       const supabase = await createSupabaseServerClient();
       await supabase.auth.signOut();
     } catch {
-      // ignore — we still clear cookies and redirect below
+      // ignore - we still clear cookies and redirect below
     }
   }
 

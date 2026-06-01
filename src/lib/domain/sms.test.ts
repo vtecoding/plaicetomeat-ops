@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { getSmsBadgeState, redactPhone, renderReadySmsTemplate, resolveSmsMode, shouldSendReadySms } from "./sms";
+import {
+  getSmsBadgeState,
+  redactPhone,
+  renderReadySmsTemplate,
+  resolveSmsMode,
+  shouldSendReadySms,
+  validateReadySmsTemplate,
+} from "./sms";
 
 describe("ready SMS", () => {
   it("renders branch configurable placeholders", () => {
@@ -11,6 +18,14 @@ describe("ready SMS", () => {
         address: "426 Birmingham Road",
       }),
     ).toBe("Order PTM-2026-00042 is ready at 426 Birmingham Road.");
+  });
+
+  it("validates supported placeholders", () => {
+    expect(validateReadySmsTemplate("Order {order_ref} is ready at {address}.")).toEqual({ ok: true, unsupported: [] });
+    expect(validateReadySmsTemplate("Hi {customer_name}, order {order_ref} is ready.")).toEqual({
+      ok: false,
+      unsupported: ["customer_name"],
+    });
   });
 
   it("blocks duplicate sends once ready_sms_sent_at is set", () => {

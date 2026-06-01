@@ -19,6 +19,7 @@ const SAFE_MESSAGE_PATTERNS = [
   "Select at least one day",
   "Days of week must be",
   "Window type is invalid",
+  "Pickup window conflicts with an existing window",
   "Closure date is required",
   "Pickup window not found",
   "Closure not found",
@@ -48,6 +49,14 @@ function revalidateSchedule() {
   revalidatePath("/checkout");
 }
 
+function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+  return aStart < bEnd && bStart < aEnd;
+}
+
+function sharesDay(a: number[], b: number[]) {
+  return a.some((day) => b.includes(day));
+}
+
 export async function createPickupWindow(input: {
   branchId: string;
   label: string;
@@ -66,6 +75,23 @@ export async function createPickupWindow(input: {
   }
 
   const supabase = await createSupabaseServerClient();
+  const { data: existingWindows } = await supabase
+    .from("pickup_windows")
+    .select("start_time, end_time, days_of_week, is_active")
+    .eq("branch_id", input.branchId)
+    .eq("is_active", true);
+
+  const hasConflict = (existingWindows ?? []).some((window) => {
+    const start = String(window.start_time).slice(0, 5);
+    const end = String(window.end_time).slice(0, 5);
+    const days = Array.isArray(window.days_of_week) ? (window.days_of_week as number[]) : [];
+    return sharesDay(input.daysOfWeek, days) && timesOverlap(input.startTime, input.endTime, start, end);
+  });
+
+  if (hasConflict) {
+    return { ok: false, message: "Pickup window conflicts with an existing window." };
+  }
+
   const { data, error } = await supabase.rpc("admin_create_pickup_window", {
     p_branch_id: input.branchId,
     p_label: input.label,
@@ -103,6 +129,32 @@ export async function updatePickupWindow(input: {
   }
 
   const supabase = await createSupabaseServerClient();
+  const { data: currentWindow } = await supabase
+    .from("pickup_windows")
+    .select("branch_id")
+    .eq("id", input.windowId)
+    .maybeSingle();
+
+  if (currentWindow?.branch_id && input.daysOfWeek) {
+    const { data: existingWindows } = await supabase
+      .from("pickup_windows")
+      .select("id, start_time, end_time, days_of_week, is_active")
+      .eq("branch_id", currentWindow.branch_id)
+      .eq("is_active", true);
+
+    const hasConflict = (existingWindows ?? []).some((window) => {
+      if (window.id === input.windowId) return false;
+      const start = String(window.start_time).slice(0, 5);
+      const end = String(window.end_time).slice(0, 5);
+      const days = Array.isArray(window.days_of_week) ? (window.days_of_week as number[]) : [];
+      return sharesDay(input.daysOfWeek ?? [], days) && timesOverlap(input.startTime, input.endTime, start, end);
+    });
+
+    if (hasConflict) {
+      return { ok: false, message: "Pickup window conflicts with an existing window." };
+    }
+  }
+
   const { error } = await supabase.rpc("admin_update_pickup_window", {
     p_window_id: input.windowId,
     p_label: input.label,

@@ -124,7 +124,7 @@ function mapSupplier(row: SupplierRow): Supplier {
     verifiedAt,
     verifiedByName: verifier?.full_name ?? verifier?.email ?? null,
     documentUrl: document?.document_url ?? null,
-    status: getCertificateState({ certExpiry, verifiedAt, documentUrl: document?.document_url ?? null }),
+    status: getCertificateState({ certExpiry, active: row.active, verifiedAt, documentUrl: document?.document_url ?? null }),
     updatedAt: row.updated_at ?? new Date(0).toISOString(),
   };
 }
@@ -217,7 +217,7 @@ export function summariseCompliance(suppliers: Supplier[]) {
     configured: suppliers.length > 0,
     expired: suppliers.filter((supplier) => supplier.status === "expired").length,
     expiringSoon: suppliers.filter((supplier) => supplier.status === "expiring_soon").length,
-    missing: suppliers.filter((supplier) => supplier.status === "missing" || supplier.status === "unverified").length,
+    missing: suppliers.filter((supplier) => supplier.status === "missing_expiry").length,
   };
 }
 

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
-import { createInventoryBatch, recordWaste } from "@/app/actions/compliance-inventory";
+import { adjustInventoryRemainingWithReason, createInventoryBatch, recordWaste } from "@/app/actions/compliance-inventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -12,7 +12,7 @@ import type { InventoryBatch, Supplier } from "@/lib/server/compliance-inventory
 import type { Product } from "@/lib/domain/types";
 import { formatCurrency } from "@/lib/utils";
 
-const WASTE_REASONS = ["expired", "damaged", "contaminated", "customer_return", "other"] as const;
+const WASTE_REASONS = ["expired", "damaged", "trim_loss", "customer_issue", "other"] as const;
 
 type Feedback = { tone: "ok" | "error"; message: string } | null;
 
@@ -37,6 +37,9 @@ export function AdminInventoryClient({
 
   const risk = batches.filter((batch) => batch.status === "active" && batch.daysToExpiry <= 3 && batch.remainingWeightKg > 0);
   const totalAtRisk = risk.reduce((sum, batch) => sum + batch.estimatedValueAtRisk, 0);
+  const expiresToday = batches.filter((batch) => batch.status === "active" && batch.daysToExpiry === 0 && batch.remainingWeightKg > 0);
+  const expiresThisWeek = batches.filter((batch) => batch.status === "active" && batch.daysToExpiry >= 0 && batch.daysToExpiry <= 7 && batch.remainingWeightKg > 0);
+  const expired = batches.filter((batch) => batch.status === "active" && batch.daysToExpiry < 0 && batch.remainingWeightKg > 0);
 
   return (
     <div>
@@ -62,11 +65,30 @@ export function AdminInventoryClient({
       )}
 
       <section className="mt-6 rounded-lg border border-[#ded6ca] bg-white p-5">
-        <h2 className="text-lg font-black">Expiry and waste risk</h2>
+        <h2 className="text-lg font-black">Expiry Command Centre</h2>
+        <p className="mt-1 text-sm font-bold text-[#231f20]">Expiry and waste risk</p>
         <p className="mt-1 text-sm text-[#6c5e52]">
           {risk.length} active batch{risk.length === 1 ? "" : "es"} expiring within 3 days. Estimated value at risk:{" "}
           <strong>{formatCurrency(totalAtRisk)}</strong>.
         </p>
+        <dl className="mt-4 grid gap-3 sm:grid-cols-4">
+          <div className="rounded-md bg-[#f7f3ed] p-3">
+            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Expires Today</dt>
+            <dd className="mt-1 text-2xl font-black">{expiresToday.length}</dd>
+          </div>
+          <div className="rounded-md bg-[#f7f3ed] p-3">
+            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Expires This Week</dt>
+            <dd className="mt-1 text-2xl font-black">{expiresThisWeek.length}</dd>
+          </div>
+          <div className="rounded-md bg-[#f7f3ed] p-3">
+            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Expired</dt>
+            <dd className="mt-1 text-2xl font-black">{expired.length}</dd>
+          </div>
+          <div className="rounded-md bg-[#f7f3ed] p-3">
+            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Value At Risk</dt>
+            <dd className="mt-1 text-2xl font-black">{formatCurrency(totalAtRisk)}</dd>
+          </div>
+        </dl>
       </section>
 
       <BatchForm branchId={branchId} products={products} suppliers={suppliers} onResult={announce} />
@@ -74,7 +96,7 @@ export function AdminInventoryClient({
       <div className="mt-8 grid gap-4">
         {batches.length === 0 ? (
           <p className="rounded-lg border border-[#ded6ca] bg-white p-5 text-sm text-[#6c5e52]">
-            Inventory not configured yet.
+            Action required: receive your first inventory batch to enable expiry and waste tracking.
           </p>
         ) : (
           batches.map((batch) => <BatchRow key={batch.id} batch={batch} onResult={announce} />)
@@ -209,8 +231,11 @@ function BatchRow({
   onResult: (result: Awaited<ReturnType<typeof recordWaste>>) => void;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [isAdjusting, startAdjustTransition] = useTransition();
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState<string>("expired");
+  const [newRemaining, setNewRemaining] = useState(String(batch.remainingWeightKg));
+  const [adjustReason, setAdjustReason] = useState("");
   const critical = batch.daysToExpiry < 0;
   const soon = batch.daysToExpiry >= 0 && batch.daysToExpiry <= 3;
 
@@ -225,7 +250,7 @@ function BatchRow({
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-5">
         <div><dt className="font-bold">Expiry</dt><dd>{batch.expiryDate}</dd></div>
-        <div><dt className="font-bold">Remaining</dt><dd>{batch.remainingWeightKg.toFixed(3)} kg</dd></div>
+        <div><dt className="font-bold">Tracked remaining kg</dt><dd>{batch.remainingWeightKg.toFixed(3)} kg</dd></div>
         <div><dt className="font-bold">Cost/kg</dt><dd>{formatCurrency(batch.costPerKg)}</dd></div>
         <div><dt className="font-bold">At risk</dt><dd>{formatCurrency(batch.estimatedValueAtRisk)}</dd></div>
         <div><dt className="font-bold">Urgency</dt><dd>{batch.daysToExpiry < 0 ? "Expired" : batch.daysToExpiry === 0 ? "Today" : `${batch.daysToExpiry} days`}</dd></div>
@@ -252,6 +277,47 @@ function BatchRow({
         </label>
         <Button type="submit" variant="outline" disabled={isPending || batch.remainingWeightKg <= 0}>
           {isPending ? "Recording..." : "Record waste"}
+        </Button>
+      </form>
+      <form
+        className="mt-4 flex flex-wrap items-end gap-3 border-t border-[#eee5d8] pt-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          startAdjustTransition(async () => {
+            onResult(
+              await adjustInventoryRemainingWithReason({
+                batchId: batch.id,
+                newRemainingKg: Number(newRemaining),
+                reason: adjustReason,
+              }),
+            );
+          });
+        }}
+      >
+        <label className="grid gap-1 text-sm font-semibold">
+          Adjust tracked remaining kg
+          <Input
+            type="number"
+            step="0.001"
+            min="0"
+            max={batch.receivedWeightKg}
+            value={newRemaining}
+            onChange={(event) => setNewRemaining(event.target.value)}
+            required
+          />
+        </label>
+        <label className="min-w-64 flex-1 grid gap-1 text-sm font-semibold">
+          Adjustment reason
+          <Input
+            value={adjustReason}
+            onChange={(event) => setAdjustReason(event.target.value)}
+            minLength={4}
+            maxLength={300}
+            required
+          />
+        </label>
+        <Button type="submit" variant="outline" disabled={isAdjusting}>
+          {isAdjusting ? "Adjusting..." : "Adjust stock"}
         </Button>
       </form>
     </article>

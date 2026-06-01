@@ -61,6 +61,9 @@ corepack pnpm typecheck
 - V2 order references use `PTM-{YEAR}-{5-digit-sequence}` and reset annually per branch.
 - `SUPABASE_SERVICE_ROLE_KEY` and Twilio credentials must stay server-only.
 - The app supports compliance record-keeping. It must not claim to guarantee an EHO hygiene rating.
+- `npm run release:report` expects `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `NEXT_PUBLIC_APP_URL` in release/CI mode.
+- For documented local/dev release reporting, set `RELEASE_REPORT_MODE=local`. In that mode the migration drift check may print `Migration Drift Check: SKIPPED_LOCAL_ONLY`; outside local/dev that skip is a hard failure.
+- `MIGRATION_DRIFT_CHECK_MODE=local|dev` is forbidden when `RELEASE_REPORT_MODE=release`.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 

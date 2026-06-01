@@ -1,0 +1,107 @@
+
+> plaicetomeat-ops@0.1.0 release:report
+> node scripts/release-report.mjs
+
+
+ RUN  v4.1.7 C:/Users/xxxsa/Desktop/plaicetomeat-ops
+
+
+ Test Files  12 passed (12)
+      Tests  55 passed (55)
+   Start at  18:13:35
+   Duration  432ms (transform 329ms, setup 0ms, import 715ms, tests 58ms, environment 1ms)
+
+
+> plaicetomeat-ops@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.18
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 2.4s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/12) ...
+   Generating static pages (3/12) 
+   Generating static pages (6/12) 
+   Generating static pages (9/12) 
+ ✓ Generating static pages (12/12)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ƒ /                                    6.45 kB         122 kB
+├ ○ /_not-found                            996 B         103 kB
+├ ƒ /admin                               1.26 kB         117 kB
+├ ƒ /admin/audit                         1.26 kB         117 kB
+├ ƒ /admin/compliance                    3.94 kB         120 kB
+├ ƒ /admin/inventory                     3.99 kB         120 kB
+├ ƒ /admin/orders                        1.26 kB         117 kB
+├ ƒ /admin/pickup-windows                3.35 kB         119 kB
+├ ƒ /admin/products                      3.58 kB         120 kB
+├ ƒ /admin/releases                      2.77 kB         119 kB
+├ ƒ /admin/settings                      2.73 kB         119 kB
+├ ƒ /admin/shop-closures                 2.76 kB         119 kB
+├ ƒ /api/checkout                          123 B         102 kB
+├ ƒ /basket                              3.04 kB         119 kB
+├ ƒ /checkout                            4.82 kB         121 kB
+├ ƒ /counter                             70.7 kB         187 kB
+├ ƒ /counter/compliance                  1.26 kB         117 kB
+├ ƒ /counter/orders/[id]                 1.26 kB         117 kB
+├ ƒ /login                               1.93 kB         118 kB
+├ ƒ /order/[orderRef]                    1.26 kB         117 kB
+├ ƒ /order/[orderRef]/cancel                2 kB         118 kB
+├ ƒ /our-halal-promise                   1.26 kB         117 kB
+├ ƒ /privacy                             1.26 kB         117 kB
+├ ƒ /product/[slug]                      2.02 kB         118 kB
+└ ƒ /shop                                2.01 kB         118 kB
++ First Load JS shared by all             102 kB
+  ├ chunks/797-9030a418bd945a0a.js       46.1 kB
+  ├ chunks/a0e730d7-fbdf89e9c60ed2d0.js  54.2 kB
+  └ other shared chunks (total)          1.99 kB
+
+
+ƒ Middleware                             90.5 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+  PASS invalid transition rejected
+  PASS unknown status rejected
+  PASS cross-branch mutation rejected
+  PASS unauthenticated mutation rejected
+  PASS valid transition succeeds
+  PASS order_status_events row written
+  PASS audit_logs row written
+  PASS empty note rejected
+  PASS overlong note rejected
+  PASS unauthenticated note rejected
+  PASS valid note accepted
+
+ALL OPS CHECKS PASSED
+Migration Drift Check: PASS
+Migration Check: V3 and V4 migrations present.
+
+Running 7 tests using 1 worker
+
+  ok 1 [chromium] › tests\e2e\hosted-smoke.spec.ts:11:9 › hosted smoke › / renders (2.0s)
+  ok 2 [chromium] › tests\e2e\hosted-smoke.spec.ts:11:9 › hosted smoke › /shop renders (1.8s)
+  ok 3 [chromium] › tests\e2e\hosted-smoke.spec.ts:11:9 › hosted smoke › /our-halal-promise renders (1.6s)
+  ok 4 [chromium] › tests\e2e\hosted-smoke.spec.ts:18:9 › hosted smoke › /counter is protected (925ms)
+  ok 5 [chromium] › tests\e2e\hosted-smoke.spec.ts:18:9 › hosted smoke › /admin is protected (1.1s)
+  ok 6 [chromium] › tests\e2e\hosted-smoke.spec.ts:18:9 › hosted smoke › /admin/compliance is protected (911ms)
+  ok 7 [chromium] › tests\e2e\hosted-smoke.spec.ts:18:9 › hosted smoke › /admin/inventory is protected (3.6s)
+
+  7 passed (12.5s)
+
+Typecheck: PASS
+Lint: PASS
+Unit: PASS
+Build: PASS
+Ops Verify: PASS
+Migration Drift Check: PASS
+Hosted Smoke: PASS
+Release Recommendation: PASS
+(node:36564) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
