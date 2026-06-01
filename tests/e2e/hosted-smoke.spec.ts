@@ -3,6 +3,8 @@ import { expect, test } from "@playwright/test";
 const routes = [
   { path: "/", text: "PlaiceToMeat Wylde Green" },
   { path: "/shop", text: "Shop the counter" },
+  { path: "/basket", text: "Basket" },
+  { path: "/checkout", text: "Checkout" },
   { path: "/our-halal-promise", text: "Our halal promise" },
 ] as const;
 
@@ -14,7 +16,7 @@ test.describe("hosted smoke", () => {
     });
   }
 
-  for (const path of ["/counter", "/admin", "/admin/compliance", "/admin/inventory"]) {
+  for (const path of ["/counter", "/admin", "/admin/releases", "/admin/compliance", "/admin/inventory"]) {
     test(`${path} is protected`, async ({ page }) => {
       await page.goto(path);
       await expect(page).toHaveURL(/\/login\?returnTo=/);
