@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import {
   AlertTriangle,
   CalendarOff,
+  CheckCircle2,
+  Circle,
   ClipboardList,
   FileClock,
   FlaskConical,
@@ -12,6 +14,7 @@ import {
   PackageSearch,
   PoundSterling,
   Recycle,
+  Rocket,
   ShieldAlert,
   Settings,
   ShoppingBag,
@@ -21,25 +24,28 @@ import {
 } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
+import { LAUNCH_OVERALL_LABEL, type LaunchItem, type LaunchReadiness } from "@/lib/domain/launch-readiness";
 import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import { getCurrentProfile } from "@/lib/server/auth";
 import { getPublicBranch } from "@/lib/server/catalog";
 import { getDashboardMetrics } from "@/lib/server/dashboard";
+import { getLaunchReadiness } from "@/lib/server/launch-readiness";
 import { getOperationsIntelligence } from "@/lib/server/operations-intelligence";
 import { cn, formatCurrency, formatDisplayDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 const adminLinks = [
-  { href: "/admin/products", label: "Products", detail: "Products and categories", icon: PackageSearch },
-  { href: "/admin/orders", label: "Orders", detail: "Order history", icon: ShoppingBag },
-  { href: "/admin/pickup-windows", label: "Pickup Windows", detail: "Slot configuration", icon: ClipboardList },
-  { href: "/admin/shop-closures", label: "Shop Closures", detail: "Bank holidays and closures", icon: CalendarOff },
-  { href: "/admin/compliance", label: "Compliance", detail: "Supplier certificates", icon: ClipboardList },
-  { href: "/admin/inventory", label: "Inventory", detail: "Batches and waste risk", icon: PackageCheck },
-  { href: "/admin/settings", label: "Settings", detail: "Branch and SMS templates", icon: Settings },
-  { href: "/admin/audit", label: "Audit Log", detail: "Operational event history", icon: FileClock },
-  { href: "/admin/releases", label: "Releases", detail: "Deployment ledger and verification", icon: ClipboardList },
+  { href: "/admin/purchasing", label: "Purchasing & Stock Planning", detail: "What to order, what to order less of, before you call your supplier", icon: TrendingUp },
+  { href: "/admin/products", label: "Products & Prices", detail: "Add or edit what you sell and what it costs", icon: PackageSearch },
+  { href: "/admin/orders", label: "Orders", detail: "Every order customers have placed", icon: ShoppingBag },
+  { href: "/admin/pickup-windows", label: "Collection Times", detail: "The time slots customers can collect in", icon: ClipboardList },
+  { href: "/admin/shop-closures", label: "Closed Days", detail: "Holidays and days the shop is shut", icon: CalendarOff },
+  { href: "/admin/compliance", label: "Supplier Certificates", detail: "Halal and food-safety paperwork", icon: ClipboardList },
+  { href: "/admin/inventory", label: "Stock & Waste", detail: "What's in, what's going off, what was binned", icon: PackageCheck },
+  { href: "/admin/settings", label: "Shop Settings", detail: "Shop details and customer text messages", icon: Settings },
+  { href: "/admin/audit", label: "Activity History", detail: "Every change — who did it and when", icon: FileClock, ownerOnly: true },
+  { href: "/admin/releases", label: "System Checks", detail: "Technical checks for your support team — safe to skip", icon: ClipboardList, ownerOnly: true },
 ];
 
 export default async function AdminPage() {
@@ -55,6 +61,7 @@ export default async function AdminPage() {
     getDashboardMetrics(branchId),
     getOperationsIntelligence(branchId),
   ]);
+  const launch = await getLaunchReadiness(branchId, metrics);
   const actionGroups = [
     { key: "urgent", title: "Urgent" },
     { key: "money_saving", title: "Money-saving" },
@@ -89,8 +96,10 @@ export default async function AdminPage() {
   return (
     <PageFrame>
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Manager console</p>
-        <h1 className="mt-2 text-3xl font-black">Admin</h1>
+        <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Your shop</p>
+        <h1 className="mt-2 text-3xl font-black">Owner Dashboard</h1>
+
+        <LaunchReadinessCard launch={launch} />
 
         <section className="mt-6 rounded-lg border border-[#ded6ca] bg-white p-5" aria-label="Morning briefing">
           <div className="flex items-center gap-3">
@@ -130,11 +139,11 @@ export default async function AdminPage() {
         </section>
 
         {intelligence.dataState.status === "error" && (
-          <section className="mt-6 rounded-lg border border-[#b42318] bg-[#fff3f0] p-5" aria-label="Admin intelligence error">
+          <section className="mt-6 rounded-lg border border-[#b42318] bg-[#fff3f0] p-5" aria-label="Some figures could not load">
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 h-5 w-5 text-[#b42318]" aria-hidden />
               <div>
-                <h2 className="font-black text-[#7a271a]">Admin intelligence data error</h2>
+                <h2 className="font-black text-[#7a271a]">Some figures couldn&apos;t load</h2>
                 <p className="mt-1 text-sm leading-6 text-[#7a271a]">{intelligence.dataState.message}</p>
               </div>
             </div>
@@ -195,42 +204,42 @@ export default async function AdminPage() {
             />
             <MetricCard
               icon={MessageSquareWarning}
-              label="Failed SMS today"
+              label="Texts that didn't send"
               value={String(metrics.failedSmsCount)}
               testid="metric-failed-sms"
-              hint="Orders still work when SMS is off or fails"
+              hint="Orders still work fine even when texts are off or fail"
             />
             <MetricCard
               icon={FlaskConical}
-              label="Test orders today"
+              label="Practice orders today"
               value={String(metrics.testOrderCount)}
               testid="metric-test-orders"
-              hint="Excluded from order count and revenue"
+              hint="Trial orders for training — not counted in sales or takings"
             />
             <MetricCard
               icon={Gauge}
-              label="Counter connection"
-              value={metrics.realtimeMode === "websocket" ? "Live requested" : metrics.realtimeMode === "polling" ? "Polling" : "Needs checking"}
+              label="Counter screen"
+              value={metrics.realtimeMode === "websocket" ? "Updating live" : metrics.realtimeMode === "polling" ? "Checking regularly" : "Needs a look"}
               testid="metric-realtime-mode"
-              hint="Open the counter page to confirm live service updates"
+              hint="Open the Counter page to confirm orders are coming through"
             />
             <MetricCard
               icon={PackageCheck}
-              label="Waste this week"
+              label="Items binned this week"
               value={String(metrics.wasteEventsThisWeek)}
               testid="metric-waste-week"
-              hint="Recorded inventory waste events"
+              hint="Stock recorded as waste"
             />
             <MetricCard
               icon={PackageCheck}
-              label="Expiring batches"
+              label="Stock going off soon"
               value={String(metrics.expiringBatchCount)}
               testid="metric-expiring-batches"
-              hint="Active stock expiring within 3 days"
+              hint="Stock that will expire within 3 days"
             />
             <MetricCard
               icon={ShieldAlert}
-              label="Expiring certificates"
+              label="Certificates running out"
               value={String(metrics.expiringCertificates)}
               testid="metric-expiring-certificates"
               hint="Supplier certificates expiring within 30 days"
@@ -261,14 +270,14 @@ export default async function AdminPage() {
           />
           <ActionPanel
             icon={MessageSquareWarning}
-            title="System health"
-            body={`${metrics.failedSmsCount} failed SMS today. SMS notifications are optional; orders, checkout, prep, admin, and release checks continue without SMS.`}
+            title="Text Messages"
+            body={`${metrics.failedSmsCount} customer text${metrics.failedSmsCount === 1 ? "" : "s"} didn't send today. Texts are a nice-to-have — taking orders, the counter, and collections all work perfectly without them.`}
             href="/admin/settings"
           />
         </section>
 
         <section className="mt-8 grid gap-4 xl:grid-cols-3" aria-label="Operations intelligence">
-          <IntelligencePanel icon={PackageCheck} title="Expiry Command Centre">
+          <IntelligencePanel icon={PackageCheck} title="What's Going Off Soon">
             <StatLine label="Expires today" value={String(intelligence.expiry.expiresToday.length)} />
             <StatLine label="Expires this week" value={String(intelligence.expiry.expiresThisWeek.length)} />
             <StatLine label="Expired" value={String(intelligence.expiry.expired.length)} />
@@ -282,7 +291,7 @@ export default async function AdminPage() {
             ))}
           </IntelligencePanel>
 
-          <IntelligencePanel icon={Recycle} title="Waste Intelligence">
+          <IntelligencePanel icon={Recycle} title="Where Money's Being Lost">
             <StatLine label="Most wasted product" value={intelligence.waste.mostWastedProduct ?? "No waste recorded"} />
             <StatLine label="Waste this week" value={formatCurrency(intelligence.waste.weekValue)} />
             <StatLine label="Waste this month" value={formatCurrency(intelligence.waste.monthValue)} />
@@ -413,7 +422,9 @@ export default async function AdminPage() {
         </section>
 
         <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {adminLinks.map((item) => (
+          {adminLinks
+            .filter((item) => !("ownerOnly" in item && item.ownerOnly) || profile.role === "owner")
+            .map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -427,6 +438,62 @@ export default async function AdminPage() {
         </div>
       </main>
     </PageFrame>
+  );
+}
+
+function LaunchReadinessCard({ launch }: { launch: LaunchReadiness }) {
+  const overallTone =
+    launch.overall === "ready"
+      ? { border: "#bfe3cf", bg: "#f2fbf5", text: "#0f5132" }
+      : launch.overall === "attention"
+        ? { border: "#f0d8a8", bg: "#fdf6e9", text: "#92510a" }
+        : { border: "#ded6ca", bg: "#f7f3ed", text: "#6c5e52" };
+
+  return (
+    <section
+      className="mt-6 rounded-lg border p-5"
+      style={{ borderColor: overallTone.border, backgroundColor: overallTone.bg }}
+      aria-label="Launch readiness"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Rocket className="h-6 w-6" style={{ color: overallTone.text }} aria-hidden />
+          <div>
+            <h2 className="text-xl font-black">Launch Readiness</h2>
+            <p className="text-sm text-[#6c5e52]">
+              {launch.readyCount} of {launch.autoCheckedCount} checks ready. The app only ticks what it can actually see —
+              the last two are for you to confirm.
+            </p>
+          </div>
+        </div>
+        <span
+          className="rounded-full px-3 py-1 text-sm font-black"
+          style={{ backgroundColor: "white", color: overallTone.text, border: `1px solid ${overallTone.border}` }}
+        >
+          {LAUNCH_OVERALL_LABEL[launch.overall]}
+        </span>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {launch.items.map((item) => (
+          <LaunchReadinessRow key={item.key} item={item} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LaunchReadinessRow({ item }: { item: LaunchItem }) {
+  const Icon = item.status === "ready" ? CheckCircle2 : item.status === "attention" ? AlertTriangle : Circle;
+  const color = item.status === "ready" ? "#0f5132" : item.status === "attention" ? "#b45309" : "#8a7d70";
+
+  return (
+    <div className="flex items-start gap-3 rounded-md bg-white/70 p-3">
+      <Icon className="mt-0.5 h-5 w-5 shrink-0" style={{ color }} aria-hidden />
+      <div>
+        <p className="text-sm font-black">{item.label}</p>
+        <p className="mt-0.5 text-xs leading-5 text-[#5c5148]">{item.detail}</p>
+      </div>
+    </div>
   );
 }
 

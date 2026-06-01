@@ -52,8 +52,16 @@ export default async function OrderPage({ params }: { params: Promise<{ orderRef
             <h1 className="mt-4 text-5xl font-black tracking-normal">{order.orderRef}</h1>
             <p className="mt-2 text-[#6c5e52]">Order for {order.customerName}</p>
 
+            {order.status !== "ready" && order.status !== "collected" && order.status !== "cancelled" && (
+              <p className="mt-4 rounded-md bg-[#fbfaf7] p-4 text-sm leading-6 text-[#5c5148]">
+                Thanks — your order is in. The shop is preparing it for your chosen collection time. You&apos;ll pay at the
+                counter when you collect. Keep this page to check your live status, or save your order number{" "}
+                <strong>{order.orderRef}</strong>.
+              </p>
+            )}
+
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              <StatusTile icon={Clock3} label="Status" value={order.status} />
+              <StatusTile icon={Clock3} label="Status" value={customerStatusLabel(order.status)} />
               <StatusTile icon={CheckCircle2} label="Pickup" value={formatDisplayDate(order.pickupDate)} />
               <StatusTile
                 icon={CreditCard}
@@ -107,6 +115,24 @@ export default async function OrderPage({ params }: { params: Promise<{ orderRef
       </main>
     </PageFrame>
   );
+}
+
+/** Customer-friendly wording for the internal order status. */
+function customerStatusLabel(status: string): string {
+  switch (status) {
+    case "incoming":
+      return "Order received";
+    case "prepping":
+      return "Being prepared";
+    case "ready":
+      return "Ready to collect";
+    case "collected":
+      return "Collected";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
 }
 
 function StatusTile({

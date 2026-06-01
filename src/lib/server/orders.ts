@@ -201,6 +201,27 @@ export async function getOrderNotes(orderIds: string[]): Promise<Record<string, 
   return grouped;
 }
 
+// Customer-safe fragments raised intentionally by create_checkout_order. Anything
+// else (raw DB/constraint/network errors) is replaced with a generic message and
+// logged server-side, so customers never see internal database detail.
+const SAFE_CHECKOUT_MESSAGES = [
+  "no longer available",
+  "Branch is not available",
+  "Pickup window is not available",
+  "Pickup date cannot be in the past",
+  "Same-day orders close",
+  "shop is closed",
+  "pickup window is full",
+  "Minimum order is",
+];
+
+function safeCheckoutMessage(raw: string | undefined): string {
+  if (raw && SAFE_CHECKOUT_MESSAGES.some((fragment) => raw.includes(fragment))) {
+    return raw.replace(/\.$/, "") + ".";
+  }
+  return "Sorry — we couldn't place your order just now. Please check your details and try again, or call the shop.";
+}
+
 async function createCheckoutOrder(input: CheckoutInput): Promise<CheckoutResult> {
   const supabase = createSupabaseServiceClient();
 
@@ -218,10 +239,15 @@ async function createCheckoutOrder(input: CheckoutInput): Promise<CheckoutResult
   });
 
   if (error) {
+    const isKnown = SAFE_CHECKOUT_MESSAGES.some((fragment) => error.message.includes(fragment));
+    if (!isKnown) {
+      // Real fault, not a business rule — keep the detail for developers only.
+      console.error("[checkout] create_checkout_order failed", { branchId: input.branchId, error: error.message });
+    }
     return {
       ok: false,
       status: error.message.includes("no longer available") ? 409 : 400,
-      message: error.message,
+      message: safeCheckoutMessage(error.message),
     };
   }
 

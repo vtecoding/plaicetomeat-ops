@@ -2,16 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import { getCurrentProfile } from "@/lib/server/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ActionResult = { ok: true; message: string; id?: string } | { ok: false; message: string };
 
-async function requireManager(): Promise<{ ok: true } | { ok: false; message: string }> {
+// Release/deployment tooling is owner-only (defense-in-depth: the middleware
+// guards page navigation, this guards the action call itself).
+async function requireOwner(): Promise<{ ok: true } | { ok: false; message: string }> {
   const profile = await getCurrentProfile();
   if (!profile) return { ok: false, message: "Your session has expired. Please sign in again." };
-  if (!MANAGER_ROLES.includes(profile.role)) return { ok: false, message: "Only managers and owners can do this." };
+  if (profile.role !== "owner") return { ok: false, message: "Only the owner can do this." };
   return { ok: true };
 }
 
@@ -28,7 +29,7 @@ export async function updateReleaseVerificationItem(input: {
   status: "pending" | "passed" | "failed";
   notes?: string;
 }): Promise<ActionResult> {
-  const auth = await requireManager();
+  const auth = await requireOwner();
   if (!auth.ok) return auth;
 
   const supabase = await createSupabaseServerClient();
@@ -48,7 +49,7 @@ export async function certifyRelease(input: {
   hostedSmokeResult: "pending" | "passed" | "failed";
   releaseReportResult: "pending" | "passed" | "failed";
 }): Promise<ActionResult> {
-  const auth = await requireManager();
+  const auth = await requireOwner();
   if (!auth.ok) return auth;
 
   const supabase = await createSupabaseServerClient();

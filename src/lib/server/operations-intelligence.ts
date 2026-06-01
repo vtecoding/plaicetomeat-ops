@@ -202,6 +202,10 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
   const dataErrorMessages = [orderError?.message, itemError?.message, wasteError?.message].filter(
     (message): message is string => Boolean(message),
   );
+  // Raw database errors are for developers only — never shown to the owner.
+  if (dataErrorMessages.length > 0) {
+    console.error("[operations-intelligence] data load failed", { branchId, errors: dataErrorMessages });
+  }
   const actions = buildOwnerActions({
     createdAt: now.toISOString(),
     expiringStock: expiry.expiresThisWeek
@@ -245,7 +249,7 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
       status: dataErrorMessages.length > 0 ? ("error" as const) : ("ready" as const),
       message:
         dataErrorMessages.length > 0
-          ? `Some admin intelligence failed to load: ${dataErrorMessages.join("; ")}`
+          ? "Some of today's figures couldn't be loaded just now. Your orders and counter are unaffected — try refreshing in a few minutes, and let your support person know if it keeps happening."
           : null,
     },
     morning: {

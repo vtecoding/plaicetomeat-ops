@@ -11,8 +11,8 @@ test.describe("V4 operations intelligence", () => {
     await page.goto("/admin");
 
     await expect(page.getByRole("heading", { name: "Good Morning" })).toBeVisible();
-    await expect(page.getByText("Expiry Command Centre")).toBeVisible();
-    await expect(page.getByText("Waste Intelligence")).toBeVisible();
+    await expect(page.getByText("What's Going Off Soon")).toBeVisible();
+    await expect(page.getByText("Where Money's Being Lost")).toBeVisible();
     await expect(page.getByText("Daily Profit Estimate")).toBeVisible();
     await expect(page.getByText("Product Performance")).toBeVisible();
     await expect(page.getByText("Profit & Loss")).toBeVisible();
@@ -23,7 +23,7 @@ test.describe("V4 operations intelligence", () => {
   });
 
   test("shows release governance and migration health", async ({ page }) => {
-    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await login(page, USERS.owner, { expectLanding: /\/admin/ });
     await page.goto("/admin/releases");
 
     await expect(page.getByRole("heading", { name: "Deployment Ledger" })).toBeVisible();
@@ -32,7 +32,7 @@ test.describe("V4 operations intelligence", () => {
   });
 
   test("supports audit investigation filters", async ({ page }) => {
-    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await login(page, USERS.owner, { expectLanding: /\/admin/ });
     await page.goto("/admin/audit?eventType=waste_recorded");
 
     await expect(page.getByRole("heading", { name: "Audit log" })).toBeVisible();

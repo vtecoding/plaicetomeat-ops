@@ -12,6 +12,14 @@ describe("staff route access", () => {
     expect(canAccessStaffPath("owner", "/admin")).toBe(true);
   });
 
+  it("restricts release and audit tooling to the owner", () => {
+    expect(canAccessStaffPath("manager", "/admin/releases")).toBe(false);
+    expect(canAccessStaffPath("manager", "/admin/audit")).toBe(false);
+    expect(canAccessStaffPath("owner", "/admin/releases")).toBe(true);
+    expect(canAccessStaffPath("owner", "/admin/audit")).toBe(true);
+    expect(canAccessStaffPath("staff", "/admin/releases")).toBe(false);
+  });
+
   it("identifies staff-facing paths and four-hour idle expiry", () => {
     expect(isStaffFacingPath("/shop")).toBe(false);
     expect(isStaffFacingPath("/admin/products")).toBe(true);

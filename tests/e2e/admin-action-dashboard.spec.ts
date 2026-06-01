@@ -12,7 +12,7 @@ test.describe("admin action dashboard", () => {
     await expect(page.getByRole("heading", { name: "Quick Wins" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Stock risk" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Compliance risk" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "System health" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Text Messages" })).toBeVisible();
     await expect(page.getByTestId("metric-awaiting-prep")).toBeVisible();
   });
 });

@@ -3,6 +3,7 @@ import { buildComplianceActions } from "./compliance-actions";
 import { buildCustomerActions } from "./customer-actions";
 import { buildMarginActions } from "./margin-actions";
 import { sortOwnerActions } from "./action-score";
+import { buildSeasonalActions } from "./seasonal-actions";
 import { buildStockActions } from "./stock-actions";
 import type { ActionEngineInput, OwnerAction } from "./action-types";
 import { buildWasteActions } from "./waste-actions";
@@ -15,6 +16,7 @@ export function buildOwnerActions(input: ActionEngineInput): OwnerAction[] {
     ...buildMarginActions(input),
     ...buildCustomerActions(input),
     ...buildBasketActions(input),
+    ...buildSeasonalActions(input),
     ...buildSystemActions(input),
   ];
 
