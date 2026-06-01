@@ -7,11 +7,8 @@ V1 is pay-on-collection only: customers place an order online, collect from the 
 ## Deployment Notes
 
 - Canonical production: https://plaicetomeat-ops.vercel.app
-- Non-canonical fallback: https://plaicetomeat-ops-iota.vercel.app
 - Owner/account of canonical: vtecoding
-- Owner/account of fallback: chillgames
-- Do not use the fallback for customer-facing links.
-- Recommended cleanup: delete or archive the chillgames fallback after 7 stable canonical production days.
+- The repository should only reference the canonical production deployment.
 
 ## V2.1 Readiness Notes
 
