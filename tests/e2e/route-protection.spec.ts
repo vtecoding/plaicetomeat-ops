@@ -5,11 +5,14 @@ import { expectNoBackOfficeNav, login, USERS } from "./helpers";
 const MANAGER_ONLY = [
   "/admin",
   "/admin/products",
+  "/admin/purchasing",
   "/admin/pickup-windows",
   "/admin/shop-closures",
   "/admin/orders",
   "/admin/settings",
 ];
+
+const OWNER_ONLY = ["/admin/releases", "/admin/audit"];
 
 const STAFF_FACING = ["/counter", "/counter/compliance", ...MANAGER_ONLY];
 
@@ -26,6 +29,14 @@ test.describe("route protection", () => {
     for (const path of MANAGER_ONLY) {
       await page.goto(path);
       await expect(page, `staff should not reach ${path}`).not.toHaveURL(new RegExp(path.replace(/\//g, "\\/") + "$"));
+    }
+  });
+
+  test("managers cannot reach owner-only release/audit tools", async ({ page }) => {
+    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    for (const path of OWNER_ONLY) {
+      await page.goto(path);
+      await expect(page, `manager should not reach ${path}`).not.toHaveURL(new RegExp(path.replace(/\//g, "\\/") + "$"));
     }
   });
 
