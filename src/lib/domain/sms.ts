@@ -77,10 +77,10 @@ export function getSmsBadgeState(
 }
 
 export const SMS_BADGE_LABELS: Record<SmsStatus, string> = {
-  disabled: "SMS notifications are off",
-  not_required: "SMS not sent",
-  queued: "SMS queued",
-  dry_run: "SMS dry-run",
-  sent: "SMS sent",
-  failed: "SMS failed - contact manually",
+  disabled: "Text alerts off",
+  not_required: "No text needed",
+  queued: "Text sending…",
+  dry_run: "Practice — no real text",
+  sent: "Text sent ✓",
+  failed: "Text didn't send — call them",
 };

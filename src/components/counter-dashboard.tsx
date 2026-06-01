@@ -33,12 +33,12 @@ const columns: { status: OrderStatus; label: string }[] = [
 ];
 
 const CONNECTION_META: Record<CounterConnectionState, { tone: "green" | "amber" | "red" | "neutral"; label: string }> = {
-  connecting: { tone: "neutral", label: "Connecting..." },
-  live: { tone: "green", label: "Realtime connected" },
-  reconnecting: { tone: "amber", label: "Reconnecting..." },
-  stale: { tone: "amber", label: "Updates may be stale" },
-  failed: { tone: "red", label: "Realtime unavailable" },
-  polling: { tone: "amber", label: "Polling every 15s (realtime off)" },
+  connecting: { tone: "neutral", label: "Connecting…" },
+  live: { tone: "green", label: "Live — new orders appear on their own" },
+  reconnecting: { tone: "amber", label: "Reconnecting…" },
+  stale: { tone: "amber", label: "May be behind — tap Refresh" },
+  failed: { tone: "red", label: "Not updating on its own — tap Refresh" },
+  polling: { tone: "amber", label: "Checking for new orders every 15s" },
 };
 
 export function CounterDashboard({
@@ -136,9 +136,6 @@ export function CounterDashboard({
             )}
             {connection.label}
           </Badge>
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#6c5e52]">
-            REALTIME_MODE={realtimeMode}
-          </span>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => void refetch()}>
@@ -149,10 +146,10 @@ export function CounterDashboard({
             variant="outline"
             size="sm"
             onClick={() => setForcePolling((value) => !value)}
-            title="Switch between realtime and polling"
+            title="Choose whether new orders appear automatically or only when you tap Refresh"
           >
             <RotateCcw className="h-4 w-4" aria-hidden />
-            {forcePolling ? "Resume realtime" : "Use polling"}
+            {forcePolling ? "Turn on auto-updates" : "Turn off auto-updates"}
           </Button>
         </div>
       </div>

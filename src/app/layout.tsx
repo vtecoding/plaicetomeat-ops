@@ -3,10 +3,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "PlaiceToMeat Ops",
-    template: "%s | PlaiceToMeat Ops",
+    default: "PlaiceToMeat Wylde Green — Halal Butcher",
+    template: "%s | PlaiceToMeat",
   },
-  description: "Click-and-collect ordering and counter operations for PlaiceToMeat.",
+  description: "Order your halal meat online and collect fresh from PlaiceToMeat in Wylde Green.",
 };
 
 export default function RootLayout({

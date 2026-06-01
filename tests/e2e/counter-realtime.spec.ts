@@ -20,8 +20,8 @@ test.describe("counter realtime", () => {
     await login(pageB, USERS.staff, { expectLanding: /\/counter/ });
 
     // Both should establish a real realtime connection (badge reflects state).
-    await expect(pageA.getByText("Realtime connected")).toBeVisible({ timeout: 15_000 });
-    await expect(pageB.getByText("Realtime connected")).toBeVisible({ timeout: 15_000 });
+    await expect(pageA.getByText("new orders appear on their own")).toBeVisible({ timeout: 15_000 });
+    await expect(pageB.getByText("new orders appear on their own")).toBeVisible({ timeout: 15_000 });
 
     // Move PTM-2026-90002 (prepping) -> ready in context A.
     const cardA = columnSection(pageA, "Prepping").locator("article", { hasText: "PTM-2026-90002" });
@@ -42,10 +42,10 @@ test.describe("counter realtime", () => {
 
   test("manual degradation flips the badge to polling honestly", async ({ page }) => {
     await login(page, USERS.staff, { expectLanding: /\/counter/ });
-    await expect(page.getByText("Realtime connected")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("new orders appear on their own")).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole("button", { name: "Use polling" }).click();
-    await expect(page.getByText(/Polling every 15s/)).toBeVisible();
-    await expect(page.getByText("Realtime connected")).toHaveCount(0);
+    await page.getByRole("button", { name: "Turn off auto-updates" }).click();
+    await expect(page.getByText(/every 15s/)).toBeVisible();
+    await expect(page.getByText("new orders appear on their own")).toHaveCount(0);
   });
 });

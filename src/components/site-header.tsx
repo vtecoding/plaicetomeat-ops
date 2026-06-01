@@ -43,7 +43,7 @@ export async function SiteHeader() {
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-black uppercase tracking-[0.08em]">
-              PlaiceToMeat Ops
+              PlaiceToMeat
             </span>
             <span className="block truncate text-xs text-[#6c5e52]">{demoBranch.address}</span>
           </span>
