@@ -11,9 +11,9 @@ export function buildWasteActions(input: ActionEngineInput): OwnerAction[] {
       category: "waste",
       group: "money_saving",
       severity: "warning",
-      title: `${top.label} is driving most waste`,
-      explanation: `${top.label} accounts for ${formatMoney(top.value)} of waste this week.`,
-      estimatedImpact: `Reducing over-ordering could protect up to ${formatMoney(top.value)} this week.`,
+      title: `${top.label} is costing money`,
+      explanation: `${formatMoney(top.value)} wasted this week.`,
+      estimatedImpact: `Potential saving: ${formatMoney(top.value)} this week.`,
       recommendedAction: `Reduce next ${top.label} order by 10-20% unless weekend demand is expected, or create a short-dated offer.`,
       sourceMetrics: {
         productName: top.label,
@@ -31,6 +31,8 @@ function slug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+const moneyFormatter = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+
 function formatMoney(value: number) {
-  return `£${value.toFixed(2)}`;
+  return moneyFormatter.format(value);
 }

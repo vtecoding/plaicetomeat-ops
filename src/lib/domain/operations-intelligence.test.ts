@@ -56,7 +56,7 @@ describe("operations intelligence", () => {
       inventoryCost: null,
       wasteCost: 18,
       estimatedGrossProfit: null,
-      unavailableReason: "Margin unavailable - missing product cost.",
+      unavailableReason: "Margin unavailable - product cost not entered.",
     });
   });
 
@@ -78,7 +78,7 @@ describe("operations intelligence", () => {
     const result = buildBasketIntelligence([]);
 
     expect(result.status).toBe("insufficient_history");
-    expect(result.message).toBe("Basket intelligence needs more real orders.");
+    expect(result.message).toBe("More customer orders are needed before recommendations can be shown.");
   });
 
   it("finds common basket pairings from real order history", () => {

@@ -20,8 +20,8 @@ test.describe("owner dashboard", () => {
     await expect(page.getByTestId("metric-ready")).toHaveText("1");
     await expect(page.getByTestId("metric-revenue")).toHaveText("£78.47");
 
-    await expect(page.getByText("Stock risk")).toBeVisible();
-    await expect(page.getByText("Compliance risk")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Stock risk" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Compliance risk" })).toBeVisible();
     await expect(page.getByTestId("metric-realtime-mode")).toBeVisible();
   });
 

@@ -37,6 +37,8 @@ function slug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+const moneyFormatter = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+
 function formatMoney(value: number) {
-  return `£${value.toFixed(2)}`;
+  return moneyFormatter.format(value);
 }

@@ -15,12 +15,12 @@ export function buildMarginActions(input: ActionEngineInput): OwnerAction[] {
       category: "margin",
       group: "money_saving",
       severity: worstNegative ? "warning" : "info",
-      title: `${target.productName} has waste dragging margin`,
+      title: `${target.productName} is losing money`,
       explanation:
         target.grossProfit !== null
-          ? `${target.productName} is showing ${formatMoney(target.grossProfit)} estimated gross profit after ${formatMoney(target.wasteCost)} waste.`
-          : `${target.productName} has ${formatMoney(target.wasteCost)} waste cost, but margin cannot be completed without product cost.`,
-      estimatedImpact: `${formatMoney(target.wasteCost)} waste drag identified.`,
+          ? `${target.productName} is showing ${formatMoney(target.grossProfit)} estimated profit after ${formatMoney(target.wasteCost)} waste.`
+          : `${target.productName} has ${formatMoney(target.wasteCost)} waste cost, but product cost has not been entered.`,
+      estimatedImpact: `Potential saving: ${formatMoney(target.wasteCost)} waste reduction opportunity.`,
       recommendedAction: `Review ${target.productName} ordering and prep plan before the next supplier order.`,
       sourceMetrics: {
         productName: target.productName,
@@ -37,6 +37,8 @@ function slug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+const moneyFormatter = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+
 function formatMoney(value: number) {
-  return `£${value.toFixed(2)}`;
+  return moneyFormatter.format(value);
 }

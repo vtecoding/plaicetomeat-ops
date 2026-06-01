@@ -26,7 +26,7 @@ import { getCurrentProfile } from "@/lib/server/auth";
 import { getPublicBranch } from "@/lib/server/catalog";
 import { getDashboardMetrics } from "@/lib/server/dashboard";
 import { getOperationsIntelligence } from "@/lib/server/operations-intelligence";
-import { formatCurrency, formatDisplayDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDisplayDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +62,29 @@ export default async function AdminPage() {
     { key: "compliance", title: "Compliance" },
     { key: "customer_growth", title: "Customer growth" },
   ] as const;
+  const quickWins = [
+    {
+      label: "Potential saving",
+      value:
+        intelligence.waste.weekValue > 0
+          ? `${formatCurrency(intelligence.waste.weekValue)} waste reduction opportunity`
+          : "No recorded waste saving this week",
+    },
+    {
+      label: "Potential revenue",
+      value:
+        intelligence.customers.firstTimeCustomers > 0
+          ? `${intelligence.customers.firstTimeCustomers} first-time customers not yet returned`
+          : "No first-time customer follow-up due",
+    },
+    {
+      label: "Potential stock risk",
+      value:
+        intelligence.expiry.valueAtRisk > 0
+          ? `${formatCurrency(intelligence.expiry.valueAtRisk)} inventory at risk`
+          : "No inventory value currently at risk",
+    },
+  ];
 
   return (
     <PageFrame>
@@ -87,6 +110,25 @@ export default async function AdminPage() {
           </div>
         </section>
 
+        <section className="mt-6 grid gap-4 lg:grid-cols-3" aria-label="Daily routine">
+          <ChecklistPanel
+            title="Opening Checklist"
+            items={["Counter online", "Certificates checked", "No stock expiring today", "Orders reviewed", "Waste recorded"]}
+          />
+          <ChecklistPanel
+            title="Closing Checklist"
+            items={["Orders completed", "Waste recorded", "Stock checked", "Tomorrow's risk reviewed", "Counter closed"]}
+          />
+          <article className="rounded-lg border border-[#ded6ca] bg-white p-5">
+            <h2 className="font-black">Quick Wins</h2>
+            <div className="mt-4 space-y-3">
+              {quickWins.map((win) => (
+                <QuickWin key={win.label} label={win.label} value={win.value} />
+              ))}
+            </div>
+          </article>
+        </section>
+
         {intelligence.dataState.status === "error" && (
           <section className="mt-6 rounded-lg border border-[#b42318] bg-[#fff3f0] p-5" aria-label="Admin intelligence error">
             <div className="flex items-start gap-3">
@@ -99,11 +141,11 @@ export default async function AdminPage() {
           </section>
         )}
 
-        <section className="mt-6 rounded-lg border border-[#ded6ca] bg-white p-5" aria-label="Owner Actions">
+        <section className="mt-6 rounded-lg border border-[#ded6ca] bg-white p-5" aria-label="Today's Actions">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Action Intelligence</p>
-            <h2 className="mt-1 text-xl font-black">Owner Actions</h2>
-            <p className="mt-1 text-sm text-[#6c5e52]">Deterministic recommendations backed by live source metrics.</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Today&apos;s Actions</p>
+            <h2 className="mt-1 text-xl font-black">Owner Task List</h2>
+            <p className="mt-1 text-sm text-[#6c5e52]">Plain-English actions backed by live shop data.</p>
           </div>
           <div className="mt-5 grid gap-4 lg:grid-cols-5">
             {actionGroups.map((group) => {
@@ -113,7 +155,7 @@ export default async function AdminPage() {
                   <h3 className="text-sm font-black">{group.title}</h3>
                   <div className="mt-3 space-y-3">
                     {actions.length === 0 ? (
-                      <p className="text-sm text-[#6c5e52]">No metric-backed action right now.</p>
+                      <p className="text-sm text-[#6c5e52]">No action needed right now.</p>
                     ) : (
                       actions.map((action) => <OwnerActionCard key={action.id} action={action} />)
                     )}
@@ -126,7 +168,7 @@ export default async function AdminPage() {
 
         <section className="mt-6" data-testid="owner-dashboard" aria-label="Today's operational summary">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-lg font-black">Today · {formatDisplayDate(metrics.date)}</h2>
+            <h2 className="text-lg font-black">Today - {formatDisplayDate(metrics.date)}</h2>
             {!metrics.configured && (
               <span className="text-sm text-[#6c5e52]">Live metrics unavailable (database not configured)</span>
             )}
@@ -156,6 +198,7 @@ export default async function AdminPage() {
               label="Failed SMS today"
               value={String(metrics.failedSmsCount)}
               testid="metric-failed-sms"
+              hint="Orders still work when SMS is off or fails"
             />
             <MetricCard
               icon={FlaskConical}
@@ -166,10 +209,10 @@ export default async function AdminPage() {
             />
             <MetricCard
               icon={Gauge}
-              label="Realtime mode"
-              value={metrics.realtimeMode === "websocket" ? "Live requested" : metrics.realtimeMode === "polling" ? "Polling" : "Auto/degraded-ready"}
+              label="Counter connection"
+              value={metrics.realtimeMode === "websocket" ? "Live requested" : metrics.realtimeMode === "polling" ? "Polling" : "Needs checking"}
               testid="metric-realtime-mode"
-              hint="Badge on counter reflects actual connection state"
+              hint="Open the counter page to confirm live service updates"
             />
             <MetricCard
               icon={PackageCheck}
@@ -219,7 +262,7 @@ export default async function AdminPage() {
           <ActionPanel
             icon={MessageSquareWarning}
             title="System health"
-            body={`${metrics.failedSmsCount} failed SMS today. SMS sending remains env-gated; realtime mode is ${metrics.realtimeMode}.`}
+            body={`${metrics.failedSmsCount} failed SMS today. SMS notifications are optional; orders, checkout, prep, admin, and release checks continue without SMS.`}
             href="/admin/settings"
           />
         </section>
@@ -260,11 +303,12 @@ export default async function AdminPage() {
         </section>
 
         <section className="mt-8 grid gap-4 xl:grid-cols-3" aria-label="Business intelligence">
-          <IntelligencePanel icon={TrendingUp} title="Margin Intelligence">
-            <StatLine label="Best margin product" value={intelligence.margin.best[0]?.productName ?? "Margin unavailable"} />
-            <StatLine label="Worst margin product" value={intelligence.margin.worst[0]?.productName ?? "Margin unavailable"} />
-            <StatLine label="Highest waste drag" value={intelligence.margin.highestWasteDrag?.productName ?? "No waste drag"} />
-            <StatLine label="Gross profit today" value={formatNullableCurrency(intelligence.financial.estimatedGrossProfit)} />
+          <IntelligencePanel icon={TrendingUp} title="Profit & Loss">
+            <StatLine label="Most profitable product" value={intelligence.margin.best[0]?.productName ?? "Margin unavailable"} />
+            <StatLine label="Least profitable product" value={intelligence.margin.worst[0]?.productName ?? "Margin unavailable"} />
+            <StatLine label="Product causing most waste" value={intelligence.margin.highestWasteDrag?.productName ?? "No waste recorded"} />
+            <StatLine label="Total estimated profit" value={formatNullableCurrency(intelligence.financial.estimatedGrossProfit)} />
+            <StatLine label="Total estimated waste cost" value={formatCurrency(intelligence.financial.wasteCost)} />
             {intelligence.margin.unavailable.slice(0, 2).map((product) => (
               <p key={`unavailable-${product.productName}`} className="mt-3 text-sm text-[#7a271a]">
                 <strong>{product.productName}</strong>: {product.marginUnavailableReason}
@@ -272,35 +316,38 @@ export default async function AdminPage() {
             ))}
           </IntelligencePanel>
 
-          <IntelligencePanel icon={PackageCheck} title="Inventory Depletion Forecast">
+          <IntelligencePanel icon={PackageCheck} title="Stock Running Low">
             {intelligence.depletion.length === 0 ? (
               <p className="text-sm text-[#6c5e52]">No active stock to forecast.</p>
             ) : (
               intelligence.depletion.slice(0, 5).map((row) => (
                 <p key={row.batchId} className="mt-3 text-sm text-[#5c5148]">
                   <strong>{row.productName}</strong> - {row.message}
+                  {row.state === "enough_data" ? " Suggested action: Consider ordering more stock." : ""}
                 </p>
               ))
             )}
           </IntelligencePanel>
 
-          <IntelligencePanel icon={Users} title="Customer Value Tracking">
+          <IntelligencePanel icon={Users} title="Customer Loyalty">
             <StatLine label="First time customers" value={String(intelligence.customers.firstTimeCustomers)} />
-            <StatLine label="Repeat customers" value={String(intelligence.customers.repeatCustomers)} />
-            <StatLine label="Repeat rate" value={`${intelligence.customers.repeatRate}%`} />
-            <StatLine label="Average order value" value={formatCurrency(intelligence.customers.averageOrderValue)} />
+            <StatLine label="Returning customers" value={String(intelligence.customers.repeatCustomers)} />
+            <StatLine label="Repeat customer rate" value={`${intelligence.customers.repeatRate}%`} />
+            <StatLine label="Average spend per customer" value={formatCurrency(intelligence.customers.averageOrderValue)} />
             {intelligence.customers.topCustomers.slice(0, 3).map((customer) => (
               <p key={customer.customerPhone} className="mt-3 text-sm text-[#5c5148]">
-                <strong>{customer.customerName}</strong> - {customer.orders} orders - {formatCurrency(customer.spend)} lifetime -{" "}
-                {formatCurrency(customer.averageOrderValue)} AOV - last{" "}
-                {new Date(customer.lastOrder).toLocaleDateString("en-GB")}
+                <strong>{customer.customerName}</strong>
+                <br />
+                {formatCurrency(customer.spend)} spent
+                <br />
+                Last order: {new Date(customer.lastOrder).toLocaleDateString("en-GB")}
               </p>
             ))}
           </IntelligencePanel>
         </section>
 
         <section className="mt-8 grid gap-4 xl:grid-cols-3" aria-label="Growth and compliance intelligence">
-          <IntelligencePanel icon={ShoppingBag} title="Basket Intelligence">
+          <IntelligencePanel icon={ShoppingBag} title="What Customers Buy Together">
             <StatLine label="Real orders analysed" value={String(intelligence.basket.realOrderCount)} />
             <StatLine label="Average basket value" value={formatCurrency(intelligence.basket.averageBasketValue)} />
             {intelligence.basket.bundleSuggestion ? (
@@ -317,8 +364,24 @@ export default async function AdminPage() {
             ))}
           </IntelligencePanel>
 
-          <IntelligencePanel icon={ShieldAlert} title="Compliance Intelligence">
-            <StatLine label="Compliance dashboard" value={intelligence.compliance.status} />
+          <IntelligencePanel icon={ShieldAlert} title="Food Compliance">
+            <StatLine label="Status" value={intelligence.compliance.status} />
+            <StatLine
+              label="Certificates expiring soon"
+              value={String(
+                intelligence.compliance.rows.filter(
+                  (row) => row.daysToExpiry !== null && row.daysToExpiry >= 0 && row.daysToExpiry <= 30,
+                ).length,
+              )}
+            />
+            <StatLine
+              label="Certificates expired"
+              value={String(intelligence.compliance.rows.filter((row) => row.daysToExpiry !== null && row.daysToExpiry < 0).length)}
+            />
+            <StatLine
+              label="Missing certificates"
+              value={String(intelligence.compliance.rows.filter((row) => row.daysToExpiry === null).length)}
+            />
             {intelligence.compliance.rows.slice(0, 4).map((supplier) => (
               <StatLine
                 key={supplier.supplierName}
@@ -328,10 +391,13 @@ export default async function AdminPage() {
                     ? "Missing"
                     : supplier.daysToExpiry < 0
                       ? "Expired"
-                      : `${supplier.daysToExpiry} days`
+                      : `${supplier.daysToExpiry} days remaining`
                 }
               />
             ))}
+            {intelligence.compliance.rows.some((row) => row.daysToExpiry === null || row.daysToExpiry <= 30) && (
+              <p className="mt-3 text-sm font-bold text-[#0f5132]">Required action: contact supplier and upload updated certificate.</p>
+            )}
           </IntelligencePanel>
 
           <IntelligencePanel icon={TrendingUp} title="Product Performance">
@@ -378,19 +444,48 @@ function OwnerActionCard({
     confidence: string;
   };
 }) {
-  const supportingNumber = Object.entries(action.sourceMetrics).find(([, value]) => typeof value === "number");
-
   return (
     <article className="rounded-md border border-[#ded6ca] bg-white p-3">
       <p className="text-xs font-black uppercase tracking-[0.08em] text-[#6c5e52]">{action.severity}</p>
       <h4 className="mt-1 text-sm font-black">{action.title}</h4>
-      <p className="mt-2 text-sm text-[#5c5148]">{action.explanation}</p>
-      <p className="mt-2 text-sm font-bold text-[#0f5132]">{action.recommendedAction}</p>
-      <p className="mt-2 text-xs text-[#6c5e52]">
-        Impact: {action.estimatedImpact}
-        {supportingNumber ? ` Supporting number: ${supportingNumber[0]} ${supportingNumber[1]}.` : ""}
-      </p>
+      <ActionDetail label="What happened" value={action.explanation} />
+      <ActionDetail label="Why it matters" value={action.estimatedImpact} />
+      <ActionDetail label="What to do" value={action.recommendedAction} strong />
     </article>
+  );
+}
+
+function ActionDetail({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="mt-2">
+      <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#8a7d70]">{label}</p>
+      <p className={cn("mt-1 text-sm text-[#5c5148]", strong && "font-bold text-[#0f5132]")}>{value}</p>
+    </div>
+  );
+}
+
+function ChecklistPanel({ title, items }: { title: string; items: string[] }) {
+  return (
+    <article className="rounded-lg border border-[#ded6ca] bg-white p-5">
+      <h2 className="font-black">{title}</h2>
+      <ul className="mt-4 space-y-3">
+        {items.map((item) => (
+          <li key={item} className="flex items-center gap-3 text-sm font-semibold text-[#5c5148]">
+            <input type="checkbox" className="h-4 w-4 rounded border-[#b9ad9f] accent-[#0f5132]" aria-label={item} />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </article>
+  );
+}
+
+function QuickWin({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-[#f7f3ed] p-3">
+      <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">{label}</p>
+      <p className="mt-1 text-sm font-black">{value}</p>
+    </div>
   );
 }
 
@@ -454,7 +549,7 @@ function StatLine({ label, value }: { label: string; value: string }) {
 }
 
 function formatNullableCurrency(value: number | null) {
-  return value === null ? "Margin unavailable - missing product cost." : formatCurrency(value);
+  return value === null ? "Margin unavailable - product cost not entered." : formatCurrency(value);
 }
 
 function MetricCard({
