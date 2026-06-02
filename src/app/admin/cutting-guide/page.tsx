@@ -6,7 +6,8 @@ import { CarcassCalculator } from "@/components/carcass-calculator";
 import { PageFrame } from "@/components/site-header";
 import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import { getCurrentProfile } from "@/lib/server/auth";
-import { getAllProducts, getPublicBranch } from "@/lib/server/catalog";
+import { getAllProducts, getProductCostMap, getPublicBranch } from "@/lib/server/catalog";
+import { getSuppliers } from "@/lib/server/compliance-inventory";
 
 export const metadata = { title: "Cutting & Pricing Guide" };
 export const dynamic = "force-dynamic";
@@ -18,7 +19,19 @@ export default async function CuttingGuidePage() {
   }
 
   const branch = await getPublicBranch();
-  const products = (await getAllProducts(profile.branchId ?? branch.id)).map((p) => ({ id: p.id, name: p.name }));
+  const branchId = profile.branchId ?? branch.id;
+  const [allProducts, costMap, supplierRows] = await Promise.all([
+    getAllProducts(branchId),
+    getProductCostMap(branchId),
+    getSuppliers(branchId, { publicOnly: true }),
+  ]);
+  const products = allProducts.map((p) => ({
+    id: p.id,
+    name: p.name,
+    pricePerUnit: p.pricePerUnit,
+    costPerKg: costMap.get(p.id) ?? null,
+  }));
+  const suppliers = supplierRows.map((s) => ({ id: s.id, name: s.name }));
 
   return (
     <PageFrame>
@@ -36,7 +49,7 @@ export default async function CuttingGuidePage() {
         </div>
 
         <section className="mt-8">
-          <CarcassCalculator products={products} />
+          <CarcassCalculator products={products} branchId={branchId} suppliers={suppliers} />
         </section>
 
         <p className="mt-6 text-sm text-[#6c5e52]">

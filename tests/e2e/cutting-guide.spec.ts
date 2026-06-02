@@ -87,6 +87,47 @@ test.describe("cutting & pricing guide", () => {
     await expect(page.locator('[data-testid="product-row"]', { hasText: name }).getByTestId("product-price-input")).toHaveValue("9.82");
   });
 
+  test("carcass intake confirms, creates stock and updates a linked product", async ({ page }) => {
+    const name = `V6.4 Intake Lamb Leg ${Date.now()}`;
+
+    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await page.goto("/admin/products");
+    await page.getByTestId("add-product-button").click();
+    await page.getByTestId("new-product-name").fill(name);
+    await page.getByTestId("new-product-price").fill("1.00");
+    await page.getByTestId("new-product-submit").click();
+    await expect(page.getByTestId("product-feedback")).toContainText("created");
+
+    await page.goto("/admin/cutting-guide");
+    await page.getByPlaceholder("e.g. 108").fill("108");
+    await page.getByTestId("calculate-selling-prices").click();
+
+    // Intake panel appears after calculation; open it (progressive disclosure).
+    await expect(page.getByTestId("carcass-intake-panel")).toBeVisible();
+    await page.getByTestId("carcass-intake-toggle").click();
+
+    // Map the leg cut to the new product and choose to update its public price.
+    await page.getByTestId("intake-product-leg").selectOption({ label: name });
+    await page.getByTestId("intake-update-price-leg").check();
+
+    // Preview must show the stock line and flag the still-unmapped cuts for review.
+    await expect(page.getByTestId("intake-preview")).toContainText("Create stock for");
+    await expect(page.getByTestId("intake-review-note")).toContainText("need a product");
+
+    await page.getByTestId("confirm-intake").click();
+
+    await expect(page.getByTestId("intake-confirmed")).toBeVisible();
+    await expect(page.getByTestId("intake-confirmed")).toContainText("Stock created for 1 cut");
+    // No second confirm button — duplicate confirmation is blocked at the UI.
+    await expect(page.getByTestId("confirm-intake")).toHaveCount(0);
+
+    // The linked product's price now reflects the confirmed intake.
+    await page.goto("/admin/products");
+    await expect(
+      page.locator('[data-testid="product-row"]', { hasText: name }).getByTestId("product-price-input"),
+    ).toHaveValue("9.82");
+  });
+
   test("animal switching keeps the professional map stable on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
