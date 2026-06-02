@@ -1,9 +1,7 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
-import { findCutMapRegion, getCutMap, getToolGuidance } from "@/lib/domain/cut-map-data";
+import { findCutMapRegion, getCutMap } from "@/lib/domain/cut-map-data";
 import { cn } from "@/lib/utils";
 
 type CutMapPanelProps = {
@@ -17,33 +15,40 @@ export function CutMapPanel({ animalType, selectedCutId, selectedCutName, onSele
   const map = getCutMap(animalType);
   const selectedRegion = selectedCutId ? findCutMapRegion(animalType, selectedCutId) : null;
   const selectedRegionByName = !selectedRegion && selectedCutName ? findCutMapRegion(animalType, selectedCutName) : selectedRegion;
-  const guidance = selectedCutId ? getToolGuidance(selectedCutId) ?? (selectedCutName ? getToolGuidance(selectedCutName) : null) : null;
 
   if (!map) {
     return (
-      <section className="rounded-xl border border-[#f0d8a8] bg-[#fdf6e9] p-4" data-testid="cut-map-panel">
-        <div className="flex items-start gap-2">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#92510a]" aria-hidden />
-          <p className="text-sm text-[#92510a]">No animal map configured for this animal type.</p>
-        </div>
+      <section className="rounded-xl border border-[#f0d8a8] bg-[#fff8e8] p-4" data-testid="cut-map-panel">
+        <p className="text-sm font-bold text-[#7a4b00]">Cut map unavailable for this animal yet.</p>
       </section>
     );
   }
 
+  const selectedText = selectedRegionByName ? `Selected region: ${selectedRegionByName.label}` : "This cut is not mapped yet.";
+
   return (
     <section className="rounded-xl border border-[#ded6ca] bg-white p-4" data-testid="cut-map-panel">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-black text-[#1f1b16]">V6.2 visual cut map</p>
-          <p className="text-xs leading-5 text-[#6c5e52]">{map.sourceNote}</p>
-        </div>
-        <Badge tone={selectedRegionByName ? "green" : "amber"}>
-          {selectedRegionByName ? `Region: ${selectedRegionByName.label}` : "No map region configured"}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#8a7d70]">Cut map</p>
+        <Badge tone={selectedRegionByName ? "green" : "amber"} data-testid="selected-cut-region">
+          {selectedText}
         </Badge>
       </div>
 
       <svg className="mt-3 h-auto w-full" viewBox={map.viewBox} role="img" aria-label={map.title}>
-        <path d={map.outlinePath} fill="#fbfaf7" stroke="#8a7d70" strokeWidth="3" />
+        <defs>
+          <filter id={`shadow-${map.animalType}`} x="-5%" y="-5%" width="110%" height="110%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#231f20" floodOpacity="0.1" />
+          </filter>
+        </defs>
+        <path
+          d={map.outlinePath}
+          fill="#f4efe7"
+          stroke="#6c5e52"
+          strokeWidth="3"
+          strokeLinejoin="round"
+          filter={`url(#shadow-${map.animalType})`}
+        />
         {map.regions.map((region) => {
           const active = selectedRegionByName?.id === region.id;
           return (
@@ -52,12 +57,15 @@ export function CutMapPanel({ animalType, selectedCutId, selectedCutName, onSele
                 d={region.path}
                 role="button"
                 tabIndex={0}
-                aria-label={`Highlight ${region.label}`}
+                aria-label={`View ${region.label}`}
+                aria-pressed={active}
                 data-testid={`cut-map-region-${region.id}`}
-                className="cursor-pointer transition"
-                fill={active ? "#0f5132" : "#efe8dd"}
-                stroke={active ? "#083a23" : "#b7aa9c"}
-                strokeWidth={active ? 3 : 1.5}
+                className="cursor-pointer transition-colors focus:outline-none focus-visible:stroke-[#0f5132]"
+                fill={active ? "#0f5132" : "#e7dfd3"}
+                fillOpacity={active ? 1 : 0.85}
+                stroke={active ? "#072d1c" : "#b3a895"}
+                strokeWidth={active ? 3 : 1.75}
+                strokeLinejoin="round"
                 onClick={() => onSelectCut(region.id)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
@@ -71,7 +79,10 @@ export function CutMapPanel({ animalType, selectedCutId, selectedCutName, onSele
                 y={region.labelY}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                className={cn("pointer-events-none select-none fill-[#3b332c] text-[13px] font-black", active && "fill-white")}
+                className={cn("pointer-events-none select-none text-[14px] font-black", active ? "fill-white" : "fill-[#3a342d]")}
+                paintOrder="stroke"
+                stroke={active ? "#0f5132" : "#f4efe7"}
+                strokeWidth={active ? 0 : 4}
               >
                 {region.label}
               </text>
@@ -80,21 +91,9 @@ export function CutMapPanel({ animalType, selectedCutId, selectedCutName, onSele
         })}
       </svg>
 
-      <div className="mt-4 rounded-lg bg-[#f7f3ed] p-3">
-        <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#8a7d70]">Novice guardrail</p>
-        <p className="mt-1 text-sm font-black text-[#1f1b16]">{selectedCutName ?? "No cut selected"}</p>
-        <p className="mt-1 text-sm leading-6 text-[#5c5148]">
-          {guidance
-            ? `${guidance.sourceRegion} - ${guidance.difficulty}. ${guidance.caution}`
-            : "Tool guidance unavailable. Ask an experienced butcher before changing the cut plan."}
-        </p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {guidance ? guidance.tools.map((tool) => <Badge key={tool}>{tool}</Badge>) : <Badge tone="amber">Tool guidance unavailable</Badge>}
-        </div>
-        <p className="mt-2 text-xs leading-5 text-[#8a7d70]">
-          Guidance only. This panel does not say a cut is safe to perform or replace trained butchery judgement.
-        </p>
-      </div>
+      <p className="mt-3 text-xs leading-5 text-[#8a7d70]">
+        {map.sourceNote} Ask an experienced butcher before changing seam lines.
+      </p>
     </section>
   );
 }
