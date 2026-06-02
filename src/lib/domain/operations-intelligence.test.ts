@@ -8,6 +8,7 @@ import {
   buildExpiryCommandCentre,
   buildInventoryDepletionForecast,
   buildMigrationHealth,
+  buildProductPerformance,
   buildWasteAnalytics,
 } from "@/lib/domain/operations-intelligence";
 
@@ -58,6 +59,28 @@ describe("operations intelligence", () => {
       estimatedGrossProfit: null,
       unavailableReason: "Margin unavailable - product cost not entered.",
     });
+  });
+
+  it("makes product margin visible once an estimated product cost is present", () => {
+    const result = buildProductPerformance([
+      {
+        productId: "lamb-leg",
+        productName: "Lamb Leg",
+        unitsSold: 2,
+        unitsWasted: 0,
+        revenue: 30,
+        wasteValue: 0,
+        estimatedCost: 18,
+      },
+    ]);
+
+    expect(result.best[0]).toMatchObject({
+      productName: "Lamb Leg",
+      grossProfit: 12,
+      grossMarginPercentage: 40,
+      marginUnavailableReason: null,
+    });
+    expect(result.unavailable).toHaveLength(0);
   });
 
   it("tracks repeat customers from order history only", () => {

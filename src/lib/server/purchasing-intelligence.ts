@@ -12,7 +12,7 @@ import {
   type SupplierReadiness,
 } from "@/lib/domain/purchasing-intelligence";
 import { getActiveSeasonalEvents } from "@/lib/action-intelligence/seasonal-calendar";
-import { getAllProducts } from "@/lib/server/catalog";
+import { getAllProducts, getProductCostMap } from "@/lib/server/catalog";
 import { getInventoryBatches } from "@/lib/server/compliance-inventory";
 import { getOperationsIntelligence, type OpsIntelligence } from "@/lib/server/operations-intelligence";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
@@ -98,6 +98,11 @@ export async function getPurchasingPlan(branchId: string, now = new Date()): Pro
     if (batch.costPerKg > 0 && !costByProduct.has(batch.productId)) {
       costByProduct.set(batch.productId, batch.costPerKg);
     }
+  }
+  // Per-product cost set via the cutting guide fills any gaps.
+  const productCostMap = await getProductCostMap(branchId);
+  for (const [productId, cost] of productCostMap) {
+    if (!costByProduct.has(productId)) costByProduct.set(productId, cost);
   }
 
   // Units sold per product id, from the performance rows the platform already builds.

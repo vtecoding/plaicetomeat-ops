@@ -6,6 +6,7 @@ import { CarcassCalculator } from "@/components/carcass-calculator";
 import { PageFrame } from "@/components/site-header";
 import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import { getCurrentProfile } from "@/lib/server/auth";
+import { getAllProducts, getPublicBranch } from "@/lib/server/catalog";
 
 export const metadata = { title: "Cutting & Pricing Guide" };
 export const dynamic = "force-dynamic";
@@ -15,6 +16,9 @@ export default async function CuttingGuidePage() {
   if (!profile || !MANAGER_ROLES.includes(profile.role)) {
     redirect("/");
   }
+
+  const branch = await getPublicBranch();
+  const products = (await getAllProducts(profile.branchId ?? branch.id)).map((p) => ({ id: p.id, name: p.name }));
 
   return (
     <PageFrame>
@@ -39,7 +43,7 @@ export default async function CuttingGuidePage() {
         </div>
 
         <section className="mt-8 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm sm:p-6">
-          <CarcassCalculator />
+          <CarcassCalculator products={products} />
         </section>
 
         <p className="mt-6 text-sm text-[#6c5e52]">

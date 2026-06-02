@@ -7,6 +7,7 @@ const migrationsDir = join(process.cwd(), "supabase", "migrations");
 const v3MigrationPath = join(migrationsDir, "202606011430_v3_operational_system.sql");
 const v4MigrationPath = join(migrationsDir, "202606011900_v4_operations_intelligence.sql");
 const v5MigrationPath = join(migrationsDir, "202606012030_v5_action_intelligence.sql");
+const v6ProductCostMigrationPath = join(migrationsDir, "202606021000_v6_product_cost.sql");
 const driftMode = (process.env.MIGRATION_DRIFT_CHECK_MODE ?? "release").toLowerCase();
 const isLocalOnlyMode = driftMode === "local" || driftMode === "dev";
 
@@ -30,9 +31,15 @@ if (!existsSync(v5MigrationPath)) {
   process.exit(1);
 }
 
+if (!existsSync(v6ProductCostMigrationPath)) {
+  console.error("Missing V6 product cost migration.");
+  process.exit(1);
+}
+
 const v3Sql = readFileSync(v3MigrationPath, "utf8");
 const v4Sql = readFileSync(v4MigrationPath, "utf8");
 const v5Sql = readFileSync(v5MigrationPath, "utf8");
+const v6ProductCostSql = readFileSync(v6ProductCostMigrationPath, "utf8");
 const requiredV3 = [
   "CREATE TABLE IF NOT EXISTS public.audit_events",
   "CREATE TABLE IF NOT EXISTS public.inventory_waste_events",
@@ -51,6 +58,9 @@ const missing = [
   ...requiredV3.filter((needle) => !v3Sql.includes(needle)),
   ...requiredV4.filter((needle) => !v4Sql.includes(needle)),
   ..."202606012030 v5_action_intelligence".split(" ").filter((needle) => !v5Sql.includes(needle)),
+  ...["cost_per_kg", "admin_set_product_cost", "admin_commit_product_price_cost"].filter(
+    (needle) => !v6ProductCostSql.includes(needle),
+  ),
 ];
 if (missing.length > 0) {
   console.error(`Migration contract is missing: ${missing.join(", ")}`);

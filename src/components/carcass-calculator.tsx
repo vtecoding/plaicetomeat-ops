@@ -1,17 +1,24 @@
 "use client";
 
 import { AlertTriangle, Beef, Bird, Droplets, Info } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { CutMapPanel } from "@/components/admin/pricing/CutMapPanel";
 import { RetailTipPanel } from "@/components/admin/pricing/RetailTipPanel";
 import { YieldGuardrailPanel } from "@/components/admin/pricing/YieldGuardrailPanel";
+import { commitCutToProduct } from "@/app/actions/admin-products";
+import { CutMapPanel } from "@/components/admin/pricing/CutMapPanel";
+import { RetailTipPanel } from "@/components/admin/pricing/RetailTipPanel";
+import { YieldGuardrailPanel } from "@/components/admin/pricing/YieldGuardrailPanel";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { calculateCarcassBreakdown, type MarginBand } from "@/lib/butchery/carcass-breakdown";
 import { CUT_SHEETS } from "@/lib/butchery/cut-sheets";
 import { findCutMapRegion } from "@/lib/domain/cut-map-data";
 import { calculateYieldGuardrails, generateRetailTips } from "@/lib/domain/yield-guardrails";
 import { cn, formatCurrency } from "@/lib/utils";
+
+type ProductOption = { id: string; name: string };
 
 const TIER_LABEL: Record<string, { label: string; className: string }> = {
   premium: { label: "Premium", className: "bg-[#0f5132] text-white" },
@@ -27,7 +34,7 @@ const BAND_COLOR: Record<MarginBand, string> = {
 };
 const BAND_DOT: Record<MarginBand, string> = { danger: "🔴", low: "🟡", healthy: "🟢" };
 
-export function CarcassCalculator() {
+export function CarcassCalculator({ products = [] }: { products?: ProductOption[] }) {
   const [animalId, setAnimalId] = useState(CUT_SHEETS[0].id);
   const sheet = useMemo(() => CUT_SHEETS.find((s) => s.id === animalId) ?? CUT_SHEETS[0], [animalId]);
 
@@ -270,6 +277,7 @@ export function CarcassCalculator() {
               {result.rows.map((row) => (
                 <article
                   key={row.id}
+                  data-testid={`cut-row-${row.id}`}
                   className={cn(
                     "rounded-xl border p-4",
                     row.isWaste ? "border-dashed border-[#ded6ca] bg-[#f7f3ed]" : "border-[#ded6ca] bg-white",
@@ -329,6 +337,13 @@ export function CarcassCalculator() {
                           <strong>{row.bestUse}.</strong> {row.tip}
                         </span>
                       </p>
+                      {products.length > 0 ? (
+                        <CommitRow
+                          products={products}
+                          pricePerKg={row.suggestedPricePerKg!}
+                          costPerKg={result.blendedCostPerKgSaleable}
+                        />
+                      ) : null}
                     </>
                   )}
                 </article>
@@ -369,6 +384,59 @@ function Mini({ label, value, strong = false, color }: { label: string; value: s
       <p className={cn("mt-0.5 text-sm", strong ? "font-black" : "font-bold")} style={color && strong ? { color } : undefined}>
         {value}
       </p>
+    </div>
+  );
+}
+
+function CommitRow({
+  products,
+  pricePerKg,
+  costPerKg,
+}: {
+  products: ProductOption[];
+  pricePerKg: number;
+  costPerKg: number;
+}) {
+  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const [message, setMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const targetProductId = productId || products[0]?.id || "";
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[#ded6ca] bg-[#fbfaf7] p-2">
+      <label className="min-w-0 flex-1">
+        <span className="sr-only">Choose product to update</span>
+        <select
+          value={targetProductId}
+          onChange={(event) => setProductId(event.target.value)}
+          data-testid="commit-product-select"
+          className="h-9 w-full rounded-md border border-[#d6cdc0] bg-white px-2 text-xs font-bold text-[#5c5148]"
+        >
+          {products.map((product) => (
+            <option key={product.id} value={product.id}>
+              {product.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        data-testid="commit-product-save"
+        disabled={isPending || !targetProductId}
+        onClick={() => {
+          setMessage(null);
+          startTransition(async () => {
+            const result = await commitCutToProduct({ productId: targetProductId, pricePerKg, costPerKg });
+            setMessage(result.message);
+          });
+        }}
+      >
+        {isPending ? "Saving..." : "Save price"}
+      </Button>
+      {message ? <p className="basis-full text-xs font-bold text-[#0f5132]">{message}</p> : null}
     </div>
   );
 }
