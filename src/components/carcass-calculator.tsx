@@ -3,6 +3,9 @@
 import { AlertTriangle, Beef, Bird, Droplets, Info } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
+import { CutMapPanel } from "@/components/admin/pricing/CutMapPanel";
+import { RetailTipPanel } from "@/components/admin/pricing/RetailTipPanel";
+import { YieldGuardrailPanel } from "@/components/admin/pricing/YieldGuardrailPanel";
 import { commitCutToProduct } from "@/app/actions/admin-products";
 import { CutMapPanel } from "@/components/admin/pricing/CutMapPanel";
 import { RetailTipPanel } from "@/components/admin/pricing/RetailTipPanel";
