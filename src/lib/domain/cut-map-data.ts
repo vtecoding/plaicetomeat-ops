@@ -28,144 +28,161 @@ export type CutToolGuidance = {
   avoid: string;
 };
 
+// Recognisable smooth silhouettes (head, back, rump, two legs, tail) drawn as the
+// cream backdrop under the cut regions — the chicken map's style applied to the
+// side-profile animals. Authored on a fixed viewBox and verified by region bbox.
+const LAMB_OUTLINE =
+  "M74 168 C70 150 88 132 112 126 C120 108 134 100 150 118 C220 96 305 88 380 95 C418 99 450 106 472 116 C492 152 486 188 466 200 C460 204 456 208 454 214 L454 294 C454 298 450 298 448 296 L424 296 C420 296 418 294 418 290 L418 218 C392 224 350 228 300 228 L288 228 L288 292 C288 297 284 297 282 296 L258 296 C254 296 252 294 252 290 L252 222 C220 220 192 214 176 206 C160 197 154 182 154 170 C140 174 110 178 86 174 C72 172 68 170 74 168 Z M470 118 C486 120 500 130 500 146 C500 156 489 159 480 153 Z";
+
+const BEEF_OUTLINE =
+  "M70 176 C66 156 86 138 112 132 C120 112 138 104 156 124 C236 100 340 92 430 100 C476 104 512 114 540 128 C560 140 556 176 532 196 C524 202 518 208 516 216 L516 320 C516 325 511 325 509 322 L484 322 C480 322 478 320 478 314 L478 224 C440 232 380 238 320 238 L300 238 L300 318 C300 323 296 323 294 320 L270 320 C266 320 264 318 264 312 L264 230 C224 228 188 220 170 210 C156 200 150 184 150 172 C136 176 106 180 84 176 C70 174 66 178 70 176 Z M538 132 C556 134 568 146 566 162 C564 176 552 178 542 170 Z";
+
+// Side-profile small-ruminant chart (facing left): smooth back/belly curves, a
+// recognisable head and two legs, with primals laid along the body. Curved long
+// edges follow the silhouette so cuts read as a clean butcher diagram rather than
+// jagged polygons. Shared vertical dividers keep regions tiling cleanly.
 const lambRegions: readonly CutMapRegion[] = [
   {
     id: "neck",
     label: "Neck",
-    path: "M63 103 L105 86 L124 112 L108 145 L70 145 Z",
-    labelX: 90,
-    labelY: 120,
+    path: "M150 118 C168 110 182 106 195 104 L195 210 C188 210 180 209 176 206 C160 196 152 180 150 168 Z",
+    labelX: 172,
+    labelY: 150,
     aliases: ["neck"],
   },
   {
     id: "shoulder",
     label: "Shoulder",
-    path: "M108 82 L182 66 L218 101 L203 169 L109 166 L124 112 Z",
-    labelX: 160,
-    labelY: 120,
+    path: "M195 104 C220 98 240 95 258 94 L258 168 C236 167 216 166 195 166 Z",
+    labelX: 226,
+    labelY: 132,
     aliases: ["shoulder"],
   },
   {
     id: "rack",
     label: "Rack",
-    path: "M218 72 L303 66 L317 151 L203 169 L218 101 Z",
-    labelX: 260,
-    labelY: 112,
+    path: "M258 94 C280 91 300 90 320 90 L320 170 C300 169 278 168 258 168 Z",
+    labelX: 289,
+    labelY: 131,
     aliases: ["rack", "best-end", "best end", "rack / best end", "ribs", "ribs / chops", "ribs-chops"],
   },
   {
     id: "loin",
     label: "Loin",
-    path: "M303 66 L382 76 L386 158 L317 151 Z",
-    labelX: 348,
-    labelY: 113,
+    path: "M320 90 C345 91 362 93 380 95 L380 168 C360 169 340 169 320 170 Z",
+    labelX: 350,
+    labelY: 131,
     aliases: ["loin", "loin-chops", "loin chops", "chops"],
   },
   {
     id: "leg",
     label: "Leg",
-    path: "M382 76 L462 104 L483 174 L431 214 L386 158 Z",
-    labelX: 430,
-    labelY: 144,
+    path: "M380 95 C418 99 450 106 470 114 C490 150 484 186 468 196 C440 208 408 212 380 210 Z",
+    labelX: 426,
+    labelY: 150,
     aliases: ["leg"],
   },
   {
     id: "breast",
     label: "Breast",
-    path: "M109 166 L203 169 L194 222 L118 216 L70 145 Z",
-    labelX: 144,
-    labelY: 192,
+    path: "M195 166 C230 167 265 168 300 170 L300 230 C260 230 220 220 195 210 Z",
+    labelX: 245,
+    labelY: 198,
     aliases: ["breast"],
   },
   {
     id: "shank",
     label: "Shank",
-    path: "M431 214 L483 174 L500 235 L471 267 L438 246 Z M118 216 L154 221 L143 269 L112 269 Z",
-    labelX: 455,
-    labelY: 238,
+    path: "M252 222 C250 250 250 280 256 296 L280 296 C284 270 282 246 286 226 Z M420 218 C418 248 418 278 424 296 L448 296 C452 270 450 244 454 216 Z",
+    labelX: 269,
+    labelY: 262,
     aliases: ["shank", "shanks"],
   },
   {
     id: "mince-trim",
     label: "Mince/trim",
-    path: "M194 222 L203 169 L386 158 L431 214 L356 239 L250 235 Z",
-    labelX: 300,
-    labelY: 204,
+    path: "M300 170 L380 168 L380 210 C352 218 326 224 300 230 Z",
+    labelX: 340,
+    labelY: 198,
     aliases: ["mince-trim", "mince & trim", "curry-mince", "curry pieces & mince", "waste", "bone, fat & trim loss"],
   },
 ];
 
+// Side-profile beef chart (facing left): a larger, blockier bovine silhouette in
+// the same smooth style as the lamb/chicken maps. Primals along the top
+// (chuck/rib/sirloin/rump) with brisket/flank/trim/topside below and two shin
+// legs. Shared vertical dividers (244/338/416) keep the rows tiling cleanly.
 const beefRegions: readonly CutMapRegion[] = [
   {
     id: "chuck",
     label: "Chuck",
-    path: "M72 119 L155 86 L208 118 L196 188 L94 190 Z",
-    labelX: 142,
-    labelY: 142,
+    path: "M156 124 C188 116 214 112 244 110 L244 200 C212 198 184 196 162 188 C150 180 150 150 156 124 Z",
+    labelX: 200,
+    labelY: 152,
     aliases: ["chuck", "chuck & blade"],
   },
   {
     id: "rib",
     label: "Rib",
-    path: "M208 88 L303 78 L318 174 L196 188 L208 118 Z",
-    labelX: 258,
-    labelY: 126,
+    path: "M244 110 C278 106 308 104 338 104 L338 196 C308 197 276 198 244 200 Z",
+    labelX: 291,
+    labelY: 150,
     aliases: ["rib", "fore rib"],
   },
   {
     id: "sirloin",
     label: "Sirloin",
-    path: "M303 78 L389 84 L400 171 L318 174 Z",
-    labelX: 354,
-    labelY: 124,
+    path: "M338 104 C366 104 392 105 416 108 L416 192 C390 193 364 195 338 196 Z",
+    labelX: 377,
+    labelY: 148,
     aliases: ["sirloin"],
   },
   {
     id: "rump",
     label: "Rump",
-    path: "M389 84 L480 112 L497 178 L433 204 L400 171 Z",
-    labelX: 445,
-    labelY: 142,
+    path: "M416 108 C452 112 500 120 532 134 C552 152 548 180 524 192 C490 196 452 194 416 192 Z",
+    labelX: 470,
+    labelY: 150,
     aliases: ["rump"],
   },
   {
     id: "brisket",
     label: "Brisket",
-    path: "M94 190 L196 188 L192 237 L103 236 Z",
-    labelX: 145,
-    labelY: 215,
+    path: "M162 188 C184 196 212 198 244 200 L244 238 C220 236 192 226 172 216 C164 208 162 198 162 188 Z",
+    labelX: 203,
+    labelY: 216,
     aliases: ["brisket"],
   },
   {
     id: "flank",
     label: "Flank",
-    path: "M192 237 L196 188 L318 174 L315 235 Z",
-    labelX: 256,
-    labelY: 211,
+    path: "M244 200 C276 198 308 197 338 196 L338 238 C306 238 274 238 244 238 Z",
+    labelX: 291,
+    labelY: 219,
     aliases: ["flank", "thin flank"],
   },
   {
     id: "silverside-topside",
     label: "Topside/silverside",
-    path: "M315 235 L318 174 L400 171 L433 204 L399 249 Z",
-    labelX: 370,
-    labelY: 211,
+    path: "M416 194 C448 195 478 196 500 198 L500 236 C470 238 442 238 416 238 Z",
+    labelX: 457,
+    labelY: 217,
     aliases: ["topside", "silverside", "silverside/topside"],
   },
   {
     id: "shin",
     label: "Shin",
-    path: "M103 236 L151 238 L143 292 L111 294 Z M433 204 L497 178 L511 246 L479 290 L446 255 Z",
-    labelX: 462,
-    labelY: 250,
+    path: "M268 232 C266 256 266 290 272 318 L296 318 C300 290 298 258 300 234 Z M484 226 C482 256 482 292 488 320 L512 320 C516 290 514 258 516 222 Z",
+    labelX: 284,
+    labelY: 284,
     aliases: ["shin"],
   },
   {
     id: "mince-trim",
     label: "Mince/trim",
-    path: "M151 238 L192 237 L315 235 L399 249 L446 255 L409 278 L249 280 L143 292 Z",
-    labelX: 282,
-    labelY: 263,
+    path: "M338 196 C364 195 390 195 416 194 L416 238 C390 238 364 238 338 238 Z",
+    labelX: 377,
+    labelY: 219,
     aliases: ["mince-trim", "mince & trim", "waste", "bone, fat & trim loss"],
   },
 ];
@@ -229,36 +246,32 @@ export const CUT_MAPS: Record<AnimalMapType, CutMap> = {
     animalType: "lamb",
     title: "Lamb cut map",
     sourceNote: "Visual guide only. Actual carcasses vary by breed, age, fat cover and dressing.",
-    viewBox: "0 0 560 330",
-    outlinePath:
-      "M62 102 C95 74 143 60 212 51 C290 41 379 55 466 89 C498 102 520 129 526 164 C533 205 512 248 471 282 L436 252 L411 278 L249 280 L143 269 L112 269 L118 216 L70 145 Z",
+    viewBox: "0 0 560 360",
+    outlinePath: LAMB_OUTLINE,
     regions: lambRegions,
   },
   goat: {
     animalType: "goat",
     title: "Goat cut map",
     sourceNote: "Uses the lamb-style small-ruminant map with goat cut labels. Visual guide only.",
-    viewBox: "0 0 560 330",
-    outlinePath:
-      "M62 102 C95 74 143 60 212 51 C290 41 379 55 466 89 C498 102 520 129 526 164 C533 205 512 248 471 282 L436 252 L411 278 L249 280 L143 269 L112 269 L118 216 L70 145 Z",
+    viewBox: "0 0 560 360",
+    outlinePath: LAMB_OUTLINE,
     regions: lambRegions,
   },
   mutton: {
     animalType: "mutton",
     title: "Mutton cut map",
     sourceNote: "Uses the lamb-style small-ruminant map with mutton cut labels. Visual guide only.",
-    viewBox: "0 0 560 330",
-    outlinePath:
-      "M62 102 C95 74 143 60 212 51 C290 41 379 55 466 89 C498 102 520 129 526 164 C533 205 512 248 471 282 L436 252 L411 278 L249 280 L143 269 L112 269 L118 216 L70 145 Z",
+    viewBox: "0 0 560 360",
+    outlinePath: LAMB_OUTLINE,
     regions: lambRegions,
   },
   beef: {
     animalType: "beef",
     title: "Beef cut map",
     sourceNote: "Visual guide only. This supports sides/quarters or primals entered into the calculator.",
-    viewBox: "0 0 560 340",
-    outlinePath:
-      "M72 119 C122 77 199 60 300 62 C387 64 470 89 512 126 C543 154 545 205 511 246 L479 290 L446 255 L409 278 L249 280 L143 292 L111 294 L103 236 L94 190 Z",
+    viewBox: "0 0 580 380",
+    outlinePath: BEEF_OUTLINE,
     regions: beefRegions,
   },
   chicken: {
