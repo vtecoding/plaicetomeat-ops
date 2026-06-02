@@ -16,6 +16,7 @@ const SAFE_MESSAGE_PATTERNS = [
   "Not authenticated",
   "Product name is required",
   "Price must be",
+  "Cost must be",
   "Unit type must be",
   "Stock status is invalid",
   "Category does not exist",
@@ -160,4 +161,39 @@ export async function updateProductAvailability(input: {
 
   revalidateCatalog();
   return { ok: true, message: "Availability updated." };
+}
+
+/**
+ * Commit a cut's worked-out price (and honest cost) from the cutting guide onto a
+ * product. This uses one database RPC so price and cost update together.
+ */
+export async function commitCutToProduct(input: {
+  productId: string;
+  pricePerKg: number;
+  costPerKg: number;
+}): Promise<AdminProductResult> {
+  const auth = await requireManager();
+  if (!auth.ok) return auth;
+
+  if (!Number.isFinite(input.pricePerKg) || input.pricePerKg <= 0) {
+    return { ok: false, message: "Price must be greater than zero." };
+  }
+  if (!Number.isFinite(input.costPerKg) || input.costPerKg < 0) {
+    return { ok: false, message: "Cost must be zero or more." };
+  }
+
+  const round2 = (value: number) => Math.round(value * 100) / 100;
+  const supabase = await createSupabaseServerClient();
+
+  const { error } = await supabase.rpc("admin_commit_product_price_cost", {
+    p_product_id: input.productId,
+    p_price: round2(input.pricePerKg),
+    p_cost: round2(input.costPerKg),
+  });
+  if (error) {
+    return { ok: false, message: safeMessage(error.message, "Could not save the price and cost. Please try again.") };
+  }
+
+  revalidateCatalog();
+  return { ok: true, message: "Saved price and cost to product." };
 }

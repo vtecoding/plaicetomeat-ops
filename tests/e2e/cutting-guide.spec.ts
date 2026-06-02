@@ -22,6 +22,11 @@ test.describe("cutting & pricing guide", () => {
 
     // Overall margin (master slider readout) is shown.
     await expect(page.getByText("Overall margin")).toBeVisible();
+
+    // V6.2 guardrail layer appears inside the same protected pricing workflow.
+    await expect(page.getByTestId("cut-map-panel")).toBeVisible();
+    await expect(page.getByTestId("yield-guardrail-panel")).toBeVisible();
+    await expect(page.getByTestId("retail-tip-panel")).toBeVisible();
   });
 
   test("accounts for chiller shrinkage in the real meat cost", async ({ page }) => {
@@ -33,5 +38,51 @@ test.describe("cutting & pricing guide", () => {
     await page.getByPlaceholder("0", { exact: true }).fill("3");
     await expect(page.getByText(/lost/i).first()).toBeVisible();
     await expect(page.getByText(/water/i).first()).toBeVisible();
+  });
+
+  test("selecting a cut highlights the matching map region", async ({ page }) => {
+    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await page.goto("/admin/cutting-guide");
+    await page.getByPlaceholder("e.g. 108").fill("108");
+
+    await page.getByRole("button", { name: "Select Rack / best end on cut map" }).click();
+    await expect(page.getByTestId("cut-map-region-rack")).toHaveAttribute("fill", "#0f5132");
+    await expect(page.getByText("Region: Rack")).toBeVisible();
+  });
+
+  test("animal switching keeps V6.2 guidance stable on mobile-sized maps", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await page.goto("/admin/cutting-guide");
+
+    await page.getByRole("button", { name: "Chicken" }).click();
+    await page.getByPlaceholder("e.g. 108").fill("4");
+
+    await expect(page.getByTestId("cut-map-panel")).toBeVisible();
+    await expect(page.getByTestId("yield-guardrail-panel")).toBeVisible();
+    await expect(page.getByText("No animal map configured")).toHaveCount(0);
+  });
+
+  test("manager can save a calculated cut price and honest cost to a product", async ({ page }) => {
+    const name = `V6.1 Costed Cut ${Date.now()}`;
+
+    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await page.goto("/admin/products");
+    await page.getByTestId("add-product-button").click();
+    await page.getByTestId("new-product-name").fill(name);
+    await page.getByTestId("new-product-price").fill("1.00");
+    await page.getByTestId("new-product-submit").click();
+    await expect(page.getByTestId("product-feedback")).toContainText("created");
+
+    await page.goto("/admin/cutting-guide");
+    await page.getByPlaceholder("e.g. 108").fill("108");
+
+    const legCard = page.getByTestId("cut-row-leg");
+    await legCard.getByTestId("commit-product-select").selectOption({ label: name });
+    await legCard.getByTestId("commit-product-save").click();
+    await expect(legCard.getByText("Saved price and cost to product.")).toBeVisible();
+
+    await page.goto("/admin/products");
+    await expect(page.locator('[data-testid="product-row"]', { hasText: name }).getByTestId("product-price-input")).toHaveValue("9.82");
   });
 });

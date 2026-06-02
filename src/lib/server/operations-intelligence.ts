@@ -15,6 +15,7 @@ import {
 } from "@/lib/domain/operations-intelligence";
 import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 import { getDemoOrders } from "@/lib/data/demo";
+import { getProductCostMap } from "@/lib/server/catalog";
 import { getInventoryBatches, getSuppliers } from "@/lib/server/compliance-inventory";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
@@ -140,6 +141,12 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
     if (!costByProduct.has(batch.productId) && batch.costPerKg > 0) {
       costByProduct.set(batch.productId, batch.costPerKg);
     }
+  }
+  // Fall back to the per-product cost set via the cutting guide (clears "margin
+  // unavailable" once a cost has been committed to a product).
+  const productCostMap = await getProductCostMap(branchId);
+  for (const [productId, cost] of productCostMap) {
+    if (!costByProduct.has(productId)) costByProduct.set(productId, cost);
   }
 
   const todayRevenue = orders

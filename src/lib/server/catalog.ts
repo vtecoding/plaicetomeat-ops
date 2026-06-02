@@ -229,6 +229,29 @@ export async function getPublicProductBySlug(branchId: string, slug: string): Pr
   return mapProduct(data);
 }
 
+/**
+ * Honest cost-per-kg per product, set via the cutting guide. Best-effort: if the
+ * `cost_per_kg` column doesn't exist yet (migration not applied), returns an empty
+ * map rather than throwing, so analytics degrade gracefully.
+ */
+export async function getProductCostMap(branchId: string): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (!hasSupabaseServiceEnv()) return map;
+
+  try {
+    const supabase = createSupabaseServiceClient();
+    const { data, error } = await supabase.from("products").select("id, cost_per_kg").eq("branch_id", branchId);
+    if (error || !data) return map;
+    for (const row of data as Array<{ id: string; cost_per_kg: number | string | null }>) {
+      const cost = row.cost_per_kg === null ? 0 : Number(row.cost_per_kg);
+      if (cost > 0) map.set(row.id, cost);
+    }
+  } catch {
+    // Column not present yet — no product costs available.
+  }
+  return map;
+}
+
 /** All products (available + unavailable) for admin use. */
 export async function getAllProducts(branchId: string): Promise<Product[]> {
   if (!hasSupabaseServiceEnv()) {
