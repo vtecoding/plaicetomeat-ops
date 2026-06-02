@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/login-form";
+import { PasswordResetRequest } from "@/components/password-reset-request";
 import { PageFrame } from "@/components/site-header";
 import { resolvePostLoginPath, sanitizeReturnTo } from "@/lib/domain/auth";
 import { getCurrentProfile } from "@/lib/server/auth";
@@ -37,6 +38,10 @@ export default async function LoginPage({
 
           <div className="mt-6">
             <LoginForm returnTo={returnTo} />
+          </div>
+
+          <div className="mt-4 border-t border-[#eee5d8] pt-4">
+            <PasswordResetRequest />
           </div>
         </div>
       </main>
