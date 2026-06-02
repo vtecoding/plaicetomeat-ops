@@ -15,6 +15,7 @@ import {
   PoundSterling,
   Recycle,
   Rocket,
+  Scissors,
   Settings,
   ShoppingBag,
   Sun,
@@ -63,6 +64,7 @@ type InsightPanel = {
 
 const quickActionLinks = [
   { href: "/admin/purchasing", label: "Purchasing", detail: "What to order before you call your supplier", icon: TrendingUp },
+  { href: "/admin/cutting-guide", label: "Cutting & Pricing", detail: "What a whole animal is worth & what to charge", icon: Scissors },
   { href: "/admin/orders", label: "Orders", detail: "Every order customers placed", icon: ShoppingBag },
   { href: "/admin/products", label: "Products & Prices", detail: "What you sell and what it costs", icon: PackageSearch },
   { href: "/admin/inventory", label: "Stock & Waste", detail: "What's in, what's going off", icon: PackageCheck },

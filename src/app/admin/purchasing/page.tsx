@@ -131,6 +131,9 @@ export default async function PurchasingPage() {
               negative
             />
           </div>
+          <Link href="/admin/cutting-guide" className="mt-4 inline-flex text-sm font-bold text-[#0f5132]">
+            Work out what each cut is worth → Cutting &amp; Pricing guide
+          </Link>
         </Section>
       </main>
     </PageFrame>
