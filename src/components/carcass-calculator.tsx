@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertTriangle, Beef, Bird, Info } from "lucide-react";
+import { AlertTriangle, Beef, Bird, Droplets, Info } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Input } from "@/components/ui/input";
-import { calculateCarcassBreakdown } from "@/lib/butchery/carcass-breakdown";
+import { calculateCarcassBreakdown, type MarginBand } from "@/lib/butchery/carcass-breakdown";
 import { CUT_SHEETS } from "@/lib/butchery/cut-sheets";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -15,20 +15,41 @@ const TIER_LABEL: Record<string, { label: string; className: string }> = {
   stock: { label: "Stock", className: "bg-[#efe8dd] text-[#8a7d70]" },
 };
 
+const BAND_COLOR: Record<MarginBand, string> = {
+  danger: "#b42318",
+  low: "#92510a",
+  healthy: "#0f5132",
+};
+const BAND_DOT: Record<MarginBand, string> = { danger: "🔴", low: "🟡", healthy: "🟢" };
+
 export function CarcassCalculator() {
   const [animalId, setAnimalId] = useState(CUT_SHEETS[0].id);
   const sheet = useMemo(() => CUT_SHEETS.find((s) => s.id === animalId) ?? CUT_SHEETS[0], [animalId]);
 
   const [weight, setWeight] = useState(String(sheet.typicalCarcassKg));
   const [cost, setCost] = useState("");
+  const [daysHung, setDaysHung] = useState("0");
+  const [marginNudge, setMarginNudge] = useState(0); // delta applied to every cut's default margin
   const [overrides, setOverrides] = useState<Record<string, number>>({});
 
   function selectAnimal(id: string) {
     const next = CUT_SHEETS.find((s) => s.id === id) ?? CUT_SHEETS[0];
     setAnimalId(id);
     setWeight(String(next.typicalCarcassKg));
+    setDaysHung("0");
+    setMarginNudge(0);
     setOverrides({});
   }
+
+  // Effective margin per cut = explicit override, else the cut's default shifted by the master nudge.
+  const effectiveMargins = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const cut of sheet.cuts) {
+      if (cut.isWaste) continue;
+      map[cut.id] = overrides[cut.id] ?? Math.min(0.95, Math.max(0, cut.defaultMarginPct + marginNudge));
+    }
+    return map;
+  }, [sheet, overrides, marginNudge]);
 
   const result = useMemo(
     () =>
@@ -36,16 +57,17 @@ export function CarcassCalculator() {
         sheet,
         carcassWeightKg: Number(weight),
         carcassCost: Number(cost),
-        marginOverrides: overrides,
+        daysHung: Number(daysHung),
+        marginOverrides: effectiveMargins,
       }),
-    [sheet, weight, cost, overrides],
+    [sheet, weight, cost, daysHung, effectiveMargins],
   );
 
   const hasCost = cost.trim() !== "" && Number(cost) > 0;
 
   return (
     <div className="grid gap-6">
-      {/* Animal picker */}
+      {/* 1. Animal */}
       <div>
         <p className="text-sm font-bold text-[#5c5148]">1. Which animal?</p>
         <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -69,95 +91,107 @@ export function CarcassCalculator() {
         <p className="mt-2 text-xs text-[#8a7d70]">{sheet.sourcingTip}</p>
       </div>
 
-      {/* Inputs */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* 2. Intake */}
+      <div className="grid gap-4 sm:grid-cols-3">
         <label className="grid gap-1.5">
-          <span className="text-sm font-bold text-[#5c5148]">2. Carcass weight (kg)</span>
-          <Input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="0.1"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            placeholder={String(sheet.typicalCarcassKg)}
-          />
-          <span className="text-xs text-[#8a7d70]">
-            Typical {sheet.animal.toLowerCase()}: {sheet.typicalCarcassKgRange[0]}–{sheet.typicalCarcassKgRange[1]}kg
-          </span>
+          <span className="text-sm font-bold text-[#5c5148]">Carcass weight (kg)</span>
+          <Input type="number" inputMode="decimal" min={0} step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={String(sheet.typicalCarcassKg)} />
+          <span className="text-xs text-[#8a7d70]">Typical {sheet.typicalCarcassKgRange[0]}–{sheet.typicalCarcassKgRange[1]}kg</span>
         </label>
         <label className="grid gap-1.5">
-          <span className="text-sm font-bold text-[#5c5148]">3. What you paid (total £)</span>
-          <Input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="0.01"
-            value={cost}
-            onChange={(e) => setCost(e.target.value)}
-            placeholder="e.g. 108"
-          />
-          <span className="text-xs text-[#8a7d70]">The total price for the whole carcass.</span>
+          <span className="text-sm font-bold text-[#5c5148]">What you paid (total £)</span>
+          <Input type="number" inputMode="decimal" min={0} step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="e.g. 108" />
+          <span className="text-xs text-[#8a7d70]">For the whole carcass.</span>
+        </label>
+        <label className="grid gap-1.5">
+          <span className="text-sm font-bold text-[#5c5148]">Days hung in chiller</span>
+          <Input type="number" inputMode="numeric" min={0} step="1" value={daysHung} onChange={(e) => setDaysHung(e.target.value)} placeholder="0" />
+          <span className="text-xs text-[#8a7d70]">
+            {sheet.dailyShrinkagePct === 0 ? "Processed fresh — no weight loss" : `Loses ~${(sheet.dailyShrinkagePct * 100).toFixed(1)}%/day`}
+          </span>
         </label>
       </div>
 
       {!hasCost || !result.ok ? (
         <p className="rounded-lg border border-[#ded6ca] bg-[#f7f3ed] p-4 text-sm text-[#6c5e52]">
-          {hasCost && !result.ok
-            ? result.message
-            : "Enter what you paid to see the breakdown, suggested prices and profit."}
+          {hasCost && !result.ok ? result.message : "Enter what you paid to see the breakdown, suggested prices and profit."}
         </p>
       ) : (
         <>
-          {/* The teaching headline */}
+          {result.moistureLossKg > 0 ? (
+            <div className="flex items-center gap-2 rounded-lg border border-[#cfe2ef] bg-[#f0f7fc] p-3 text-sm text-[#2a5a78]">
+              <Droplets className="h-4 w-4 shrink-0" aria-hidden />
+              <span>
+                Hung {result.daysHung} day{result.daysHung === 1 ? "" : "s"} → lost <strong>{result.moistureLossKg}kg</strong> of
+                water → you&apos;re actually cutting <strong>{result.processedWeightKg}kg</strong>.
+              </span>
+            </div>
+          ) : null}
+
+          {/* Teaching headline */}
           <section className="grid gap-3 sm:grid-cols-3">
             <Stat label="You paid (per kg of carcass)" value={`${formatCurrency(result.costPerKgCarcass)}/kg`} tone="neutral" />
-            <Stat
-              label="Your REAL meat cost"
-              value={`${formatCurrency(result.blendedCostPerKgSaleable)}/kg`}
-              tone="amber"
-              hint={`${result.wastePct}% (${result.wasteKg}kg) is bone & fat you can't sell`}
-            />
-            <Stat
-              label="Sell it all → profit"
-              value={formatCurrency(result.totalProfit)}
-              tone="green"
-              hint={`${formatCurrency(result.totalSuggestedRevenue)} revenue · ${result.overallMarginPct}% margin`}
-            />
+            <Stat label="Your REAL meat cost" value={`${formatCurrency(result.blendedCostPerKgSaleable)}/kg`} tone="amber" hint={`${result.wastePct}% (${result.wasteKg}kg) is bone & fat you can't sell`} />
+            <Stat label="Sell it all → profit" value={formatCurrency(result.totalProfit)} tone="green" hint={`${formatCurrency(result.totalSuggestedRevenue)} revenue`} />
           </section>
 
           <div className="flex items-start gap-3 rounded-xl border border-[#f0d8a8] bg-[#fdf6e9] p-4">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#92510a]" aria-hidden />
             <p className="text-sm leading-6 text-[#92510a]">
-              <strong>Don&apos;t price at what you paid.</strong> If you sold every cut at{" "}
-              {formatCurrency(result.costPerKgCarcass)}/kg (the carcass price), you&apos;d{" "}
-              <strong>lose {formatCurrency(result.lossIfPricedAtCarcassRate)}</strong> on this animal — because{" "}
-              {result.wasteKg}kg is bone and fat. Always price from your real meat cost of{" "}
-              {formatCurrency(result.blendedCostPerKgSaleable)}/kg or more.
+              <strong>Don&apos;t price at what you paid.</strong> Sold at {formatCurrency(result.costPerKgCarcass)}/kg (the carcass
+              price) you&apos;d <strong>lose {formatCurrency(result.lossIfPricedAtCarcassRate)}</strong> — price from your real meat
+              cost of {formatCurrency(result.blendedCostPerKgSaleable)}/kg or more.
             </p>
           </div>
+
+          {/* Master margin slider */}
+          <section className="rounded-xl border border-[#ded6ca] bg-[#fbfaf7] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-black">Nudge all prices</p>
+                <p className="text-xs text-[#8a7d70]">Slide to make everything cheaper or pricier at once. Tune individual cuts below.</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-[#8a7d70]">Overall margin</p>
+                <p className="text-2xl font-black" style={{ color: BAND_COLOR[result.overallBand] }}>
+                  {BAND_DOT[result.overallBand]} {result.overallMarginPct}%
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <span className="text-xs font-bold text-[#8a7d70]">Cheaper</span>
+              <input
+                type="range"
+                min={-20}
+                max={20}
+                step={1}
+                value={Math.round(marginNudge * 100)}
+                onChange={(e) => {
+                  setMarginNudge(Number(e.target.value) / 100);
+                  setOverrides({}); // a master nudge resets individual tweaks
+                }}
+                className="h-2 w-full cursor-pointer accent-[#0f5132]"
+                aria-label="Nudge all margins"
+              />
+              <span className="text-xs font-bold text-[#8a7d70]">Pricier</span>
+            </div>
+          </section>
 
           {/* Cut breakdown */}
           <section>
             <p className="text-sm font-bold text-[#5c5148]">How it cuts up &amp; what to charge</p>
             <p className="text-xs text-[#8a7d70]">
-              Suggested prices use typical margins for each cut — adjust the margin to match your shop.
+              <span className="font-bold" style={{ color: BAND_COLOR.healthy }}>🟢 30%+</span> healthy ·{" "}
+              <span className="font-bold" style={{ color: BAND_COLOR.low }}>🟡 15–29%</span> low ·{" "}
+              <span className="font-bold" style={{ color: BAND_COLOR.danger }}>🔴 under 15%</span> losing money
             </p>
             <div className="mt-3 grid gap-3">
               {result.rows.map((row) => (
-                <article
-                  key={row.id}
-                  className={cn(
-                    "rounded-xl border p-4",
-                    row.isWaste ? "border-dashed border-[#ded6ca] bg-[#f7f3ed]" : "border-[#ded6ca] bg-white",
-                  )}
-                >
+                <article key={row.id} className={cn("rounded-xl border p-4", row.isWaste ? "border-dashed border-[#ded6ca] bg-[#f7f3ed]" : "border-[#ded6ca] bg-white")}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <h3 className="font-black">{row.name}</h3>
-                      <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", TIER_LABEL[row.tier]?.className)}>
-                        {TIER_LABEL[row.tier]?.label}
-                      </span>
+                      <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", TIER_LABEL[row.tier]?.className)}>{TIER_LABEL[row.tier]?.label}</span>
                       <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-[#8a7d70]">{row.bone}</span>
                     </div>
                     <span className="text-sm font-black">{row.weightKg}kg</span>
@@ -168,11 +202,13 @@ export function CarcassCalculator() {
                   ) : (
                     <>
                       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        <Mini label="Suggested price" value={`${formatCurrency(row.suggestedPricePerKg!)}/kg`} strong />
+                        <Mini label="Suggested price" value={`${formatCurrency(row.suggestedPricePerKg!)}/kg`} color={BAND_COLOR[row.band!]} strong />
                         <Mini label="This cut sells for" value={formatCurrency(row.lineRevenue!)} />
                         <Mini label="Profit on this cut" value={formatCurrency(row.lineProfit!)} />
                         <label className="grid gap-1">
-                          <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-[#8a7d70]">Margin %</span>
+                          <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-[#8a7d70]">
+                            Margin {BAND_DOT[row.band!]}
+                          </span>
                           <input
                             type="number"
                             min={0}
@@ -183,7 +219,8 @@ export function CarcassCalculator() {
                               const pct = Number(e.target.value);
                               setOverrides((prev) => ({ ...prev, [row.id]: Number.isFinite(pct) ? pct / 100 : 0 }));
                             }}
-                            className="w-full rounded-md border border-[#d6cdc0] bg-white px-2 py-1 text-sm font-bold"
+                            className="w-full rounded-md border px-2 py-1 text-sm font-black"
+                            style={{ color: BAND_COLOR[row.band!], borderColor: "#d6cdc0" }}
                             aria-label={`Margin for ${row.name}`}
                           />
                         </label>
@@ -202,8 +239,8 @@ export function CarcassCalculator() {
           </section>
 
           <p className="text-xs leading-5 text-[#8a7d70]">
-            Yields are typical UK averages and vary by breed, fat cover and how tightly you trim. Use them as a starting
-            point and tune to your own shop. Nothing here is a guaranteed price.
+            Yields and hang-loss are typical UK averages and vary by breed, fat cover and how tightly you trim — tune them to your
+            own shop. The cost shown is your honest blended cost; only the price changes per cut. Nothing here is a guaranteed price.
           </p>
         </>
       )}
@@ -211,39 +248,29 @@ export function CarcassCalculator() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  tone: "neutral" | "amber" | "green";
-}) {
-  const toneClass =
+function Stat({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone: "neutral" | "amber" | "green" }) {
+  const t =
     tone === "green"
       ? { border: "#bfe3cf", bg: "#f2fbf5", text: "#0f5132" }
       : tone === "amber"
         ? { border: "#f0d8a8", bg: "#fdf6e9", text: "#92510a" }
         : { border: "#ded6ca", bg: "#ffffff", text: "#1f1b16" };
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: toneClass.border, backgroundColor: toneClass.bg }}>
+    <div className="rounded-xl border p-4" style={{ borderColor: t.border, backgroundColor: t.bg }}>
       <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#6c5e52]">{label}</p>
-      <p className="mt-1 text-2xl font-black" style={{ color: toneClass.text }}>
-        {value}
-      </p>
+      <p className="mt-1 text-2xl font-black" style={{ color: t.text }}>{value}</p>
       {hint ? <p className="mt-1 text-xs text-[#6c5e52]">{hint}</p> : null}
     </div>
   );
 }
 
-function Mini({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+function Mini({ label, value, strong = false, color }: { label: string; value: string; strong?: boolean; color?: string }) {
   return (
     <div className="rounded-md bg-[#f7f3ed] p-2">
       <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-[#8a7d70]">{label}</p>
-      <p className={cn("mt-0.5 text-sm", strong ? "font-black text-[#0f5132]" : "font-bold")}>{value}</p>
+      <p className={cn("mt-0.5 text-sm", strong ? "font-black" : "font-bold")} style={color && strong ? { color } : undefined}>
+        {value}
+      </p>
     </div>
   );
 }

@@ -19,5 +19,19 @@ test.describe("cutting & pricing guide", () => {
     // A real cut shows with a suggested price and best use.
     await expect(page.getByRole("heading", { name: "Leg" })).toBeVisible();
     await expect(page.getByText("Suggested price").first()).toBeVisible();
+
+    // Overall margin (master slider readout) is shown.
+    await expect(page.getByText("Overall margin")).toBeVisible();
+  });
+
+  test("accounts for chiller shrinkage in the real meat cost", async ({ page }) => {
+    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await page.goto("/admin/cutting-guide");
+    await page.getByPlaceholder("e.g. 108").fill("108");
+
+    // Hang the lamb for 3 days — water-loss line should appear.
+    await page.getByPlaceholder("0", { exact: true }).fill("3");
+    await expect(page.getByText(/lost/i).first()).toBeVisible();
+    await expect(page.getByText(/water/i).first()).toBeVisible();
   });
 });

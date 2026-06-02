@@ -5,14 +5,30 @@
  * head: "I paid £X for this whole animal — how does it cut up, what is each piece
  * worth, and what should I price it at to make money?"
  *
- * The single most important number it surfaces is the BLENDED cost per kg of
- * *saleable* meat. Because ~6–12% of a carcass is bone/fat/trim loss, the meat
- * actually costs more per kg than the carcass did — pricing at the carcass rate
- * is the classic rookie mistake that loses money on every sale.
+ * Two real-world adjustments make the cost honest:
+ *  1. SHRINKAGE: a carcass loses water weight every day it hangs in the chiller,
+ *     so the weight you actually cut is less than the invoice weight.
+ *  2. WASTE: ~6–12% of the hung carcass is bone/fat/trim you can't sell.
+ * Both push the true cost per kg of saleable meat *above* the carcass rate, which
+ * is the classic rookie mistake — pricing at the carcass rate loses money on every
+ * sale.
+ *
+ * The recorded cost is always the honest *blended* cost per kg of saleable meat —
+ * the same for every cut of one animal. What varies by cut is the retail PRICE,
+ * via each cut's margin. We never inflate a premium cut's "cost".
  *
  * Pure functions, no IO. All money in GBP.
  */
 import type { AnimalCutSheet, BoneState, Cut, CutTier } from "./cut-sheets";
+
+export type MarginBand = "danger" | "low" | "healthy";
+
+/** Red below 15%, amber 15–29%, green 30%+. */
+export function marginBand(marginPct: number): MarginBand {
+  if (marginPct < 0.15) return "danger";
+  if (marginPct < 0.3) return "low";
+  return "healthy";
+}
 
 export type CutBreakdownRow = {
   id: string;
@@ -23,16 +39,12 @@ export type CutBreakdownRow = {
   tip: string;
   isWaste: boolean;
   weightKg: number;
-  /** Target margin used for this row (0..1). Null for the waste line. */
   marginPct: number | null;
-  /** Suggested retail price per kg to hit the target margin. Null for waste. */
   suggestedPricePerKg: number | null;
-  /** Revenue if the whole cut sells at the suggested price. Null for waste. */
   lineRevenue: number | null;
-  /** Allocated cost of this cut (blended saleable cost). Null for waste. */
   lineCost: number | null;
-  /** lineRevenue - lineCost. Null for waste. */
   lineProfit: number | null;
+  band: MarginBand | null;
 };
 
 export type CarcassBreakdown = {
@@ -40,9 +52,16 @@ export type CarcassBreakdown = {
   animalName: string;
   carcassWeightKg: number;
   carcassCost: number;
-  /** What you paid per kg for the whole carcass. */
+  /** What you paid per kg of raw invoice weight. */
   costPerKgCarcass: number;
+  /** Days hung in the chiller before cutting. */
+  daysHung: number;
+  /** Water/weight lost to hanging (kg). */
+  moistureLossKg: number;
+  /** Weight you actually cut, after shrinkage (kg). */
+  processedWeightKg: number;
   saleableKg: number;
+  /** Bone/fat/trim that can't be sold (kg), from the hung carcass. */
   wasteKg: number;
   wastePct: number;
   /** The real cost per kg of meat you can actually sell — the number to price from. */
@@ -51,6 +70,7 @@ export type CarcassBreakdown = {
   totalSuggestedRevenue: number;
   totalProfit: number;
   overallMarginPct: number;
+  overallBand: MarginBand;
   /** What you'd lose if you priced every cut at the carcass rate (the rookie mistake). */
   lossIfPricedAtCarcassRate: number;
 };
@@ -58,6 +78,8 @@ export type CarcassBreakdown = {
 export type CarcassBreakdownError = { ok: false; message: string };
 
 const MAX_MARGIN = 0.95;
+/** Cap total shrinkage so a silly "days hung" can't drive weight negative. */
+const MAX_SHRINK_FRACTION = 0.4;
 
 function round(value: number, dp: number) {
   const factor = 10 ** dp;
@@ -73,6 +95,8 @@ export function calculateCarcassBreakdown(input: {
   sheet: AnimalCutSheet;
   carcassWeightKg: number;
   carcassCost: number;
+  /** Days the carcass hung in the chiller (default 0 = processed immediately). */
+  daysHung?: number;
   /** Optional per-cut margin overrides, keyed by cut id (0..1). */
   marginOverrides?: Record<string, number>;
 }): CarcassBreakdown | CarcassBreakdownError {
@@ -85,14 +109,20 @@ export function calculateCarcassBreakdown(input: {
     return { ok: false, message: "Enter what you paid for the carcass." };
   }
 
+  // 1. Shrinkage — weight lost while hanging in the chiller.
+  const daysHung = Number.isFinite(input.daysHung) && (input.daysHung ?? 0) > 0 ? (input.daysHung as number) : 0;
+  const shrinkFraction = Math.min(daysHung * sheet.dailyShrinkagePct, MAX_SHRINK_FRACTION);
+  const moistureLossKg = carcassWeightKg * shrinkFraction;
+  const processedWeightKg = carcassWeightKg - moistureLossKg;
+
   const costPerKgCarcass = carcassCost / carcassWeightKg;
 
+  // 2. Yields apply to the weight you actually cut (post-shrinkage).
   const saleableKg = sheet.cuts
     .filter((cut) => !cut.isWaste)
-    .reduce((total, cut) => total + carcassWeightKg * cut.yieldPct, 0);
-  const wasteKg = carcassWeightKg - saleableKg;
+    .reduce((total, cut) => total + processedWeightKg * cut.yieldPct, 0);
+  const wasteKg = processedWeightKg - saleableKg;
 
-  // Guard against a malformed sheet (no saleable meat).
   if (saleableKg <= 0) {
     return { ok: false, message: "This animal has no saleable cuts configured." };
   }
@@ -100,7 +130,7 @@ export function calculateCarcassBreakdown(input: {
   const blendedCostPerKgSaleable = carcassCost / saleableKg;
 
   const rows: CutBreakdownRow[] = sheet.cuts.map((cut: Cut) => {
-    const weightKg = carcassWeightKg * cut.yieldPct;
+    const weightKg = processedWeightKg * cut.yieldPct;
 
     if (cut.isWaste) {
       return {
@@ -117,6 +147,7 @@ export function calculateCarcassBreakdown(input: {
         lineRevenue: null,
         lineCost: null,
         lineProfit: null,
+        band: null,
       };
     }
 
@@ -139,12 +170,13 @@ export function calculateCarcassBreakdown(input: {
       lineRevenue: round(lineRevenue, 2),
       lineCost: round(lineCost, 2),
       lineProfit: round(lineRevenue - lineCost, 2),
+      band: marginBand(margin),
     };
   });
 
   const totalSuggestedRevenue = rows.reduce((total, row) => total + (row.lineRevenue ?? 0), 0);
   const totalProfit = totalSuggestedRevenue - carcassCost;
-  const overallMarginPct = totalSuggestedRevenue > 0 ? totalProfit / totalSuggestedRevenue : 0;
+  const overallMarginRatio = totalSuggestedRevenue > 0 ? totalProfit / totalSuggestedRevenue : 0;
   const revenueIfPricedAtCarcassRate = saleableKg * costPerKgCarcass;
   const lossIfPricedAtCarcassRate = carcassCost - revenueIfPricedAtCarcassRate;
 
@@ -154,14 +186,18 @@ export function calculateCarcassBreakdown(input: {
     carcassWeightKg: round(carcassWeightKg, 2),
     carcassCost: round(carcassCost, 2),
     costPerKgCarcass: round(costPerKgCarcass, 2),
+    daysHung,
+    moistureLossKg: round(moistureLossKg, 3),
+    processedWeightKg: round(processedWeightKg, 2),
     saleableKg: round(saleableKg, 2),
     wasteKg: round(wasteKg, 2),
-    wastePct: round((wasteKg / carcassWeightKg) * 100, 1),
+    wastePct: round((wasteKg / processedWeightKg) * 100, 1),
     blendedCostPerKgSaleable: round(blendedCostPerKgSaleable, 2),
     rows,
     totalSuggestedRevenue: round(totalSuggestedRevenue, 2),
     totalProfit: round(totalProfit, 2),
-    overallMarginPct: round(overallMarginPct * 100, 1),
+    overallMarginPct: round(overallMarginRatio * 100, 1),
+    overallBand: marginBand(overallMarginRatio),
     lossIfPricedAtCarcassRate: round(lossIfPricedAtCarcassRate, 2),
   };
 }

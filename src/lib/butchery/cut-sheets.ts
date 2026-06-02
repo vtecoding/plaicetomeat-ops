@@ -44,6 +44,8 @@ export type AnimalCutSheet = {
   typicalCarcassKg: number;
   /** Realistic range for a dressed carcass (kg). */
   typicalCarcassKgRange: [number, number];
+  /** Water/weight lost per day hanging in the chiller, as a fraction (e.g. 0.007 = 0.7%/day). */
+  dailyShrinkagePct: number;
   /** One-line sourcing/handling note. */
   sourcingTip: string;
   cuts: Cut[];
@@ -57,6 +59,7 @@ export const CUT_SHEETS: readonly AnimalCutSheet[] = [
     halal: true,
     typicalCarcassKg: 18,
     typicalCarcassKgRange: [14, 24],
+    dailyShrinkagePct: 0.007,
     sourcingTip:
       "Usually bought as a dressed carcass — biggest seller around Eid. Hang 2–4 days for flavour and easier cutting.",
     cuts: [
@@ -78,6 +81,7 @@ export const CUT_SHEETS: readonly AnimalCutSheet[] = [
     halal: true,
     typicalCarcassKg: 13,
     typicalCarcassKgRange: [9, 18],
+    dailyShrinkagePct: 0.007,
     sourcingTip:
       "Leaner and a touch tougher than lamb — favours slow cooking. Strong demand from South-Asian, African and Caribbean customers, and at Eid.",
     cuts: [
@@ -98,6 +102,7 @@ export const CUT_SHEETS: readonly AnimalCutSheet[] = [
     halal: true,
     typicalCarcassKg: 140,
     typicalCarcassKgRange: [120, 170],
+    dailyShrinkagePct: 0.005,
     sourcingTip:
       "Most small butchers buy beef by the primal rather than a whole side. Enter the weight and cost of whatever you actually buy — a primal works too.",
     cuts: [
@@ -121,6 +126,7 @@ export const CUT_SHEETS: readonly AnimalCutSheet[] = [
     halal: true,
     typicalCarcassKg: 1.6,
     typicalCarcassKgRange: [1.2, 2.2],
+    dailyShrinkagePct: 0.0,
     sourcingTip:
       "Highest-volume, lowest-margin line. Sell whole, or joint it — jointed pieces add value over selling whole birds.",
     cuts: [
