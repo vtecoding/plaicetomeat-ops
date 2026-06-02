@@ -3,68 +3,64 @@ import { expect, test } from "@playwright/test";
 import { login, USERS } from "./helpers";
 
 test.describe("cutting & pricing guide", () => {
-  test("breaks a carcass down into priced cuts and teaches the real meat cost", async ({ page }) => {
+  test("renders the simple calculator before showing pricing detail", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await page.goto("/admin/cutting-guide");
 
-    await expect(page.getByRole("heading", { name: "What's a whole animal worth?" })).toBeVisible();
-
-    // Lamb is the default; enter what was paid for the carcass.
-    await page.getByPlaceholder("e.g. 108").fill("108");
-
-    // The key teaching numbers and the rookie-mistake warning appear.
-    await expect(page.getByText("Your REAL meat cost", { exact: true })).toBeVisible();
-    await expect(page.getByText(/you'd\s+lose/i).first()).toBeVisible();
-
-    // A real cut shows with a suggested price and best use.
-    await expect(page.getByRole("heading", { name: "Leg" })).toBeVisible();
-    await expect(page.getByText("Suggested price").first()).toBeVisible();
-
-    // Overall margin (master slider readout) is shown.
-    await expect(page.getByText("Overall margin")).toBeVisible();
-
-    // V6.2 guardrail layer appears inside the same protected pricing workflow.
-    await expect(page.getByTestId("cut-map-panel")).toBeVisible();
-    await expect(page.getByTestId("yield-guardrail-panel")).toBeVisible();
-    await expect(page.getByTestId("retail-tip-panel")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Carcass pricing calculator" })).toBeVisible();
+    await expect(page.getByTestId("calculate-selling-prices")).toBeVisible();
+    await expect(page.getByTestId("pricing-helper-panel")).toBeVisible();
+    await expect(page.getByText("How this helps")).toBeVisible();
+    await expect(page.getByTestId("pricing-result-summary")).toHaveCount(0);
+    await expect(page.getByTestId("recommended-price-cards")).toHaveCount(0);
+    await expect(page.getByTestId("cut-map-panel")).toHaveCount(0);
+    await expect(page.getByTestId("retail-tip-panel")).toHaveCount(0);
   });
 
-  test("accounts for chiller shrinkage in the real meat cost", async ({ page }) => {
+  test("calculation shows result summary and recommended price cards", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await page.goto("/admin/cutting-guide");
-    await page.getByPlaceholder("e.g. 108").fill("108");
 
-    // Hang the lamb for 3 days — water-loss line should appear.
-    await page.getByPlaceholder("0", { exact: true }).fill("3");
-    await expect(page.getByText(/lost/i).first()).toBeVisible();
-    await expect(page.getByText(/water/i).first()).toBeVisible();
+    await page.getByPlaceholder("e.g. 108").fill("108");
+    await page.getByTestId("calculate-selling-prices").click();
+
+    await expect(page.getByTestId("pricing-result-summary")).toBeVisible();
+    await expect(page.getByText("Real meat cost", { exact: true })).toBeVisible();
+    await expect(page.getByText("Do not price from carcass cost")).toBeVisible();
+    await expect(page.getByTestId("recommended-price-cards")).toBeVisible();
+    await expect(page.getByTestId("cut-row-leg")).toContainText("Recommended price");
+    await expect(page.getByText("Smart retail tips")).toHaveCount(0);
   });
 
-  test("selecting a cut highlights the matching map region", async ({ page }) => {
+  test("cut map opens only after viewing a cut and highlights the selected region", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await page.goto("/admin/cutting-guide");
     await page.getByPlaceholder("e.g. 108").fill("108");
+    await page.getByTestId("calculate-selling-prices").click();
 
-    await page.getByRole("button", { name: "Select Rack / best end on cut map" }).click();
-    await expect(page.getByTestId("cut-map-region-rack")).toHaveAttribute("fill", "#0f5132");
-    await expect(page.getByText("Region: Rack")).toBeVisible();
-  });
+    await expect(page.getByTestId("cut-map-panel")).toHaveCount(0);
+    await page.getByTestId("cut-row-leg").getByRole("button", { name: "View cut" }).click();
 
-  test("animal switching keeps V6.2 guidance stable on mobile-sized maps", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await login(page, USERS.manager, { expectLanding: /\/admin/ });
-    await page.goto("/admin/cutting-guide");
+    const dialog = page.getByRole("dialog", { name: /Leg of lamb/i });
+    await expect(dialog).toBeVisible();
 
-    await page.getByRole("button", { name: "Chicken" }).click();
-    await page.getByPlaceholder("e.g. 108").fill("4");
+    // Commercial facts lead the modal, before the map.
+    await expect(dialog.getByTestId("cut-detail-price")).toContainText("/kg");
+    await expect(dialog.getByTestId("cut-detail-price")).toContainText("recommended");
+    await expect(dialog.getByTestId("cut-detail-facts")).toContainText("Difficulty:");
+    await expect(dialog.getByTestId("cut-detail-facts")).toContainText("Use:");
 
     await expect(page.getByTestId("cut-map-panel")).toBeVisible();
-    await expect(page.getByTestId("yield-guardrail-panel")).toBeVisible();
-    await expect(page.getByText("No animal map configured")).toHaveCount(0);
+    await expect(page.getByTestId("cut-map-region-leg")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("selected-cut-region")).toContainText("Selected region: Leg");
+
+    // Escape closes the modal.
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
   });
 
-  test("manager can save a calculated cut price and honest cost to a product", async ({ page }) => {
-    const name = `V6.1 Costed Cut ${Date.now()}`;
+  test("advanced product mapping is hidden by default", async ({ page }) => {
+    const name = `V6.3 Costed Cut ${Date.now()}`;
 
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await page.goto("/admin/products");
@@ -76,13 +72,45 @@ test.describe("cutting & pricing guide", () => {
 
     await page.goto("/admin/cutting-guide");
     await page.getByPlaceholder("e.g. 108").fill("108");
+    await page.getByTestId("calculate-selling-prices").click();
 
-    const legCard = page.getByTestId("cut-row-leg");
-    await legCard.getByTestId("commit-product-select").selectOption({ label: name });
-    await legCard.getByTestId("commit-product-save").click();
-    await expect(legCard.getByText("Saved price and cost to product.")).toBeVisible();
+    await expect(page.getByTestId("commit-product-select")).toHaveCount(0);
+    await page.getByRole("button", { name: /Advanced: connect cuts to products/i }).click();
+    await expect(page.getByTestId("commit-product-select").first()).toBeVisible();
+
+    const legAdvancedRow = page.getByTestId("advanced-product-row-leg");
+    await legAdvancedRow.getByTestId("commit-product-select").selectOption({ label: name });
+    await legAdvancedRow.getByTestId("commit-product-save").click();
+    await expect(legAdvancedRow.getByText("Saved price and cost to product.")).toBeVisible();
 
     await page.goto("/admin/products");
     await expect(page.locator('[data-testid="product-row"]', { hasText: name }).getByTestId("product-price-input")).toHaveValue("9.82");
+  });
+
+  test("animal switching keeps the professional map stable on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await page.goto("/admin/cutting-guide");
+
+    await page.getByLabel("Animal").selectOption("chicken");
+    await page.getByPlaceholder("e.g. 108").fill("4");
+    await page.getByTestId("calculate-selling-prices").click();
+    await page.getByTestId("cut-row-breast").getByRole("button", { name: "View cut" }).click();
+
+    await expect(page.getByTestId("cut-map-panel")).toBeVisible();
+    await expect(page.getByTestId("cut-map-region-breast")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("Cut map unavailable for this animal yet.")).toHaveCount(0);
+  });
+
+  test("accounts for chiller shrinkage in the real meat cost", async ({ page }) => {
+    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await page.goto("/admin/cutting-guide");
+
+    await page.getByPlaceholder("e.g. 108").fill("108");
+    await page.getByLabel("Days hung in chiller").fill("3");
+    await page.getByTestId("calculate-selling-prices").click();
+
+    await expect(page.getByText(/Hung 3 days: .* moisture loss/i)).toBeVisible();
+    await expect(page.getByText(/you are cutting/i)).toBeVisible();
   });
 });
