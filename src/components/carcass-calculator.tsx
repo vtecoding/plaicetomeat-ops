@@ -3,9 +3,14 @@
 import { AlertTriangle, Beef, Bird, Droplets, Info } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { CutMapPanel } from "@/components/admin/pricing/CutMapPanel";
+import { RetailTipPanel } from "@/components/admin/pricing/RetailTipPanel";
+import { YieldGuardrailPanel } from "@/components/admin/pricing/YieldGuardrailPanel";
 import { Input } from "@/components/ui/input";
 import { calculateCarcassBreakdown, type MarginBand } from "@/lib/butchery/carcass-breakdown";
 import { CUT_SHEETS } from "@/lib/butchery/cut-sheets";
+import { findCutMapRegion } from "@/lib/domain/cut-map-data";
+import { calculateYieldGuardrails, generateRetailTips } from "@/lib/domain/yield-guardrails";
 import { cn, formatCurrency } from "@/lib/utils";
 
 const TIER_LABEL: Record<string, { label: string; className: string }> = {
@@ -31,6 +36,7 @@ export function CarcassCalculator() {
   const [daysHung, setDaysHung] = useState("0");
   const [marginNudge, setMarginNudge] = useState(0); // delta applied to every cut's default margin
   const [overrides, setOverrides] = useState<Record<string, number>>({});
+  const [selectedCutId, setSelectedCutId] = useState(sheet.cuts.find((cut) => !cut.isWaste)?.id ?? sheet.cuts[0]?.id ?? null);
 
   function selectAnimal(id: string) {
     const next = CUT_SHEETS.find((s) => s.id === id) ?? CUT_SHEETS[0];
@@ -39,6 +45,7 @@ export function CarcassCalculator() {
     setDaysHung("0");
     setMarginNudge(0);
     setOverrides({});
+    setSelectedCutId(next.cuts.find((cut) => !cut.isWaste)?.id ?? next.cuts[0]?.id ?? null);
   }
 
   // Effective margin per cut = explicit override, else the cut's default shifted by the master nudge.
@@ -64,6 +71,61 @@ export function CarcassCalculator() {
   );
 
   const hasCost = cost.trim() !== "" && Number(cost) > 0;
+  const selectedRow = result.ok
+    ? result.rows.find((row) => row.id === selectedCutId) ?? result.rows.find((row) => !row.isWaste) ?? result.rows[0] ?? null
+    : null;
+
+  const v62Guidance = useMemo(() => {
+    if (!result.ok) return null;
+
+    return calculateYieldGuardrails({
+      animalType: sheet.id,
+      rawWeightKg: result.carcassWeightKg,
+      processedWeightKg: result.processedWeightKg,
+      moistureLossKg: result.moistureLossKg,
+      cuts: result.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        weightKg: row.weightKg,
+        isWaste: row.isWaste,
+        marginPct: row.marginPct,
+        band: row.band,
+        bestUse: row.bestUse,
+        tier: row.tier,
+      })),
+    });
+  }, [result, sheet.id]);
+
+  const retailTips = useMemo(() => {
+    if (!result.ok) return [];
+
+    return generateRetailTips({
+      animalType: sheet.id,
+      cuts: result.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        weightKg: row.weightKg,
+        isWaste: row.isWaste,
+        marginPct: row.marginPct,
+        band: row.band,
+        bestUse: row.bestUse,
+        tier: row.tier,
+      })),
+      assessments: v62Guidance?.assessments,
+    });
+  }, [result, sheet.id, v62Guidance]);
+
+  function selectMapRegion(regionId: string) {
+    if (!result.ok) {
+      setSelectedCutId(regionId);
+      return;
+    }
+
+    const matchingRow =
+      result.rows.find((row) => row.id === regionId) ??
+      result.rows.find((row) => findCutMapRegion(sheet.id, row.id)?.id === regionId || findCutMapRegion(sheet.id, row.name)?.id === regionId);
+    setSelectedCutId(matchingRow?.id ?? regionId);
+  }
 
   return (
     <div className="grid gap-6">
@@ -144,6 +206,25 @@ export function CarcassCalculator() {
             </p>
           </div>
 
+          {v62Guidance ? (
+            <section className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(290px,0.85fr)]">
+              <CutMapPanel
+                animalType={sheet.id}
+                selectedCutId={selectedRow?.id ?? selectedCutId}
+                selectedCutName={selectedRow?.name ?? null}
+                onSelectCut={selectMapRegion}
+              />
+              <div className="grid gap-4">
+                <YieldGuardrailPanel
+                  assessments={v62Guidance.assessments}
+                  massIntegrity={v62Guidance.massIntegrity}
+                  selectedCutId={selectedRow?.id ?? selectedCutId}
+                />
+                <RetailTipPanel tips={retailTips} />
+              </div>
+            </section>
+          ) : null}
+
           {/* Master margin slider */}
           <section className="rounded-xl border border-[#ded6ca] bg-[#fbfaf7] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -187,10 +268,27 @@ export function CarcassCalculator() {
             </p>
             <div className="mt-3 grid gap-3">
               {result.rows.map((row) => (
-                <article key={row.id} className={cn("rounded-xl border p-4", row.isWaste ? "border-dashed border-[#ded6ca] bg-[#f7f3ed]" : "border-[#ded6ca] bg-white")}>
+                <article
+                  key={row.id}
+                  className={cn(
+                    "rounded-xl border p-4",
+                    row.isWaste ? "border-dashed border-[#ded6ca] bg-[#f7f3ed]" : "border-[#ded6ca] bg-white",
+                    selectedCutId === row.id && "border-[#0f5132] ring-2 ring-[#0f5132]/20",
+                  )}
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-black">{row.name}</h3>
+                      <h3 className="font-black">
+                        <button
+                          type="button"
+                          className="rounded-sm text-left underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f5132]"
+                          aria-label={`Select ${row.name} on cut map`}
+                          aria-pressed={selectedCutId === row.id}
+                          onClick={() => setSelectedCutId(row.id)}
+                        >
+                          {row.name}
+                        </button>
+                      </h3>
                       <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", TIER_LABEL[row.tier]?.className)}>{TIER_LABEL[row.tier]?.label}</span>
                       <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-[#8a7d70]">{row.bone}</span>
                     </div>
