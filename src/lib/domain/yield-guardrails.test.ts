@@ -144,8 +144,9 @@ describe("cut map and tool fallbacks", () => {
 
     expect(trim?.id).toBe("skin-trim");
     expect(trim?.label).toBe("Skin/trim");
-    // Sits low in the diagram (a small dedicated trim region), not floating off to the side.
-    expect(trim?.labelY).toBeGreaterThan(300);
+    // Sits within the whole-bird diagram bounds, not floating off the canvas.
+    expect(trim?.labelY).toBeGreaterThan(150);
+    expect(trim?.labelY).toBeLessThan(390);
     expect(getCutMap("chicken")?.regions.map((region) => region.id)).toContain("skin-trim");
   });
 

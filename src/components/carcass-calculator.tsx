@@ -626,7 +626,6 @@ function CutDetailDrawer({
           {difficultyLabel ? <DetailLine label="Difficulty" value={difficultyLabel} /> : null}
           {row.bestUse ? <DetailLine label="Use" value={row.bestUse} /> : null}
           {guidance ? <DetailLine label="Caution" value={guidance.caution} /> : null}
-          {guidance ? <DetailLine label="Avoid" value={guidance.avoid} /> : null}
         </dl>
 
         {warning ? (
