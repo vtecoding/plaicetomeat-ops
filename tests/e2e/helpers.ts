@@ -34,6 +34,6 @@ export async function logout(page: Page) {
 /** Assert the public header shows no back-office navigation links. */
 export async function expectNoBackOfficeNav(page: Page) {
   await expect(page.getByRole("link", { name: "Counter", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Admin", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Today", exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Compliance", exact: true })).toHaveCount(0);
 }

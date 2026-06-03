@@ -12,15 +12,15 @@ test.describe("authentication", () => {
   test("manager can log in and reach /admin", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await expect(page).toHaveURL(/\/admin/);
-    await expect(page.getByRole("link", { name: "Admin", exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Today", exact: true }).first()).toBeVisible();
   });
 
   test("staff can log in and reach /counter", async ({ page }) => {
     await login(page, USERS.staff, { expectLanding: /\/counter/ });
     await expect(page).toHaveURL(/\/counter/);
     await expect(page.getByRole("link", { name: "Counter", exact: true }).first()).toBeVisible();
-    // staff must NOT see the Admin link
-    await expect(page.getByRole("link", { name: "Admin", exact: true })).toHaveCount(0);
+    // staff must NOT see the back-office (Today) link
+    await expect(page.getByRole("link", { name: "Today", exact: true })).toHaveCount(0);
   });
 
   test("owner can reach both /admin and /counter", async ({ page }) => {

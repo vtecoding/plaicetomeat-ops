@@ -48,15 +48,15 @@ test.describe("route protection", () => {
     }
   });
 
-  test("manager sees Admin nav; plain staff does not", async ({ page, browser }) => {
+  test("manager sees back-office nav; plain staff does not", async ({ page, browser }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await page.goto("/counter");
-    await expect(page.getByRole("link", { name: "Admin", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Today", exact: true })).toBeVisible();
 
     const staffCtx = await browser.newContext();
     const staffPage = await staffCtx.newPage();
     await login(staffPage, USERS.staff, { expectLanding: /\/counter/ });
-    await expect(staffPage.getByRole("link", { name: "Admin", exact: true })).toHaveCount(0);
+    await expect(staffPage.getByRole("link", { name: "Today", exact: true })).toHaveCount(0);
     await staffCtx.close();
   });
 });

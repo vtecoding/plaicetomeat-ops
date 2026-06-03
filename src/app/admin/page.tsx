@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
+import { severityToUrgency, URGENCY_LABEL } from "@/lib/domain/dad-mode";
 import { LAUNCH_OVERALL_LABEL, type LaunchItem, type LaunchReadiness } from "@/lib/domain/launch-readiness";
 import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import { getLaunchReadiness } from "@/lib/server/launch-readiness";
@@ -120,15 +121,20 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <>
             <header className="flex flex-col gap-4 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Your shop</p>
-                <h1 className="mt-2 text-3xl font-black">Today&apos;s Actions</h1>
+                <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Full dashboard</p>
+                <h1 className="mt-2 text-3xl font-black">All the detail</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6c5e52]">
-                  What needs attention first, followed by the numbers behind it.
+                  Every number behind today. For the short version, use Today.
                 </p>
                 <p className="mt-2 text-sm font-semibold text-[#0f5132]">Today - {formatDisplayDate(metrics.date)}</p>
               </div>
               <div className="flex items-center gap-3">
-                <BadgePill tone="green">Desktop ready</BadgePill>
+                <Link
+                  href="/admin/today"
+                  className="inline-flex h-11 items-center rounded-full bg-[#0f5132] px-4 text-sm font-bold text-white transition hover:bg-[#0c3f27]"
+                >
+                  Back to Today
+                </Link>
                 <Link
                   href="/admin?mode=counter"
                   className="inline-flex h-11 items-center rounded-full border border-[#d6cdc0] bg-[#f7f3ed] px-4 text-sm font-bold text-[#0f5132] transition hover:bg-[#efe8dd]"
@@ -166,7 +172,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-black">{action.title}</p>
-                          <BadgePill tone={severityTone(action.severity)}>{action.severity}</BadgePill>
+                          <BadgePill tone={severityTone(action.severity)}>
+                            {URGENCY_LABEL[severityToUrgency(action.severity as "info" | "warning" | "urgent")]}
+                          </BadgePill>
                         </div>
                         <p className="mt-1 text-sm leading-6 text-[#5c5148]">{action.explanation}</p>
                         <p className="mt-1 text-sm font-semibold text-[#0f5132]">{action.recommendedAction}</p>
@@ -616,7 +624,7 @@ function buildInsightPanels(
     {
       icon: PackageCheck,
       title: "What stock do I have?",
-      summary: `${intelligence.depletion.length} forecast rows`,
+      summary: `Expected demand on ${intelligence.depletion.length} stock line${intelligence.depletion.length === 1 ? "" : "s"}`,
       content: (
         <>
           {intelligence.depletion.length === 0 ? (
@@ -865,7 +873,7 @@ function MobileActionBar({ compact = false }: { compact?: boolean }) {
 }
 
 function formatNullableCurrency(value: number | null) {
-  return value === null ? "Margin unavailable - no cost source available." : formatCurrency(value);
+  return value === null ? "Add a cost to see profit" : formatCurrency(value);
 }
 
 function LaunchReadinessCard({ launch }: { launch: LaunchReadiness }) {

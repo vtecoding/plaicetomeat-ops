@@ -9,7 +9,7 @@ export const LOGIN_ATTEMPT_WINDOW_MINUTES = 15;
  * explicit (and authorised) returnTo target.
  */
 export function roleLandingPath(role: StaffRole): string {
-  return role === "staff" ? "/counter" : "/admin";
+  return role === "staff" ? "/counter" : "/admin/today";
 }
 
 const BACKSLASH = String.fromCharCode(92);

@@ -20,7 +20,7 @@ const STAFF_LINKS: NavLink[] = [
   { href: "/counter/compliance", label: "Compliance", icon: ClipboardCheck },
 ];
 
-const MANAGER_LINKS: NavLink[] = [{ href: "/admin", label: "Admin", icon: Settings }];
+const MANAGER_LINKS: NavLink[] = [{ href: "/admin/today", label: "Today", icon: Settings }];
 
 export async function SiteHeader() {
   const profile = await getCurrentProfile();
