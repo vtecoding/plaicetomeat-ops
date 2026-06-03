@@ -3,13 +3,13 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ArrowRight,
+  BookOpen,
   CheckCircle2,
   ClipboardList,
   LayoutDashboard,
   ListChecks,
   PackageCheck,
   PackagePlus,
-  PoundSterling,
   Scissors,
   ShoppingBag,
   TrendingUp,
@@ -49,6 +49,7 @@ const bigButtons = [
   { href: "/admin/compliance", label: "Compliance", detail: "Halal & food-safety papers", icon: ClipboardList },
   { href: "/admin/cutting-guide", label: "Prices", detail: "What a whole animal is worth", icon: Scissors },
   { href: "/admin/setup", label: "Setup checklist", detail: "Get ready to open", icon: ListChecks },
+  { href: "/admin/guide", label: "Help & guide", detail: "How to do each job", icon: BookOpen },
   { href: "/admin", label: "More detail", detail: "Full numbers and insights", icon: ArrowRight },
 ] as const;
 
