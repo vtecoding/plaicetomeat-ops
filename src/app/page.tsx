@@ -6,10 +6,22 @@ import { CountdownBanner } from "@/components/countdown-banner";
 import { PayOnCollectionNote } from "@/components/pay-on-collection-note";
 import { PageFrame } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
-import { demoBranch, demoProducts } from "@/lib/data/demo";
+import { getPublicBranch, getPublicProducts } from "@/lib/server/catalog";
+import { formatCurrency } from "@/lib/utils";
 
-export default function Home() {
-  const featuredProducts = demoProducts.slice(0, 3);
+export const dynamic = "force-dynamic";
+
+function priceLabel(price: number, unitType: string) {
+  if (price <= 0) return "Ask at the counter";
+  if (unitType === "kg") return `${formatCurrency(price)} per kg`;
+  if (unitType === "each") return `${formatCurrency(price)} each`;
+  return `${formatCurrency(price)} per ${unitType}`;
+}
+
+export default async function Home() {
+  const branch = await getPublicBranch();
+  const products = await getPublicProducts(branch.id);
+  const featuredProducts = products.slice(0, 3);
 
   return (
     <PageFrame>
@@ -33,10 +45,10 @@ export default function Home() {
                 </span>
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm font-bold backdrop-blur">
                   <MapPin className="h-4 w-4" aria-hidden />
-                  {demoBranch.address}
+                  {branch.address}
                 </span>
               </div>
-              <h1 className="text-4xl font-black leading-tight sm:text-6xl">PlaiceToMeat Wylde Green</h1>
+              <h1 className="text-4xl font-black leading-tight sm:text-6xl">{branch.name}</h1>
               <p className="mt-5 max-w-xl text-lg leading-8 text-white/90">
                 Order fresh halal-focused meat ahead, collect from the counter, and pay on collection.
               </p>
@@ -46,9 +58,6 @@ export default function Home() {
                     <ShoppingBasket className="h-5 w-5" aria-hidden />
                     Shop click-and-collect
                   </Link>
-                </Button>
-                <Button asChild size="lg" variant="secondary">
-                  <Link href="/counter">Open counter dashboard</Link>
                 </Button>
               </div>
             </div>
@@ -92,19 +101,28 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              {featuredProducts.map((product) => (
-                <Link
-                  key={product.id}
-                  href={`/product/${product.slug}`}
-                  className="rounded-lg border border-[#ded6ca] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <Clock3 className="h-5 w-5 text-[#0f5132]" aria-hidden />
-                  <p className="mt-4 font-black">{product.name}</p>
-                  <p className="mt-2 text-sm text-[#6c5e52]">Ready for pickup windows today.</p>
-                </Link>
-              ))}
-            </div>
+            {featuredProducts.length === 0 ? (
+              <div className="flex flex-col justify-center rounded-lg border border-dashed border-[#ded6ca] bg-white p-8 text-center">
+                <p className="text-lg font-black">Our online shop is being prepared.</p>
+                <p className="mt-2 text-sm text-[#6c5e52]">
+                  Please check back soon, or call the shop directly to place an order.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-3">
+                {featuredProducts.map((product) => (
+                  <Link
+                    key={product.id}
+                    href={`/product/${product.slug}`}
+                    className="rounded-lg border border-[#ded6ca] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <Clock3 className="h-5 w-5 text-[#0f5132]" aria-hidden />
+                    <p className="mt-4 font-black">{product.name}</p>
+                    <p className="mt-2 text-sm text-[#6c5e52]">{priceLabel(product.pricePerUnit, product.unitType)}</p>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>
