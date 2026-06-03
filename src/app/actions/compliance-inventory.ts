@@ -18,15 +18,23 @@ const SAFE_PATTERNS = [
   "Product is required",
   "Supplier is required",
   "Received weight must be greater than zero",
+  "Actual weight must be greater than zero",
+  "Estimated weight cannot be negative",
   "Remaining weight cannot exceed received weight",
+  "Stock left cannot exceed the actual weight received",
   "Expiry date cannot be before received date",
   "Invoice cost must be zero or greater",
+  "Duplicate intake submission",
+  "Intake idempotency key already used",
+  "Stock item not found",
   "Batch not found",
   "Waste quantity must be greater than zero",
   "Waste quantity cannot exceed remaining weight",
   "Waste reason is required",
   "Invalid waste reason",
   "Adjustment reason is required",
+  "Stock correction reason is required",
+  "Stock correction did not change the weight",
 ];
 
 function safeMessage(raw: string | undefined, fallback: string) {
@@ -107,6 +115,9 @@ export async function createInventoryBatch(input: {
   slaughterDate?: string | null;
   storageLocation?: string | null;
   batchNumber?: string | null;
+  intakeIdempotencyKey?: string | null;
+  expectedWeightKg?: number | null;
+  actualReviewNote?: string | null;
 }): Promise<ActionResult> {
   const auth = await requireManager();
   if (!auth.ok) return auth;
@@ -126,11 +137,14 @@ export async function createInventoryBatch(input: {
     p_slaughter_date: input.slaughterDate || null,
     p_storage_location: input.storageLocation ?? null,
     p_batch_number: input.batchNumber ?? null,
+    p_intake_idempotency_key: input.intakeIdempotencyKey ?? null,
+    p_expected_weight_kg: input.expectedWeightKg ?? null,
+    p_actual_review_note: input.actualReviewNote ?? null,
   });
 
-  if (error) return { ok: false, message: safeMessage(error.message, "Could not create this batch.") };
+  if (error) return { ok: false, message: safeMessage(error.message, "Could not add this stock.") };
   revalidateOps();
-  return { ok: true, message: "Batch received.", id: String(data) };
+  return { ok: true, message: "Stock added.", id: String(data) };
 }
 
 export const receiveInventoryBatch = createInventoryBatch;
@@ -172,7 +186,7 @@ export async function adjustInventoryRemainingWithReason(input: {
     p_reason: input.reason,
   });
 
-  if (error) return { ok: false, message: safeMessage(error.message, "Could not adjust this batch.") };
+  if (error) return { ok: false, message: safeMessage(error.message, "Could not correct this stock.") };
   revalidateOps();
-  return { ok: true, message: "Tracked remaining kg adjusted.", id: String(data) };
+  return { ok: true, message: "Stock corrected.", id: String(data) };
 }

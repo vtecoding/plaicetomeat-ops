@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "maps2",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "serve", "audit-results/v6-3-pricing/maps2", "-l", "4601"],
+      "port": 4601
+    }
+  ]
+}

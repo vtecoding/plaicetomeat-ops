@@ -13,6 +13,13 @@ import type { Product } from "@/lib/domain/types";
 import { formatCurrency } from "@/lib/utils";
 
 const WASTE_REASONS = ["expired", "damaged", "trim_loss", "customer_issue", "other"] as const;
+const WASTE_REASON_LABEL: Record<(typeof WASTE_REASONS)[number], string> = {
+  expired: "Expired",
+  damaged: "Damaged stock",
+  trim_loss: "Bone, fat and trimming removed",
+  customer_issue: "Customer issue",
+  other: "Other",
+};
 
 type Feedback = { tone: "ok" | "error"; message: string } | null;
 
@@ -45,8 +52,8 @@ export function AdminInventoryClient({
     <div>
       <div>
         <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Admin</p>
-        <h1 className="mt-2 text-3xl font-black">Inventory batches</h1>
-        <p className="mt-2 text-sm text-[#6c5e52]">Batch visibility for expiry and waste prevention.</p>
+        <h1 className="mt-2 text-3xl font-black">Stock</h1>
+        <p className="mt-2 text-sm text-[#6c5e52]">What arrived, what is left, and what needs using first.</p>
       </div>
 
       {feedback && (
@@ -65,19 +72,19 @@ export function AdminInventoryClient({
       )}
 
       <section className="mt-6 rounded-lg border border-[#ded6ca] bg-white p-5">
-        <h2 className="text-lg font-black">Expiry Command Centre</h2>
-        <p className="mt-1 text-sm font-bold text-[#231f20]">Expiry and waste risk</p>
+        <h2 className="text-lg font-black">What expires soon?</h2>
+        <p className="mt-1 text-sm font-bold text-[#231f20]">Use this stock first</p>
         <p className="mt-1 text-sm text-[#6c5e52]">
-          {risk.length} active batch{risk.length === 1 ? "" : "es"} expiring within 3 days. Estimated value at risk:{" "}
+          {risk.length} stock item{risk.length === 1 ? "" : "s"} expire within 3 days. Money at risk:{" "}
           <strong>{formatCurrency(totalAtRisk)}</strong>.
         </p>
         <dl className="mt-4 grid gap-3 sm:grid-cols-4">
           <div className="rounded-md bg-[#f7f3ed] p-3">
-            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Expires Today</dt>
+            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Expires today</dt>
             <dd className="mt-1 text-2xl font-black">{expiresToday.length}</dd>
           </div>
           <div className="rounded-md bg-[#f7f3ed] p-3">
-            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Expires This Week</dt>
+            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Expires this week</dt>
             <dd className="mt-1 text-2xl font-black">{expiresThisWeek.length}</dd>
           </div>
           <div className="rounded-md bg-[#f7f3ed] p-3">
@@ -85,7 +92,7 @@ export function AdminInventoryClient({
             <dd className="mt-1 text-2xl font-black">{expired.length}</dd>
           </div>
           <div className="rounded-md bg-[#f7f3ed] p-3">
-            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Value At Risk</dt>
+            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Money at risk</dt>
             <dd className="mt-1 text-2xl font-black">{formatCurrency(totalAtRisk)}</dd>
           </div>
         </dl>
@@ -96,7 +103,7 @@ export function AdminInventoryClient({
       <div className="mt-8 grid gap-4">
         {batches.length === 0 ? (
           <p className="rounded-lg border border-[#ded6ca] bg-white p-5 text-sm text-[#6c5e52]">
-            Action required: receive your first inventory batch to enable expiry and waste tracking.
+            Add your first stock item to start expiry and waste tracking.
           </p>
         ) : (
           batches.map((batch) => <BatchRow key={batch.id} batch={batch} onResult={announce} />)
@@ -122,6 +129,7 @@ function BatchForm({
   const [supplierId, setSupplierId] = useState("");
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10));
   const [expiryDate, setExpiryDate] = useState("");
+  const [expectedWeightKg, setExpectedWeightKg] = useState("");
   const [receivedWeightKg, setReceivedWeightKg] = useState("");
   const [remainingWeightKg, setRemainingWeightKg] = useState("");
   const [invoiceCost, setInvoiceCost] = useState("");
@@ -129,6 +137,10 @@ function BatchForm({
   const [countryOfOrigin, setCountryOfOrigin] = useState("");
   const [storageLocation, setStorageLocation] = useState("");
   const [batchNumber, setBatchNumber] = useState("");
+  const [actualReviewNote, setActualReviewNote] = useState("Checked during breakdown");
+  const [intakeIdempotencyKey] = useState(() =>
+    globalThis.crypto?.randomUUID?.() ?? `inventory-intake-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
 
   function submit() {
     startTransition(async () => {
@@ -139,6 +151,7 @@ function BatchForm({
           supplierId,
           receivedDate,
           expiryDate,
+          expectedWeightKg: expectedWeightKg ? Number(expectedWeightKg) : Number(receivedWeightKg),
           receivedWeightKg: Number(receivedWeightKg),
           remainingWeightKg: Number(remainingWeightKg || receivedWeightKg),
           invoiceCost: Number(invoiceCost || 0),
@@ -146,6 +159,8 @@ function BatchForm({
           countryOfOrigin,
           storageLocation,
           batchNumber,
+          actualReviewNote,
+          intakeIdempotencyKey,
         }),
       );
     });
@@ -159,7 +174,13 @@ function BatchForm({
         submit();
       }}
     >
-      <h2 className="text-lg font-black">Receive batch</h2>
+      <h2 className="text-lg font-black">Add stock</h2>
+      <ol className="grid gap-2 rounded-md bg-[#f7f3ed] p-3 text-sm font-bold text-[#5c5148] sm:grid-cols-4">
+        <li>1. What arrived?</li>
+        <li>2. What did we expect?</li>
+        <li>3. What did we actually get?</li>
+        <li>4. Confirm stock</li>
+      </ol>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <label className="grid gap-1 text-sm font-semibold">
           Product
@@ -180,7 +201,7 @@ function BatchForm({
           </Select>
         </label>
         <label className="grid gap-1 text-sm font-semibold">
-          Received date
+          Arrived date
           <Input type="date" value={receivedDate} onChange={(event) => setReceivedDate(event.target.value)} required />
         </label>
         <label className="grid gap-1 text-sm font-semibold">
@@ -188,15 +209,19 @@ function BatchForm({
           <Input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} required />
         </label>
         <label className="grid gap-1 text-sm font-semibold">
-          Received kg
+          Estimated kg
+          <Input type="number" step="0.001" min="0" value={expectedWeightKg} onChange={(event) => setExpectedWeightKg(event.target.value)} placeholder="Optional" />
+        </label>
+        <label className="grid gap-1 text-sm font-semibold">
+          Actual kg
           <Input type="number" step="0.001" min="0.001" value={receivedWeightKg} onChange={(event) => setReceivedWeightKg(event.target.value)} required />
         </label>
         <label className="grid gap-1 text-sm font-semibold">
-          Remaining kg
+          Stock left kg
           <Input type="number" step="0.001" min="0" value={remainingWeightKg} onChange={(event) => setRemainingWeightKg(event.target.value)} />
         </label>
         <label className="grid gap-1 text-sm font-semibold">
-          Invoice cost
+          Total cost
           <Input type="number" step="0.01" min="0" value={invoiceCost} onChange={(event) => setInvoiceCost(event.target.value)} />
         </label>
         <label className="grid gap-1 text-sm font-semibold">
@@ -215,9 +240,18 @@ function BatchForm({
           Supplier batch number
           <Input value={batchNumber} onChange={(event) => setBatchNumber(event.target.value)} />
         </label>
+        <label className="grid gap-1 text-sm font-semibold lg:col-span-2">
+          Check note
+          <Input value={actualReviewNote} onChange={(event) => setActualReviewNote(event.target.value)} maxLength={300} />
+        </label>
       </div>
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Receive batch"}</Button>
+        <div className="flex flex-col items-end gap-2">
+          <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Confirm stock"}</Button>
+          <p className="max-w-sm text-right text-xs leading-5 text-[#8a7d70]">
+            Refreshes and double clicks reuse the same stock check, so the same arrival should not be added twice.
+          </p>
+        </div>
       </div>
     </form>
   );
@@ -244,17 +278,26 @@ function BatchRow({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-black">{batch.productName}</h2>
-          <p className="mt-1 text-sm text-[#6c5e52]">{batch.supplierName ?? "Unknown supplier"} · {batch.storageLocation ?? "No location"}</p>
+          <p className="mt-1 text-sm text-[#6c5e52]">{batch.supplierName ?? "Unknown supplier"} - {batch.storageLocation ?? "No location"}</p>
         </div>
-        <span className="rounded-full bg-[#f7f3ed] px-3 py-1 text-xs font-bold">{batch.status}</span>
+        <span className="rounded-full bg-[#f7f3ed] px-3 py-1 text-xs font-bold">{batch.status === "active" ? "In stock" : batch.status}</span>
       </div>
-      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-5">
+      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-7">
         <div><dt className="font-bold">Expiry</dt><dd>{batch.expiryDate}</dd></div>
-        <div><dt className="font-bold">Tracked remaining kg</dt><dd>{batch.remainingWeightKg.toFixed(3)} kg</dd></div>
+        <div><dt className="font-bold">Estimated</dt><dd>{batch.expectedWeightKg.toFixed(3)} kg</dd></div>
+        <div><dt className="font-bold">Actual</dt><dd>{batch.actualWeightKg.toFixed(3)} kg</dd></div>
+        <div><dt className="font-bold">Difference</dt><dd>{formatSignedKg(batch.varianceKg)}</dd></div>
+        <div><dt className="font-bold">Stock left</dt><dd>{batch.remainingWeightKg.toFixed(3)} kg</dd></div>
         <div><dt className="font-bold">Cost/kg</dt><dd>{formatCurrency(batch.costPerKg)}</dd></div>
-        <div><dt className="font-bold">At risk</dt><dd>{formatCurrency(batch.estimatedValueAtRisk)}</dd></div>
+        <div><dt className="font-bold">Money at risk</dt><dd>{formatCurrency(batch.estimatedValueAtRisk)}</dd></div>
         <div><dt className="font-bold">Urgency</dt><dd>{batch.daysToExpiry < 0 ? "Expired" : batch.daysToExpiry === 0 ? "Today" : `${batch.daysToExpiry} days`}</dd></div>
       </dl>
+      {Math.abs(batch.varianceKg) > 0.001 || batch.actualReviewNote ? (
+        <p className="mt-3 rounded-md bg-[#f7f3ed] p-3 text-sm text-[#5c5148]">
+          {Math.abs(batch.varianceKg) > 0.001 ? `Actual weight differed from estimate by ${formatSignedKg(batch.varianceKg)}. ` : ""}
+          {batch.actualReviewNote ?? "Checked during breakdown."}
+        </p>
+      ) : null}
       <form
         className="mt-4 flex flex-wrap items-end gap-3 border-t border-[#eee5d8] pt-4"
         onSubmit={(event) => {
@@ -266,17 +309,17 @@ function BatchRow({
         }}
       >
         <label className="grid gap-1 text-sm font-semibold">
-          Waste kg
+          Remove kg
           <Input type="number" step="0.001" min="0.001" max={batch.remainingWeightKg} value={quantity} onChange={(event) => setQuantity(event.target.value)} required />
         </label>
         <label className="grid gap-1 text-sm font-semibold">
           Reason
           <Select value={reason} onChange={(event) => setReason(event.target.value)}>
-            {WASTE_REASONS.map((item) => <option key={item} value={item}>{item.replace("_", " ")}</option>)}
+            {WASTE_REASONS.map((item) => <option key={item} value={item}>{WASTE_REASON_LABEL[item]}</option>)}
           </Select>
         </label>
         <Button type="submit" variant="outline" disabled={isPending || batch.remainingWeightKg <= 0}>
-          {isPending ? "Recording..." : "Record waste"}
+          {isPending ? "Recording..." : "Record loss"}
         </Button>
       </form>
       <form
@@ -295,7 +338,7 @@ function BatchRow({
         }}
       >
         <label className="grid gap-1 text-sm font-semibold">
-          Adjust tracked remaining kg
+          Correct stock left kg
           <Input
             type="number"
             step="0.001"
@@ -307,7 +350,7 @@ function BatchRow({
           />
         </label>
         <label className="min-w-64 flex-1 grid gap-1 text-sm font-semibold">
-          Adjustment reason
+          Reason
           <Input
             value={adjustReason}
             onChange={(event) => setAdjustReason(event.target.value)}
@@ -317,9 +360,14 @@ function BatchRow({
           />
         </label>
         <Button type="submit" variant="outline" disabled={isAdjusting}>
-          {isAdjusting ? "Adjusting..." : "Adjust stock"}
+          {isAdjusting ? "Correcting..." : "Correct stock"}
         </Button>
       </form>
     </article>
   );
+}
+
+function formatSignedKg(value: number) {
+  if (Math.abs(value) < 0.001) return "0.000 kg";
+  return `${value > 0 ? "+" : ""}${value.toFixed(3)} kg`;
 }

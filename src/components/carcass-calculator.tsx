@@ -3,6 +3,7 @@
 import { FormEvent, type ReactNode, useEffect, useMemo, useState, useTransition } from "react";
 
 import { commitCutToProduct } from "@/app/actions/admin-products";
+import { CarcassIntakeReview, type IntakeSupplierOption } from "@/components/admin/pricing/CarcassIntakeReview";
 import { CutMapPanel } from "@/components/admin/pricing/CutMapPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { findCutMapRegion, getToolGuidance } from "@/lib/domain/cut-map-data";
 import { calculateYieldGuardrails, type YieldAssessment } from "@/lib/domain/yield-guardrails";
 import { cn, formatCurrency } from "@/lib/utils";
 
-type ProductOption = { id: string; name: string };
+type ProductOption = { id: string; name: string; pricePerUnit?: number; costPerKg?: number | null };
 
 const TIER_LABEL: Record<string, { label: string; className: string }> = {
   premium: { label: "Premium", className: "bg-[#0f5132] text-white" },
@@ -28,7 +29,15 @@ const BAND_COLOR: Record<MarginBand, string> = {
   healthy: "#0f5132",
 };
 
-export function CarcassCalculator({ products = [] }: { products?: ProductOption[] }) {
+export function CarcassCalculator({
+  products = [],
+  branchId,
+  suppliers = [],
+}: {
+  products?: ProductOption[];
+  branchId: string;
+  suppliers?: IntakeSupplierOption[];
+}) {
   const [animalId, setAnimalId] = useState(CUT_SHEETS[0].id);
   const sheet = useMemo(() => CUT_SHEETS.find((s) => s.id === animalId) ?? CUT_SHEETS[0], [animalId]);
 
@@ -350,6 +359,16 @@ export function CarcassCalculator({ products = [] }: { products?: ProductOption[
               })}
             </div>
           </section>
+
+          <CarcassIntakeReview
+            breakdown={result}
+            animalId={animalId}
+            daysHung={Number(daysHung) || 0}
+            branchId={branchId}
+            products={products}
+            suppliers={suppliers}
+            marginOverrides={effectiveMargins}
+          />
 
           <Collapsible title="Adjust prices" open={adjustOpen} onOpenChange={setAdjustOpen}>
             <p className="text-sm text-[#6c5e52]">Move all prices up or down, then fine-tune individual cuts.</p>

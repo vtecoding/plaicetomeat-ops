@@ -63,11 +63,11 @@ type InsightPanel = {
 };
 
 const quickActionLinks = [
-  { href: "/admin/purchasing", label: "Purchasing", detail: "What to order before you call your supplier", icon: TrendingUp },
+  { href: "/admin/purchasing", label: "What should I buy next?", detail: "Stock to order before you call your supplier", icon: TrendingUp },
   { href: "/admin/cutting-guide", label: "Cutting & Pricing", detail: "What a whole animal is worth & what to charge", icon: Scissors },
   { href: "/admin/orders", label: "Orders", detail: "Every order customers placed", icon: ShoppingBag },
   { href: "/admin/products", label: "Products & Prices", detail: "What you sell and what it costs", icon: PackageSearch },
-  { href: "/admin/inventory", label: "Stock & Waste", detail: "What's in, what's going off", icon: PackageCheck },
+  { href: "/admin/inventory", label: "What stock do I have?", detail: "What's in, what's going off", icon: PackageCheck },
   { href: "/admin/compliance", label: "Supplier Certificates", detail: "Halal and food-safety paperwork", icon: ClipboardList },
   { href: "/counter", label: "Counter", detail: "Service desk view", icon: LayoutDashboard },
   { href: "/admin/settings", label: "Shop Settings", detail: "Shop details and customer texts", icon: Settings },
@@ -121,9 +121,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <header className="flex flex-col gap-4 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Your shop</p>
-                <h1 className="mt-2 text-3xl font-black">Owner Dashboard</h1>
+                <h1 className="mt-2 text-3xl font-black">Today&apos;s Actions</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6c5e52]">
-                  The owner-first mobile view keeps priorities, risks, and service actions in one scan.
+                  What needs attention first, followed by the numbers behind it.
                 </p>
                 <p className="mt-2 text-sm font-semibold text-[#0f5132]">Today - {formatDisplayDate(metrics.date)}</p>
               </div>
@@ -143,9 +143,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <section id="today-priorities" className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Section 1</p>
-                  <h2 className="mt-1 text-xl font-black">Today&apos;s Priorities</h2>
-                  <p className="mt-1 text-sm text-[#6c5e52]">The five actions that matter before service.</p>
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Action first</p>
+                  <h2 className="mt-1 text-xl font-black">What needs attention?</h2>
+                  <p className="mt-1 text-sm text-[#6c5e52]">The five things to handle before service.</p>
                 </div>
                 <BadgePill tone={priorityActions.length > 0 ? "amber" : "green"}>
                   {priorityActions.length > 0 ? `${priorityActions.length} tasks` : "No urgent tasks"}
@@ -198,9 +198,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
               <article className="rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Business snapshot">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Section 2</p>
-                  <h2 className="mt-1 text-xl font-black">Business Snapshot</h2>
-                  <p className="mt-1 text-sm text-[#6c5e52]">The numbers to check in one glance.</p>
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Shop numbers</p>
+                  <h2 className="mt-1 text-xl font-black">What happened today?</h2>
+                  <p className="mt-1 text-sm text-[#6c5e52]">Orders, money, stock risk and certificates.</p>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                   <SnapshotStat label="Orders today" value={String(metrics.orderCount)} testid="metric-order-count" />
@@ -208,7 +208,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <SnapshotStat label="Ready orders" value={String(metrics.readyCount)} testid="metric-ready" />
                   <SnapshotStat label="Revenue today" value={formatCurrency(metrics.estimatedRevenue)} testid="metric-revenue" />
                   <SnapshotStat label="Waste this week" value={formatCurrency(intelligence.waste.weekValue)} testid="metric-waste-week" />
-                  <SnapshotStat label="Stock at risk" value={formatCurrency(metrics.stockValueAtRisk)} testid="metric-stock-risk" />
+                  <SnapshotStat label="Stock to use first" value={formatCurrency(metrics.stockValueAtRisk)} testid="metric-stock-risk" />
                   <SnapshotStat label="Certificates expiring" value={String(metrics.expiringCertificates)} testid="metric-expiring-certificates" />
                 </div>
               </article>
@@ -217,8 +217,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Operational status">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Section 3</p>
-                  <h2 className="mt-1 text-xl font-black">Operational Status</h2>
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Needs attention</p>
+                  <h2 className="mt-1 text-xl font-black">What needs fixing?</h2>
                   <p className="mt-1 text-sm text-[#6c5e52]">Only problems are shown here.</p>
                 </div>
                 {operationalIssues.length === 0 && <BadgePill tone="green">Healthy</BadgePill>}
@@ -254,9 +254,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
             <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Quick actions">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Section 4</p>
-                <h2 className="mt-1 text-xl font-black">Quick Actions</h2>
-                <p className="mt-1 text-sm text-[#6c5e52]">Large buttons for fast navigation.</p>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Open a job</p>
+                <h2 className="mt-1 text-xl font-black">Where do I go next?</h2>
+                <p className="mt-1 text-sm text-[#6c5e52]">The main shop jobs in one place.</p>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {quickActionLinks.map((item) => (
@@ -268,9 +268,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <section id="business-insights" className="mt-6" aria-label="Business insights">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Section 5</p>
-                  <h2 className="mt-1 text-xl font-black">Business Insights</h2>
-                  <p className="mt-1 text-sm text-[#6c5e52]">Secondary intelligence that stays out of the way on mobile.</p>
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">After the actions</p>
+                  <h2 className="mt-1 text-xl font-black">What should I watch?</h2>
+                  <p className="mt-1 text-sm text-[#6c5e52]">Stock, buying, margin, waste and certificates.</p>
                 </div>
               </div>
 
@@ -545,7 +545,7 @@ function buildInsightPanels(
   return [
     {
       icon: PackageCheck,
-      title: "What's Going Off Soon",
+      title: "What expires soon?",
       summary: `${intelligence.expiry.expiresThisWeek.length} batches at risk`,
       content: (
         <>
@@ -565,7 +565,7 @@ function buildInsightPanels(
     },
     {
       icon: Recycle,
-      title: "Where Money's Being Lost",
+      title: "What am I losing money on?",
       summary: `${formatCurrency(intelligence.waste.weekValue)} this week`,
       content: (
         <>
@@ -580,7 +580,7 @@ function buildInsightPanels(
     },
     {
       icon: PoundSterling,
-      title: "Daily Profit Estimate",
+      title: "What money can I make?",
       summary: metrics.configured ? "Live margin snapshot" : "Database not configured",
       content: (
         <>
@@ -596,7 +596,7 @@ function buildInsightPanels(
     },
     {
       icon: TrendingUp,
-      title: "Profit & Loss",
+      title: "What makes me money?",
       summary: "Profit, waste, and margin",
       content: (
         <>
@@ -615,12 +615,12 @@ function buildInsightPanels(
     },
     {
       icon: PackageCheck,
-      title: "Stock Forecast",
+      title: "What stock do I have?",
       summary: `${intelligence.depletion.length} forecast rows`,
       content: (
         <>
           {intelligence.depletion.length === 0 ? (
-            <p className="text-sm text-[#6c5e52]">No active stock to forecast.</p>
+            <p className="text-sm text-[#6c5e52]">No active stock to check.</p>
           ) : (
             intelligence.depletion.slice(0, 5).map((row) => (
               <p key={row.batchId} className="mt-3 text-sm text-[#5c5148]">
@@ -679,7 +679,7 @@ function buildInsightPanels(
     },
     {
       icon: AlertTriangle,
-      title: "Food Compliance",
+      title: "What certificates expire soon?",
       summary: intelligence.compliance.status,
       content: (
         <>
@@ -865,7 +865,7 @@ function MobileActionBar({ compact = false }: { compact?: boolean }) {
 }
 
 function formatNullableCurrency(value: number | null) {
-  return value === null ? "Margin unavailable - product cost not entered." : formatCurrency(value);
+  return value === null ? "Margin unavailable - no cost source available." : formatCurrency(value);
 }
 
 function LaunchReadinessCard({ launch }: { launch: LaunchReadiness }) {
