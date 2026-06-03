@@ -64,7 +64,7 @@ export async function SiteHeader() {
           {profile ? (
             <>
               <Badge tone="green" className="hidden sm:inline-flex">
-                {profile.fullName ?? profile.email} · {profile.role}
+                {profile.fullName ?? profile.email}
               </Badge>
               <LogoutButton />
             </>

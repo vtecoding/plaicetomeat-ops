@@ -19,7 +19,7 @@ export function buildMarginActions(input: ActionEngineInput): OwnerAction[] {
       explanation:
         target.grossProfit !== null
           ? `${target.productName} is showing ${formatMoney(target.grossProfit)} estimated profit after ${formatMoney(target.wasteCost)} waste.`
-          : `${target.productName} has ${formatMoney(target.wasteCost)} waste cost, but no cost source is available yet.`,
+          : `${target.productName} has ${formatMoney(target.wasteCost)} of waste, but its cost hasn't been entered yet so profit can't be shown.`,
       estimatedImpact: `Potential saving: ${formatMoney(target.wasteCost)} waste reduction opportunity.`,
       recommendedAction: `Review ${target.productName} ordering and prep plan before the next supplier order.`,
       sourceMetrics: {

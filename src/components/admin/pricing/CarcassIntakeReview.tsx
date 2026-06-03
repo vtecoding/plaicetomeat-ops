@@ -128,8 +128,8 @@ export function CarcassIntakeReview({
         <p className="text-sm font-black uppercase tracking-[0.06em] text-[#0f5132]">Intake confirmed</p>
         <p className="mt-1 text-base font-black text-[#1f1b16]">{result.message}</p>
         <p className="mt-2 text-sm leading-6 text-[#3f6b52]">
-          Stock, product cost and margin data now reflect this carcass. Bone, fat and trim were recorded as processing
-          loss, kept separate from retail waste.
+          Stock, product cost and margin data now reflect this carcass. Bone, fat and trimming were recorded as removed
+          during butchering — not counted as unsold stock thrown away.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <a className="text-sm font-bold text-[#0f5132] underline" href="/admin/inventory">
@@ -302,7 +302,7 @@ export function CarcassIntakeReview({
             )}
             {preview.processingLossKg > 0 ? (
               <p className="mt-1 text-sm leading-6 text-[#6c5e52]">
-                Record {preview.processingLossKg}kg bone/fat/trim as processing loss (not retail waste).
+                Record {preview.processingLossKg}kg of bone, fat and trimming removed during butchering (not unsold stock thrown away).
               </p>
             ) : null}
             {preview.reviewLines.length > 0 ? (

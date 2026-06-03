@@ -112,7 +112,7 @@ export function buildDailyProfitEstimate(input: {
     inventoryCost: input.inventoryCost === null ? null : roundMoney(input.inventoryCost),
     wasteCost: roundMoney(input.wasteCost),
     estimatedGrossProfit: input.inventoryCost === null ? null : roundMoney(input.revenue - input.inventoryCost - input.wasteCost),
-    unavailableReason: input.inventoryCost === null ? "Margin unavailable - no cost source available." : null,
+    unavailableReason: input.inventoryCost === null ? "Add a cost to see profit." : null,
   };
 }
 
@@ -130,7 +130,7 @@ export function buildProductPerformance(rows: ProductPerformanceInput[]) {
       row.estimatedCost === null || row.revenue <= 0
         ? null
         : Math.round(((row.revenue - row.estimatedCost - row.wasteValue) / row.revenue) * 1000) / 10,
-    marginUnavailableReason: row.estimatedCost === null ? "Margin unavailable - no cost source available." : null,
+    marginUnavailableReason: row.estimatedCost === null ? "Add a cost to see profit." : null,
   }));
   const withMargin = products.filter((product) => product.grossProfit !== null);
 

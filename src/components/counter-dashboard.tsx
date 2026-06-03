@@ -372,10 +372,18 @@ function formatPhone(phone: string) {
   return phone.replace(/^\+44/, "0").replace(/(\d{5})(\d{3})(\d+)/, "$1 $2 $3");
 }
 
+const STATUS_VERB: Record<OrderStatus, string> = {
+  incoming: "Received",
+  prepping: "Started",
+  ready: "Ready",
+  collected: "Collected",
+  cancelled: "Cancelled",
+};
+
 function statusAge(order: Order) {
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60_000));
-  const label = order.status === "incoming" ? "received" : order.status;
-  return `${label} ${minutes < 1 ? "just now" : `${minutes} min ago`}`;
+  const verb = STATUS_VERB[order.status] ?? "Updated";
+  return `${verb} ${minutes < 1 ? "just now" : `${minutes} min ago`}`;
 }
 
 function urgencyLabel(order: Order, pickupWindow: PickupWindow | undefined) {
@@ -385,9 +393,10 @@ function urgencyLabel(order: Order, pickupWindow: PickupWindow | undefined) {
   pickup.setHours(hours ?? 0, minutes ?? 0, 0, 0);
   const diffMinutes = Math.round((pickup.getTime() - Date.now()) / 60_000);
   if (diffMinutes < 0) return "Overdue";
-  if (diffMinutes <= 15) return "Due now";
-  if (diffMinutes <= 60) return "Due in 15 min";
-  return "Later today";
+  if (diffMinutes <= 5) return "Due now";
+  if (diffMinutes < 60) return `Due in ${diffMinutes} min`;
+  if (diffMinutes < 90) return "Due in about 1 hr";
+  return `Due in about ${Math.round(diffMinutes / 60)} hrs`;
 }
 
 function SmsBadge({ state }: { state: SmsStatus }) {

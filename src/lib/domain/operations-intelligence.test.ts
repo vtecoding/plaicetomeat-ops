@@ -57,7 +57,7 @@ describe("operations intelligence", () => {
       inventoryCost: null,
       wasteCost: 18,
       estimatedGrossProfit: null,
-      unavailableReason: "Margin unavailable - no cost source available.",
+      unavailableReason: "Add a cost to see profit.",
     });
   });
 
