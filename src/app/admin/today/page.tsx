@@ -12,6 +12,7 @@ import {
   PackagePlus,
   Scissors,
   ShoppingBag,
+  Sparkles,
   TrendingUp,
 } from "lucide-react";
 
@@ -48,8 +49,9 @@ const bigButtons = [
   { href: "/admin/purchasing", label: "Purchasing", detail: "What to buy next", icon: TrendingUp },
   { href: "/admin/compliance", label: "Compliance", detail: "Halal & food-safety papers", icon: ClipboardList },
   { href: "/admin/cutting-guide", label: "Prices", detail: "What a whole animal is worth", icon: Scissors },
+  { href: "/admin/playbooks", label: "Playbooks", detail: "How to do each job", icon: BookOpen },
+  { href: "/admin/guide", label: "Help & guide", detail: "Quick how-to and dry run", icon: BookOpen },
   { href: "/admin/setup", label: "Setup checklist", detail: "Get ready to open", icon: ListChecks },
-  { href: "/admin/guide", label: "Help & guide", detail: "How to do each job", icon: BookOpen },
   { href: "/admin", label: "More detail", detail: "Full numbers and insights", icon: ArrowRight },
 ] as const;
 
@@ -80,6 +82,24 @@ export default async function TodayPage() {
           <h1 className="mt-2 text-3xl font-black">Here&apos;s what to do today</h1>
           <p className="mt-2 text-sm font-semibold text-[#0f5132]">{formatDisplayDate(metrics.date)}</p>
         </header>
+
+        {/* Shop briefing entry point — the V8 intelligence home. */}
+        <Link
+          href="/admin/briefing"
+          className="mt-4 flex items-center gap-4 rounded-2xl border border-[#bfe3cf] bg-[#f2fbf5] p-5 shadow-sm transition hover:-translate-y-0.5 hover:bg-[#eafaf0] hover:shadow-md"
+          data-testid="briefing-link"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0f5132] text-white">
+            <Sparkles className="h-6 w-6" aria-hidden />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-lg font-black text-[#0f5132]">Open your shop briefing</span>
+            <span className="block text-sm text-[#27543c]">
+              Health score, what&apos;s making money, what to watch — explained in plain English.
+            </span>
+          </span>
+          <ArrowRight className="ml-auto hidden h-5 w-5 shrink-0 text-[#0f5132] sm:block" aria-hidden />
+        </Link>
 
         {/* 1. Today's Actions — the most important section. */}
         <Section

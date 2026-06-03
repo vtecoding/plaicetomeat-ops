@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Beef, ClipboardCheck, LayoutDashboard, LogIn, Settings, ShoppingBasket } from "lucide-react";
+import { Beef, ClipboardCheck, LayoutDashboard, LogIn, Settings, Sparkles, ShoppingBasket } from "lucide-react";
 
 import { LogoutButton } from "@/components/logout-button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,10 @@ const STAFF_LINKS: NavLink[] = [
   { href: "/counter/compliance", label: "Compliance", icon: ClipboardCheck },
 ];
 
-const MANAGER_LINKS: NavLink[] = [{ href: "/admin/today", label: "Today", icon: Settings }];
+const MANAGER_LINKS: NavLink[] = [
+  { href: "/admin/today", label: "Today", icon: Settings },
+  { href: "/admin/briefing", label: "Briefing", icon: Sparkles },
+];
 
 export async function SiteHeader() {
   const [profile, branch] = await Promise.all([getCurrentProfile(), getPublicBranch()]);
