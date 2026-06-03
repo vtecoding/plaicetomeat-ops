@@ -865,7 +865,7 @@ function MobileActionBar({ compact = false }: { compact?: boolean }) {
 }
 
 function formatNullableCurrency(value: number | null) {
-  return value === null ? "Margin unavailable - product cost not entered." : formatCurrency(value);
+  return value === null ? "Margin unavailable - no cost source available." : formatCurrency(value);
 }
 
 function LaunchReadinessCard({ launch }: { launch: LaunchReadiness }) {

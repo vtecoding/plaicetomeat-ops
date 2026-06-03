@@ -222,7 +222,7 @@ export const CUT_MAPS: Record<AnimalMapType, CutMap> = {
   lamb: {
     animalType: "lamb",
     title: "Lamb cut map",
-    sourceNote: "Visual guide only. Actual carcasses vary by breed, age, fat cover and dressing.",
+    sourceNote: "Traditional side-profile lamb chart. The silhouette stays recognisable without labels.",
     viewBox: "0 0 560 330",
     outlinePath:
       "M62 102 C95 74 143 60 212 51 C290 41 379 55 466 89 C498 102 520 129 526 164 C533 205 512 248 471 282 L436 252 L411 278 L249 280 L143 269 L112 269 L118 216 L70 145 Z",
@@ -231,7 +231,7 @@ export const CUT_MAPS: Record<AnimalMapType, CutMap> = {
   goat: {
     animalType: "goat",
     title: "Goat cut map",
-    sourceNote: "Uses the lamb-style small-ruminant map with goat cut labels. Visual guide only.",
+    sourceNote: "Traditional side-profile small-ruminant chart. The silhouette stays recognisable without labels.",
     viewBox: "0 0 560 330",
     outlinePath:
       "M62 102 C95 74 143 60 212 51 C290 41 379 55 466 89 C498 102 520 129 526 164 C533 205 512 248 471 282 L436 252 L411 278 L249 280 L143 269 L112 269 L118 216 L70 145 Z",
@@ -240,7 +240,7 @@ export const CUT_MAPS: Record<AnimalMapType, CutMap> = {
   mutton: {
     animalType: "mutton",
     title: "Mutton cut map",
-    sourceNote: "Uses the lamb-style small-ruminant map with mutton cut labels. Visual guide only.",
+    sourceNote: "Traditional side-profile mutton chart. The silhouette stays recognisable without labels.",
     viewBox: "0 0 560 330",
     outlinePath:
       "M62 102 C95 74 143 60 212 51 C290 41 379 55 466 89 C498 102 520 129 526 164 C533 205 512 248 471 282 L436 252 L411 278 L249 280 L143 269 L112 269 L118 216 L70 145 Z",
@@ -249,7 +249,7 @@ export const CUT_MAPS: Record<AnimalMapType, CutMap> = {
   beef: {
     animalType: "beef",
     title: "Beef cut map",
-    sourceNote: "Visual guide only. This supports sides/quarters or primals entered into the calculator.",
+    sourceNote: "Traditional side-profile beef carcass chart. The primal regions dominate the silhouette.",
     viewBox: "0 0 560 340",
     outlinePath:
       "M72 119 C122 77 199 60 300 62 C387 64 470 89 512 126 C543 154 545 205 511 246 L479 290 L446 255 L409 278 L249 280 L143 292 L111 294 L103 236 L94 190 Z",
@@ -258,7 +258,7 @@ export const CUT_MAPS: Record<AnimalMapType, CutMap> = {
   chicken: {
     animalType: "chicken",
     title: "Chicken cut map",
-    sourceNote: "Visual guide only. Whole bird yields vary by size, trim and whether skin is retained.",
+    sourceNote: "Traditional whole-bird chart. Wings, thighs, drumsticks and breast stay connected.",
     viewBox: "0 0 510 390",
     outlinePath:
       "M170 103 C219 64 291 64 340 103 C348 105 352 108 352 111 C409 119 447 151 465 207 L394 198 C408 234 390 294 336 335 L292 363 L266 334 L244 334 L218 363 L174 335 C120 294 102 234 116 198 L45 207 C63 151 101 119 158 111 C158 108 162 105 170 103 Z",

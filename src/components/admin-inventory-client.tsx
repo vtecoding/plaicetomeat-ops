@@ -129,6 +129,9 @@ function BatchForm({
   const [countryOfOrigin, setCountryOfOrigin] = useState("");
   const [storageLocation, setStorageLocation] = useState("");
   const [batchNumber, setBatchNumber] = useState("");
+  const [intakeIdempotencyKey] = useState(() =>
+    globalThis.crypto?.randomUUID?.() ?? `inventory-intake-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
 
   function submit() {
     startTransition(async () => {
@@ -146,6 +149,7 @@ function BatchForm({
           countryOfOrigin,
           storageLocation,
           batchNumber,
+          intakeIdempotencyKey,
         }),
       );
     });
@@ -217,7 +221,12 @@ function BatchForm({
         </label>
       </div>
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Receive batch"}</Button>
+        <div className="flex flex-col items-end gap-2">
+          <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Receive batch"}</Button>
+          <p className="max-w-sm text-right text-xs leading-5 text-[#8a7d70]">
+            Retry-safe submission key is reused while this form is open, so a refresh or double click should not create a second batch.
+          </p>
+        </div>
       </div>
     </form>
   );

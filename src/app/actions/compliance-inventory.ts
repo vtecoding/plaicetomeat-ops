@@ -21,6 +21,8 @@ const SAFE_PATTERNS = [
   "Remaining weight cannot exceed received weight",
   "Expiry date cannot be before received date",
   "Invoice cost must be zero or greater",
+  "Duplicate intake submission",
+  "Intake idempotency key already used",
   "Batch not found",
   "Waste quantity must be greater than zero",
   "Waste quantity cannot exceed remaining weight",
@@ -107,6 +109,7 @@ export async function createInventoryBatch(input: {
   slaughterDate?: string | null;
   storageLocation?: string | null;
   batchNumber?: string | null;
+  intakeIdempotencyKey?: string | null;
 }): Promise<ActionResult> {
   const auth = await requireManager();
   if (!auth.ok) return auth;
@@ -126,6 +129,7 @@ export async function createInventoryBatch(input: {
     p_slaughter_date: input.slaughterDate || null,
     p_storage_location: input.storageLocation ?? null,
     p_batch_number: input.batchNumber ?? null,
+    p_intake_idempotency_key: input.intakeIdempotencyKey ?? null,
   });
 
   if (error) return { ok: false, message: safeMessage(error.message, "Could not create this batch.") };

@@ -38,6 +38,8 @@ export default async function CuttingGuidePage() {
               Pick an animal, enter what you paid, and see exactly how it breaks down into cuts — how much of each you
               get, what each is best used for, and what to charge to actually make money. The most important number is
               your <strong>real meat cost</strong>: after bone and fat, your meat costs more per kg than the carcass did.
+              This is an expected breakdown, not stock movement. Actual inventory should only be recorded after operator
+              review and the final cut has been confirmed.
             </p>
           </div>
         </div>

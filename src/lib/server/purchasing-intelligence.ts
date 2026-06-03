@@ -16,6 +16,7 @@ import { getAllProducts, getProductCostMap } from "@/lib/server/catalog";
 import { getInventoryBatches } from "@/lib/server/compliance-inventory";
 import { getOperationsIntelligence, type OpsIntelligence } from "@/lib/server/operations-intelligence";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
+import { buildWeightedBatchCostMap } from "@/lib/domain/cost-sources";
 
 export type PurchasingPlan = {
   generatedDate: string;
@@ -85,23 +86,23 @@ async function getWeeklyWasteByProduct(
 }
 
 export async function getPurchasingPlan(branchId: string, now = new Date()): Promise<PurchasingPlan> {
-  const [intelligence, products, batches] = await Promise.all([
+  const [intelligence, products, batches, productCostMap] = await Promise.all([
     getOperationsIntelligence(branchId, now),
     getAllProducts(branchId),
     getInventoryBatches(branchId),
+    getProductCostMap(branchId),
   ]);
 
+  const weightedBatchCostMap = buildWeightedBatchCostMap(batches);
   const costByProduct = new Map<string, number>();
   const productIdsWithStock = new Set<string>();
   for (const batch of batches) {
     productIdsWithStock.add(batch.productId);
-    if (batch.costPerKg > 0 && !costByProduct.has(batch.productId)) {
-      costByProduct.set(batch.productId, batch.costPerKg);
-    }
   }
-  // Per-product cost set via the cutting guide fills any gaps.
-  const productCostMap = await getProductCostMap(branchId);
   for (const [productId, cost] of productCostMap) {
+    costByProduct.set(productId, cost);
+  }
+  for (const [productId, cost] of weightedBatchCostMap) {
     if (!costByProduct.has(productId)) costByProduct.set(productId, cost);
   }
 

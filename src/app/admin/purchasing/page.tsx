@@ -118,7 +118,13 @@ export default async function PurchasingPage() {
           </Link>
         </Section>
 
-        <Section title="What's making and losing money" subtitle="Margins only show when a product cost is entered — never estimated.">
+        <Section
+          title="What's making and losing money"
+          subtitle="Margins use committed product cost first, then weighted active stock when a product has no cost yet."
+        >
+          <p className="text-sm text-[#6c5e52]">
+            Margin uses committed product cost first, then falls back to the weighted cost of active stock if a product has not been costed yet.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <MarginTile icon={TrendingUp} label="Most profitable" name={plan.margin.best?.productName} value={plan.margin.best?.grossProfit} />
             <MarginTile icon={TrendingDown} label="Least profitable" name={plan.margin.worst?.productName} value={plan.margin.worst?.grossProfit} />
@@ -257,7 +263,7 @@ function MarginTile({
       <p className="mt-2 text-xs font-bold uppercase tracking-[0.06em] text-[#6c5e52]">{label}</p>
       <p className="mt-1 font-black">{name ?? "Not enough data"}</p>
       <p className={negative ? "text-sm font-bold text-[#b42318]" : "text-sm font-bold text-[#0f5132]"}>
-        {value === null || value === undefined ? "Margin unavailable until cost is entered" : formatCurrency(value)}
+        {value === null || value === undefined ? "Margin unavailable until a cost source exists" : formatCurrency(value)}
       </p>
     </div>
   );

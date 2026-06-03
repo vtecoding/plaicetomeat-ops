@@ -13,6 +13,7 @@ import {
   buildWasteAnalytics,
   type ProductPerformanceInput,
 } from "@/lib/domain/operations-intelligence";
+import { buildWeightedBatchCostMap, resolveInventoryCost } from "@/lib/domain/cost-sources";
 import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 import { getDemoOrders } from "@/lib/data/demo";
 import { getProductCostMap } from "@/lib/server/catalog";
@@ -46,7 +47,7 @@ type WasteHistoryRow = {
   reason: string;
   waste_kg: string | number;
   created_at: string;
-  product: { name: string | null } | { name: string | null }[] | null;
+  product: { id: string; name: string | null } | { id: string; name: string | null }[] | null;
   batch: { cost_per_kg: string | number | null } | { cost_per_kg: string | number | null }[] | null;
 };
 
@@ -60,7 +61,11 @@ function toNum(value: string | number | null, fallback = 0) {
 }
 
 export async function getOperationsIntelligence(branchId: string, now = new Date()) {
-  const [suppliers, batches] = await Promise.all([getSuppliers(branchId), getInventoryBatches(branchId)]);
+  const [suppliers, batches, productCostMap] = await Promise.all([
+    getSuppliers(branchId),
+    getInventoryBatches(branchId),
+    getProductCostMap(branchId),
+  ]);
   const expiry = buildExpiryCommandCentre(
     batches
       .filter((batch) => batch.status === "active")
@@ -106,7 +111,7 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
       .gte("created_at", since.toISOString()),
     supabase
       .from("inventory_waste_events")
-      .select("reason, waste_kg, created_at, product:products!inner(name, branch_id), batch:inventory_batches(cost_per_kg)")
+      .select("reason, waste_kg, created_at, product:products!inner(id, name, branch_id), batch:inventory_batches(cost_per_kg)")
       .eq("product.branch_id", branchId)
       .gte("created_at", monthStart),
     supabase
@@ -124,11 +129,13 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
   });
   const wasteEvents = ((wasteRows ?? []) as WasteHistoryRow[]).map((row) => {
     const batch = first(row.batch);
+    const product = first(row.product);
     const wasteKg = toNum(row.waste_kg);
-    const costPerKg = toNum(batch?.cost_per_kg ?? null);
+    const batchCost = resolveInventoryCost(toNum(batch?.cost_per_kg ?? null));
+    const costPerKg = batchCost.value ?? (product?.id ? productCostMap.get(product.id) ?? null : null) ?? 0;
 
     return {
-      productName: first(row.product)?.name ?? "Unknown product",
+      productName: product?.name ?? "Unknown product",
       wasteKg,
       reason: row.reason,
       value: wasteKg * costPerKg,
@@ -136,16 +143,12 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
     };
   });
 
+  const weightedBatchCostMap = buildWeightedBatchCostMap(batches);
   const costByProduct = new Map<string, number>();
-  for (const batch of batches) {
-    if (!costByProduct.has(batch.productId) && batch.costPerKg > 0) {
-      costByProduct.set(batch.productId, batch.costPerKg);
-    }
-  }
-  // Fall back to the per-product cost set via the cutting guide (clears "margin
-  // unavailable" once a cost has been committed to a product).
-  const productCostMap = await getProductCostMap(branchId);
   for (const [productId, cost] of productCostMap) {
+    costByProduct.set(productId, cost);
+  }
+  for (const [productId, cost] of weightedBatchCostMap) {
     if (!costByProduct.has(productId)) costByProduct.set(productId, cost);
   }
 
