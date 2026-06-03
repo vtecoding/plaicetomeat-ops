@@ -14,9 +14,9 @@ test.describe("owner dashboard", () => {
     await page.goto("/admin");
 
     await expect(page.getByTestId("owner-dashboard")).toBeVisible();
-    await expect(page.getByRole("heading", { name: ["Today", "'" + "s Priorities"].join("") })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Business Snapshot" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Operational Status" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What needs attention?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What happened today?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What needs fixing?" })).toBeVisible();
     await expect(page.getByTestId("metric-order-count")).toHaveText("3");
     // incoming + prepping = 2 awaiting prep; 1 ready.
     await expect(page.getByTestId("metric-awaiting-prep")).toHaveText("2");

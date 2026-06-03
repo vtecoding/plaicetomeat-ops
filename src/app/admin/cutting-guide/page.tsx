@@ -34,13 +34,7 @@ export default async function CuttingGuidePage() {
           <div>
             <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Cutting &amp; Pricing Guide</p>
             <h1 className="mt-1 text-3xl font-black">What&apos;s a whole animal worth?</h1>
-            <p className="mt-1 text-sm leading-6 text-[#6c5e52]">
-              Pick an animal, enter what you paid, and see exactly how it breaks down into cuts — how much of each you
-              get, what each is best used for, and what to charge to actually make money. The most important number is
-              your <strong>real meat cost</strong>: after bone and fat, your meat costs more per kg than the carcass did.
-              This is an expected breakdown, not stock movement. Actual inventory should only be recorded after operator
-              review and the final cut has been confirmed.
-            </p>
+            <p className="mt-1 text-sm leading-6 text-[#6c5e52]">`r`n              Pick an animal, enter what arrived, then check the estimate against what you actually cut. Stock should only`r`n              be added after the real weights are confirmed.`r`n            </p>
           </div>
         </div>
 

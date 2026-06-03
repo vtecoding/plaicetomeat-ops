@@ -15,6 +15,9 @@ test.describe("cutting & pricing guide", () => {
     // The key teaching numbers and the rookie-mistake warning appear.
     await expect(page.getByText("Your REAL meat cost", { exact: true })).toBeVisible();
     await expect(page.getByText(/you'd\s+lose/i).first()).toBeVisible();
+    await expect(page.getByTestId("actual-breakdown-review")).toBeVisible();
+    await expect(page.getByText("Actual breakdown review")).toBeVisible();
+    await expect(page.getByText("Confirm these actual weights on the Stock page.")).toBeVisible();
 
     // A real cut shows with a suggested price and best use.
     await expect(page.getByRole("heading", { name: "Leg" })).toBeVisible();

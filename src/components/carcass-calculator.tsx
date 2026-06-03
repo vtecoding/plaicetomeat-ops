@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Beef, Bird, Droplets, Info } from "lucide-react";
+import { AlertTriangle, Beef, Bird, CheckCircle2, Droplets, Info } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import { CutMapPanel } from "@/components/admin/pricing/CutMapPanel";
@@ -40,6 +40,7 @@ export function CarcassCalculator({ products = [] }: { products?: ProductOption[
   const [daysHung, setDaysHung] = useState("0");
   const [marginNudge, setMarginNudge] = useState(0); // delta applied to every cut's default margin
   const [overrides, setOverrides] = useState<Record<string, number>>({});
+  const [actualWeights, setActualWeights] = useState<Record<string, string>>({});
   const [selectedCutId, setSelectedCutId] = useState(sheet.cuts.find((cut) => !cut.isWaste)?.id ?? sheet.cuts[0]?.id ?? null);
 
   function selectAnimal(id: string) {
@@ -49,6 +50,7 @@ export function CarcassCalculator({ products = [] }: { products?: ProductOption[
     setDaysHung("0");
     setMarginNudge(0);
     setOverrides({});
+    setActualWeights({});
     setSelectedCutId(next.cuts.find((cut) => !cut.isWaste)?.id ?? next.cuts[0]?.id ?? null);
   }
 
@@ -193,6 +195,13 @@ export function CarcassCalculator({ products = [] }: { products?: ProductOption[
               </span>
             </div>
           ) : null}
+
+          <ActualBreakdownReview
+            rows={result.rows}
+            processedWeightKg={result.processedWeightKg}
+            actualWeights={actualWeights}
+            onActualWeightChange={(cutId, value) => setActualWeights((prev) => ({ ...prev, [cutId]: value }))}
+          />
 
           {/* Teaching headline */}
           <section className="grid gap-3 sm:grid-cols-3">
@@ -383,6 +392,116 @@ function Mini({ label, value, strong = false, color }: { label: string; value: s
       </p>
     </div>
   );
+}
+
+function ActualBreakdownReview({
+  rows,
+  processedWeightKg,
+  actualWeights,
+  onActualWeightChange,
+}: {
+  rows: Array<{
+    id: string;
+    name: string;
+    isWaste: boolean;
+    weightKg: number;
+  }>;
+  processedWeightKg: number;
+  actualWeights: Record<string, string>;
+  onActualWeightChange: (cutId: string, value: string) => void;
+}) {
+  const saleableRows = rows.filter((row) => !row.isWaste);
+  const reviewedRows = saleableRows.filter((row) => actualWeights[row.id]?.trim());
+  const actualTotalKg = saleableRows.reduce((sum, row) => sum + readActualWeight(actualWeights[row.id], row.weightKg), 0);
+  const expectedTotalKg = saleableRows.reduce((sum, row) => sum + row.weightKg, 0);
+  const missingCount = saleableRows.length - reviewedRows.length;
+  const exceedsCutWeight = actualTotalKg > processedWeightKg + 0.001;
+  const totalDifferenceKg = actualTotalKg - expectedTotalKg;
+
+  return (
+    <section className="rounded-xl border border-[#ded6ca] bg-white p-4" data-testid="actual-breakdown-review">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-black">Actual breakdown review</p>
+          <p className="mt-1 text-xs leading-5 text-[#6c5e52]">
+            The table starts with the estimate. Change the weights to what you actually cut before adding stock.
+          </p>
+        </div>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black",
+            missingCount === 0 && !exceedsCutWeight ? "bg-[#e6f5ec] text-[#0f5132]" : "bg-[#fff4d8] text-[#8b5e00]",
+          )}
+        >
+          {missingCount === 0 && !exceedsCutWeight ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : <AlertTriangle className="h-3.5 w-3.5" aria-hidden />}
+          {missingCount === 0 ? "Actual weights entered" : `${missingCount} to check`}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {saleableRows.map((row) => {
+          const actual = readActualWeight(actualWeights[row.id], row.weightKg);
+          const difference = actual - row.weightKg;
+          return (
+            <div key={row.id} className="grid gap-2 rounded-md bg-[#f7f3ed] p-3 sm:grid-cols-[1fr_110px_130px_110px] sm:items-center">
+              <p className="text-sm font-black">{row.name}</p>
+              <p className="text-xs text-[#6c5e52]">Expected {row.weightKg.toFixed(2)}kg</p>
+              <label className="grid gap-1 text-xs font-bold text-[#5c5148]">
+                Actual kg
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={actualWeights[row.id] ?? ""}
+                  onChange={(event) => onActualWeightChange(row.id, event.target.value)}
+                  placeholder={row.weightKg.toFixed(2)}
+                />
+              </label>
+              <p className={cn("text-sm font-black", Math.abs(difference) > 0.01 ? "text-[#92510a]" : "text-[#0f5132]")}>
+                {formatSignedKg(difference)}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+        <div className="rounded-md bg-[#f7f3ed] p-3">
+          <p className="font-bold text-[#6c5e52]">Expected stock</p>
+          <p className="text-lg font-black">{expectedTotalKg.toFixed(2)}kg</p>
+        </div>
+        <div className="rounded-md bg-[#f7f3ed] p-3">
+          <p className="font-bold text-[#6c5e52]">Actual stock</p>
+          <p className="text-lg font-black">{actualTotalKg.toFixed(2)}kg</p>
+        </div>
+        <div className="rounded-md bg-[#f7f3ed] p-3">
+          <p className="font-bold text-[#6c5e52]">Difference</p>
+          <p className="text-lg font-black">{formatSignedKg(totalDifferenceKg)}</p>
+        </div>
+      </div>
+
+      {exceedsCutWeight ? (
+        <p className="mt-3 rounded-md border border-[#f0c0b8] bg-[#fff3f0] p-3 text-sm font-bold text-[#9f1d1d]">
+          Actual cut weights are higher than the weight available to cut. Check the scales before adding stock.
+        </p>
+      ) : (
+        <p className="mt-3 rounded-md bg-[#f2fbf5] p-3 text-sm font-bold text-[#0f5132]">
+          Confirm these actual weights on the Stock page. The estimate is only a guide.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function readActualWeight(value: string | undefined, fallback: number) {
+  if (!value?.trim()) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function formatSignedKg(value: number) {
+  if (Math.abs(value) < 0.005) return "0.00kg";
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}kg`;
 }
 
 function CommitRow({

@@ -34,6 +34,11 @@ export type InventoryBatch = {
   supplierName: string | null;
   receivedDate: string;
   expiryDate: string;
+  expectedWeightKg: number;
+  actualWeightKg: number;
+  actualConfirmedAt: string | null;
+  actualReviewNote: string | null;
+  varianceKg: number;
   receivedWeightKg: number;
   remainingWeightKg: number;
   invoiceCost: number;
@@ -79,6 +84,10 @@ type InventoryBatchRow = {
   supplier_id: string | null;
   received_date: string;
   expiry_date: string;
+  expected_weight_kg: string | number | null;
+  actual_weight_kg: string | number | null;
+  actual_confirmed_at: string | null;
+  actual_review_note: string | null;
   received_weight_kg: string | number;
   remaining_weight_kg: string | number;
   invoice_cost: string | number | null;
@@ -132,6 +141,8 @@ function mapSupplier(row: SupplierRow): Supplier {
 function mapBatch(row: InventoryBatchRow, now = new Date()): InventoryBatch {
   const costPerKg = toNum(row.cost_per_kg, toNum(row.invoice_cost) / Math.max(toNum(row.received_weight_kg), 1));
   const remaining = toNum(row.remaining_weight_kg);
+  const actualWeight = toNum(row.actual_weight_kg, toNum(row.received_weight_kg));
+  const expectedWeight = toNum(row.expected_weight_kg, actualWeight);
   return {
     id: row.id,
     branchId: row.branch_id,
@@ -141,6 +152,11 @@ function mapBatch(row: InventoryBatchRow, now = new Date()): InventoryBatch {
     supplierName: first(row.supplier)?.name ?? null,
     receivedDate: row.received_date,
     expiryDate: row.expiry_date,
+    expectedWeightKg: expectedWeight,
+    actualWeightKg: actualWeight,
+    actualConfirmedAt: row.actual_confirmed_at,
+    actualReviewNote: row.actual_review_note,
+    varianceKg: actualWeight - expectedWeight,
     receivedWeightKg: toNum(row.received_weight_kg),
     remainingWeightKg: remaining,
     invoiceCost: toNum(row.invoice_cost),
@@ -194,6 +210,7 @@ export async function getInventoryBatches(branchId: string): Promise<InventoryBa
     .from("inventory_batches")
     .select(`
       id, branch_id, product_id, supplier_id, received_date, expiry_date,
+      expected_weight_kg, actual_weight_kg, actual_confirmed_at, actual_review_note,
       received_weight_kg, remaining_weight_kg, invoice_cost, cost_per_kg,
       halal_cert_ref, country_of_origin, slaughter_date, storage_location,
       batch_number, status,

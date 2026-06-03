@@ -11,14 +11,14 @@ test.describe("V4 operations intelligence", () => {
     await page.goto("/admin");
 
     // Panel titles render as headings in the desktop grid (plain-English wording).
-    await expect(page.getByRole("heading", { name: "What's Going Off Soon" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Where Money's Being Lost" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Daily Profit Estimate" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What expires soon?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What am I losing money on?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What money can I make?" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Product Performance" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Profit & Loss" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What makes me money?" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Customer Loyalty" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "What Customers Buy Together" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Food Compliance" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What certificates expire soon?" })).toBeVisible();
   });
 
   test("shows release governance and migration health", async ({ page }) => {

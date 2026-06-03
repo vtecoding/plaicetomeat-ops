@@ -35,26 +35,26 @@ describe("cost source policy", () => {
     expect(getCostPolicySummary()).toEqual([
       {
         context: "Margin",
-        winner: "products.cost_per_kg",
-        fallback: "weighted active batch cost",
+        winner: "Current product cost",
+        fallback: "average stock cost",
         note: "Committed product cost wins for pricing and gross margin.",
       },
       {
         context: "Purchasing",
-        winner: "weighted active batch cost",
-        fallback: "products.cost_per_kg",
+        winner: "average stock cost",
+        fallback: "current product cost",
         note: "Stock planning values on-hand inventory first, then falls back to committed product cost.",
       },
       {
         context: "Inventory",
-        winner: "inventory_batches.cost_per_kg",
+        winner: "stock item cost",
         fallback: "none",
         note: "Each batch keeps its own received cost and never borrows from another product.",
       },
       {
         context: "Dashboard",
-        winner: "products.cost_per_kg",
-        fallback: "weighted active batch cost",
+        winner: "current product cost",
+        fallback: "average stock cost",
         note: "Dashboard profit uses the same committed product cost that powers margin reporting.",
       },
     ]);

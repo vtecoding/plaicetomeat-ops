@@ -12,7 +12,7 @@ test.describe("purchasing & stock planning", () => {
     await expect(page.getByRole("heading", { name: "Before you place an order" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Buy more / buy less" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Products needing attention" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "What's making and losing money" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What makes me money?" })).toBeVisible();
   });
 
   test("shows an honest data-quality score and a back route to the dashboard", async ({ page }) => {
