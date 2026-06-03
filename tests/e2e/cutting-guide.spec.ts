@@ -28,7 +28,7 @@ test.describe("cutting & pricing guide", () => {
     await expect(page.getByText("Real meat cost", { exact: true })).toBeVisible();
     await expect(page.getByText("Do not price from carcass cost")).toBeVisible();
     await expect(page.getByTestId("recommended-price-cards")).toBeVisible();
-    await expect(page.getByTestId("cut-row-leg")).toContainText("Recommended price");
+    await expect(page.getByTestId("cut-row-leg")).toContainText("Suggested price");
     await expect(page.getByText("Smart retail tips")).toHaveCount(0);
   });
 

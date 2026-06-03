@@ -12,6 +12,12 @@ import { calculateCarcassBreakdown, type CutBreakdownRow, type MarginBand } from
 import { CUT_SHEETS } from "@/lib/butchery/cut-sheets";
 import { findCutMapRegion, getToolGuidance } from "@/lib/domain/cut-map-data";
 import { calculateYieldGuardrails, type YieldAssessment } from "@/lib/domain/yield-guardrails";
+import {
+  DEFAULT_YIELD_REVIEW_STATUS,
+  YIELD_REVIEW_DISCLAIMER,
+  yieldPriceMetricLabel,
+  yieldPricesHeading,
+} from "@/lib/domain/yield-review";
 import { cn, formatCurrency } from "@/lib/utils";
 
 type ProductOption = { id: string; name: string; pricePerUnit?: number; costPerKg?: number | null };
@@ -296,10 +302,16 @@ export function CarcassCalculator({
           </section>
 
           <section data-testid="recommended-price-cards">
+            <div
+              className="mb-3 rounded-xl border border-[#e7c9a0] bg-[#fffaf2] p-3 text-sm leading-6 text-[#7a4b00]"
+              data-testid="yield-review-banner"
+            >
+              {YIELD_REVIEW_DISCLAIMER}
+            </div>
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2 className="text-xl font-black text-[#1f1b16]">Recommended prices</h2>
-                <p className="text-sm text-[#6c5e52]">Use these as counter prices, then adjust only if the shop needs it.</p>
+                <h2 className="text-xl font-black text-[#1f1b16]">{yieldPricesHeading(DEFAULT_YIELD_REVIEW_STATUS)}</h2>
+                <p className="text-sm text-[#6c5e52]">A starting point based on standard yields — check them against your own cutting before relying on them.</p>
               </div>
               {warningByCut.size === 0 ? <p className="text-xs font-bold text-[#0f5132]">No pricing warnings</p> : null}
             </div>
@@ -327,7 +339,7 @@ export function CarcassCalculator({
                     </div>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <PriceMetric label="Recommended price" value={`${formatCurrency(row.suggestedPricePerKg!)}/kg`} color={BAND_COLOR[row.band!]} main />
+                      <PriceMetric label={yieldPriceMetricLabel(DEFAULT_YIELD_REVIEW_STATUS)} value={`${formatCurrency(row.suggestedPricePerKg!)}/kg`} color={BAND_COLOR[row.band!]} main />
                       <PriceMetric label="Margin" value={`${Math.round((row.marginPct ?? 0) * 100)}%`} />
                       <PriceMetric label="Expected weight" value={`${row.weightKg}kg`} />
                       <PriceMetric label="Expected profit" value={formatCurrency(row.lineProfit!)} />
