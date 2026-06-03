@@ -165,7 +165,7 @@ export default async function GuidePage() {
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {DRY_RUN.map((group) => (
               <div key={group.title} className="rounded-xl border border-[#ece2d5] bg-[#fbfaf7] p-4">
-                <p className="text-sm font-black">{group.title}</p>
+                <h3 className="text-sm font-black">{group.title}</h3>
                 <ul className="mt-2 grid gap-2">
                   {group.items.map((item) => (
                     <li key={item} className="flex items-start gap-2 text-sm leading-6 text-[#3f3a33]">

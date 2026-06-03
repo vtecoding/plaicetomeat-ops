@@ -38,8 +38,8 @@ export function CutMapPanel({ animalType, selectedCutId, selectedCutName, onSele
           <p className="text-sm font-black text-[#1f1b16]">{map.title}</p>
           <p className="mt-1 text-xs leading-5 text-[#6c5e52]">{map.sourceNote}</p>
         </div>
-        <Badge tone={selectedRegionByName ? "green" : "amber"}>
-          {selectedRegionByName ? `Region: ${selectedRegionByName.label}` : "No map region configured"}
+        <Badge tone={selectedRegionByName ? "green" : "amber"} data-testid="selected-cut-region">
+          {selectedRegionByName ? `Selected region: ${selectedRegionByName.label}` : "No map region configured"}
         </Badge>
       </div>
 
@@ -64,6 +64,7 @@ export function CutMapPanel({ animalType, selectedCutId, selectedCutName, onSele
                 role="button"
                 tabIndex={0}
                 aria-label={`Highlight ${region.label}`}
+                aria-pressed={active}
                 data-testid={`cut-map-region-${region.id}`}
                 className="cursor-pointer transition"
                 fill={active ? "#0f5132" : "#f0e4d2"}

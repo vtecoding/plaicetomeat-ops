@@ -20,8 +20,8 @@ test.describe("dad mode home", () => {
     await expect(page.getByRole("heading", { name: "Compliance warnings" })).toBeVisible();
 
     // Big counter buttons.
-    await expect(page.getByRole("link", { name: "Open Counter" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "View Orders" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open Counter", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "View Orders", exact: true })).toBeVisible();
   });
 
   test("offers a single 'More detail' route to the full dashboard", async ({ page }) => {
