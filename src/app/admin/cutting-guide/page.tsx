@@ -6,7 +6,8 @@ import { CarcassCalculator } from "@/components/carcass-calculator";
 import { PageFrame } from "@/components/site-header";
 import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import { getCurrentProfile } from "@/lib/server/auth";
-import { getAllProducts, getPublicBranch } from "@/lib/server/catalog";
+import { getAllProducts, getProductCostMap, getPublicBranch } from "@/lib/server/catalog";
+import { getSuppliers } from "@/lib/server/compliance-inventory";
 
 export const metadata = { title: "Cutting & Pricing Guide" };
 export const dynamic = "force-dynamic";
@@ -18,7 +19,19 @@ export default async function CuttingGuidePage() {
   }
 
   const branch = await getPublicBranch();
-  const products = (await getAllProducts(profile.branchId ?? branch.id)).map((p) => ({ id: p.id, name: p.name }));
+  const branchId = profile.branchId ?? branch.id;
+  const [allProducts, costMap, supplierRows] = await Promise.all([
+    getAllProducts(branchId),
+    getProductCostMap(branchId),
+    getSuppliers(branchId, { publicOnly: true }),
+  ]);
+  const products = allProducts.map((p) => ({
+    id: p.id,
+    name: p.name,
+    pricePerUnit: p.pricePerUnit,
+    costPerKg: costMap.get(p.id) ?? null,
+  }));
+  const suppliers = supplierRows.map((s) => ({ id: s.id, name: s.name }));
 
   return (
     <PageFrame>
@@ -34,20 +47,22 @@ export default async function CuttingGuidePage() {
           <div>
             <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Cutting &amp; Pricing Guide</p>
             <h1 className="mt-1 text-3xl font-black">What&apos;s a whole animal worth?</h1>
-            <p className="mt-1 text-sm leading-6 text-[#6c5e52]">`r`n              Pick an animal, enter what arrived, then check the estimate against what you actually cut. Stock should only`r`n              be added after the real weights are confirmed.`r`n            </p>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-[#6c5e52]">
+              Pick an animal, enter what arrived, then check the estimate against what you actually cut. Stock should only
+              be added after the real weights are confirmed.
+            </p>
           </div>
         </div>
 
-        <section className="mt-8 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm sm:p-6">
-          <CarcassCalculator products={products} />
+        <section className="mt-8">
+          <CarcassCalculator products={products} branchId={branchId} suppliers={suppliers} />
         </section>
 
         <p className="mt-6 text-sm text-[#6c5e52]">
-          Tip: once you know a cut&apos;s suggested price, set it in{" "}
+          When you are ready to sync a simulator price, open the advanced product section or update{" "}
           <Link href="/admin/products" className="font-bold text-[#0f5132]">
             Products &amp; Prices
-          </Link>{" "}
-          — then the dashboard can show your real profit per product.
+          </Link>.
         </p>
       </main>
     </PageFrame>

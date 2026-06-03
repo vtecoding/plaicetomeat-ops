@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { findCutMapRegion, getToolGuidance } from "./cut-map-data";
+import { findCutMapRegion, getCutMap, getToolGuidance } from "./cut-map-data";
 import {
   calculateMassIntegrity,
   calculateYieldPercentage,
@@ -137,6 +137,16 @@ describe("cut map and tool fallbacks", () => {
 
   it("exposes cut-map lookup fallback", () => {
     expect(hasCutMapFallback("lamb", "unknown cut")).toBe(true);
+  });
+
+  it("keeps chicken skin and trim as a separate mapped region", () => {
+    const trim = findCutMapRegion("chicken", "trim loss");
+
+    expect(trim?.id).toBe("skin-trim");
+    expect(trim?.label).toBe("Skin/trim");
+    // Sits low in the diagram (a small dedicated trim region), not floating off to the side.
+    expect(trim?.labelY).toBeGreaterThan(300);
+    expect(getCutMap("chicken")?.regions.map((region) => region.id)).toContain("skin-trim");
   });
 
   it("finds configured tool guidance", () => {
