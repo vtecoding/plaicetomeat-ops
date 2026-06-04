@@ -41,6 +41,7 @@ run("Lint", "npx", ["eslint", "."]);
 run("Unit", "npx", ["vitest", "run"]);
 run("Build", "npm", ["run", "build"]);
 run("Ops Verify", "node", ["scripts/verify-ops.mjs"]);
+run("Ops Capture Verify", "node", ["scripts/verify-ops-capture.mjs"]);
 
 if (isLocalOnlyMode) {
   const playwrightEnv = {
