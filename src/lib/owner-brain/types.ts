@@ -102,6 +102,27 @@ export type OwnerWeeklySummary = {
   opportunities: string[];
 };
 
+/**
+ * V10 — the "shape of the day". A one-glance read on how much the morning asks of the
+ * owner, plus the ordered list of things to walk through. Pure: derived only from the
+ * decision buckets, never invents a number it can't stand behind (an honest, rounded
+ * minute estimate, or none).
+ */
+export type DayShape = {
+  /** True when nothing urgent or important needs the owner — clear to trade. */
+  allClear: boolean;
+  /** Urgent + important count — the things worth walking through this morning. */
+  needsYouCount: number;
+  /** Ordered steps for the guided walk: urgent first, then important. */
+  steps: OwnerDecision[];
+  /** Honest, rounded time estimate in minutes (0 when all clear). */
+  estimateMinutes: number;
+  /** Short time phrase, e.g. "about 10 minutes" / "a few minutes" (null when all clear). */
+  timeLabel: string | null;
+  /** Plain-English one-liner, e.g. "3 things need you today — about 10 minutes." */
+  headline: string;
+};
+
 /** The whole Owner Brain picture, returned by the engine and rendered by /admin/today. */
 export type OwnerBrain = {
   generatedAt: string;
