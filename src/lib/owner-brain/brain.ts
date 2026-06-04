@@ -58,6 +58,7 @@ export { estimateMoneyImpact, formatMoneyImpact, moneyMagnitude, isUpsideFinding
 export { toOwnerDecision, categorise, rankDecisions } from "./decisions";
 export { buildShopStatus } from "./status";
 export { buildOwnerWeeklySummary } from "./weekly-summary";
+export { buildDayShape } from "./day";
 
 // Find one decision across all buckets (used by the decision detail page).
 export function findDecision(brain: OwnerBrain, id: string): OwnerDecision | null {

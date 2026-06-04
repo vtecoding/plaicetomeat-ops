@@ -66,6 +66,38 @@ test.describe("v9 owner brain — today", () => {
     }
   });
 
+  test("offers an optional guided walk through the day (V10)", async ({ page }) => {
+    await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
+
+    test.skip((await page.getByTestId("setup-mode").count()) > 0, "Shop is in setup mode — nothing to walk");
+
+    // The day-shape banner always renders in active mode.
+    await expect(page.getByTestId("day-shape")).toBeVisible();
+
+    const walkStart = page.getByTestId("walk-start");
+    if ((await walkStart.count()) === 0) {
+      // Clear-to-trade day: the banner says so and there is nothing to walk.
+      await expect(page.getByText("You're clear to trade")).toBeVisible();
+      return;
+    }
+
+    await walkStart.click();
+    await expect(page).toHaveURL(/\/admin\/today\/walk/);
+    await expect(page.getByTestId("guided-walk")).toBeVisible();
+    await expect(page.getByTestId("guided-step")).toBeVisible();
+    await expect(page.getByTestId("guided-progress")).toBeVisible();
+
+    // Walk through one item at a time until the finish screen appears.
+    for (let i = 0; i < 20; i += 1) {
+      const next = page.getByTestId("guided-next");
+      if ((await next.count()) === 0) break;
+      await next.click();
+    }
+
+    await expect(page.getByTestId("guided-finish")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ready for trading" })).toBeVisible();
+  });
+
   test("offers a route to the full detail dashboard", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 

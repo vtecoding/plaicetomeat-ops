@@ -6,8 +6,10 @@ import {
   CheckCircle2,
   ChevronRight,
   Circle,
+  Clock,
   LayoutDashboard,
   ListChecks,
+  PlayCircle,
   Sparkles,
   Sprout,
   TrendingUp,
@@ -15,12 +17,14 @@ import {
 
 import { PageFrame } from "@/components/site-header";
 import { MANAGER_ROLES } from "@/lib/domain/route-access";
+import { buildDayShape } from "@/lib/owner-brain/brain";
 import { getCurrentProfile } from "@/lib/server/auth";
 import { getPublicBranch } from "@/lib/server/catalog";
 import { getOwnerBrain } from "@/lib/server/owner-brain";
 import {
   DUE_WINDOW_LABEL,
   SHOP_STATUS_LABEL,
+  type DayShape,
   type OwnerDecision,
   type OwnerWeeklySummary,
   type ShopStatus,
@@ -60,6 +64,8 @@ export default async function TodayPage() {
           <SetupMode gettingStarted={brain.gettingStarted} />
         ) : (
           <>
+            <DayShapeBanner day={buildDayShape(brain)} />
+
             {/* The three — and only three — sections. */}
             <DecisionSection
               testid="decisions-urgent"
@@ -84,6 +90,7 @@ export default async function TodayPage() {
               subtitle="Ways to grow — no rush"
               decisions={brain.opportunities}
               emptyText="No new opportunities spotted yet."
+              anchorId="opportunities"
             />
 
             <ShopStatusPanel status={brain.status} />
@@ -155,6 +162,53 @@ function SetupMode({ gettingStarted }: { gettingStarted: GettingStarted }) {
   );
 }
 
+function DayShapeBanner({ day }: { day: DayShape }) {
+  if (day.allClear) {
+    return (
+      <section
+        className="mt-4 flex items-center gap-3 rounded-2xl border border-[#bfe3cf] bg-[#f2fbf5] p-5 shadow-sm"
+        data-testid="day-shape"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0f5132] text-white">
+          <CheckCircle2 className="h-5 w-5" aria-hidden />
+        </span>
+        <div>
+          <p className="text-lg font-black text-[#0f5132]">You&apos;re clear to trade</p>
+          <p className="text-sm font-semibold text-[#27543c]">Nothing urgent or pressing this morning. Have a good day.</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      className="mt-4 rounded-2xl border border-[#0f5132] bg-[#0f5132] p-5 text-white shadow-sm"
+      data-testid="day-shape"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#bfe3cf]">Let&apos;s get the shop ready</p>
+          <p className="mt-1 text-xl font-black leading-snug">{day.headline}</p>
+          {day.timeLabel && (
+            <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[#d7ecdf]">
+              <Clock className="h-4 w-4" aria-hidden />
+              {day.timeLabel}, one thing at a time
+            </p>
+          )}
+        </div>
+        <Link
+          href="/admin/today/walk"
+          data-testid="walk-start"
+          className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-white px-6 text-base font-bold text-[#0f5132] transition hover:bg-[#eafaf0]"
+        >
+          <PlayCircle className="h-5 w-5" aria-hidden />
+          Walk me through it
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 function DecisionSection({
   testid,
   dot,
@@ -162,6 +216,7 @@ function DecisionSection({
   subtitle,
   decisions,
   emptyText,
+  anchorId,
 }: {
   testid: string;
   dot: string;
@@ -169,9 +224,10 @@ function DecisionSection({
   subtitle: string;
   decisions: OwnerDecision[];
   emptyText: string;
+  anchorId?: string;
 }) {
   return (
-    <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
+    <section id={anchorId} className="mt-6 scroll-mt-20 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
       <div className="flex items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-2">
           <span aria-hidden className="text-lg">
