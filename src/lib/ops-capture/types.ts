@@ -33,6 +33,8 @@ export type ChecklistStepDef = {
   input: OpsStepInput;
   /** Food-safety-critical steps can't be silently skipped without an explicit note (2b). */
   critical: boolean;
+  /** Optional jump to the real capture flow (e.g. log waste, do a stock count). */
+  action?: { href: string; label: string };
 };
 
 export type ChecklistDefinition = {

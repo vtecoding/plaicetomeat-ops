@@ -220,6 +220,16 @@ function ActiveStep({
           </div>
           <p className="mt-1 text-sm leading-6 text-[#5c5148]">{step.why}</p>
 
+          {step.action && (
+            <Link
+              href={step.action.href}
+              className="mt-3 inline-flex h-10 items-center gap-2 rounded-full border border-[#bfe3cf] bg-[#f2fbf5] px-4 text-sm font-bold text-[#0f5132] transition hover:bg-[#eafaf0]"
+            >
+              {step.action.label}
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
+          )}
+
           {step.input.kind === "number" && (
             <label className="mt-3 block">
               <span className="text-xs font-bold uppercase tracking-[0.06em] text-[#6c5e52]">{step.input.label}</span>

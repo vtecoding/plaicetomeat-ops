@@ -12,6 +12,7 @@ const SERVICE_KEY =
 const BRANCH_A = "00000000-0000-4000-8000-000000000001";
 const BRANCH_B = "00000000-0000-4000-8000-0000000000b2";
 const WINDOW_LUNCH = "00000000-0000-4000-8000-000000000302";
+const SEED_BATCH_A = "00000000-0000-4000-8000-000000000601";
 export const TEST_PASSWORD = "PlaiceTest123!";
 
 const supabase = createClient(URL, SERVICE_KEY, {
@@ -155,6 +156,18 @@ async function clearOpsSessions() {
   console.log("  ops checklist sessions cleared");
 }
 
+async function restoreSeedBatch() {
+  // Stock-count tests apply corrections to the seeded batch; restore it (and drop the
+  // adjustment movements those corrections create) so each run starts from known weights.
+  await supabase.from("inventory_movements").delete().eq("batch_id", SEED_BATCH_A).eq("movement_type", "ADJUSTMENT");
+  const { error } = await supabase
+    .from("inventory_batches")
+    .update({ remaining_weight_kg: 18.5, status: "active", manual_adjustment_reason: null })
+    .eq("id", SEED_BATCH_A);
+  if (error) throw error;
+  console.log("  seed inventory batch restored");
+}
+
 async function main() {
   console.log("Seeding auth users...");
   await ensureBranchB();
@@ -164,6 +177,7 @@ async function main() {
   console.log("Seeding today's orders...");
   await seedOrders();
   await clearOpsSessions();
+  await restoreSeedBatch();
   console.log("Done. Test password for all users:", TEST_PASSWORD);
 }
 

@@ -72,6 +72,35 @@ test.describe("v10 guided capture — rituals", () => {
     await expect(page.getByText("Skipped").first()).toBeVisible();
   });
 
+  test("stock count: count, apply a correction, resume across refresh", async ({ page }) => {
+    await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
+    await page.goto("/admin/stock-count");
+
+    await expect(page.getByTestId("stock-count-page")).toBeVisible();
+    await expect(page.getByTestId("stock-count-intro")).toBeVisible();
+    await page.getByTestId("stock-count-start").click();
+
+    await expect(page.getByTestId("stock-count")).toBeVisible();
+    const firstBatch = page.getByTestId("stock-count-batch").first();
+    await expect(firstBatch).toBeVisible();
+
+    // Count a weight that differs from what the system thinks (seed batch = 18.5 kg).
+    await firstBatch.getByTestId("count-input").fill("16");
+    await firstBatch.getByTestId("save-count-btn").click();
+
+    // A variance is shown, and we can apply the correction.
+    await expect(firstBatch.getByTestId("count-variance")).toContainText("vs system");
+    await firstBatch.getByTestId("apply-count-btn").click();
+    await expect(firstBatch.getByTestId("count-applied")).toContainText("16 kg");
+
+    // REFRESH — the applied count persists (resume).
+    await page.reload();
+    await expect(page.getByTestId("stock-count-batch").first().getByTestId("count-applied")).toContainText("16 kg");
+
+    await page.getByTestId("stock-count-complete").click();
+    await expect(page.getByTestId("stock-count-finish")).toBeVisible();
+  });
+
   test("closing checklist is reachable from today and starts clean", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 

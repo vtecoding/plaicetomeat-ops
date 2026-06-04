@@ -3,6 +3,7 @@ import "server-only";
 import { getChecklist } from "@/lib/ops-capture/checklists";
 import { buildReceipt, summariseChecklist } from "@/lib/ops-capture/progress";
 import type { ChecklistReceipt, ChecklistSummary, OpsEvent, OpsSession } from "@/lib/ops-capture/types";
+import { getInventoryBatches } from "@/lib/server/compliance-inventory";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDisplayDate } from "@/lib/utils";
 
@@ -117,6 +118,76 @@ export async function getTodaysChecklistState(
       : null;
 
   return { sessionId: String(sessionRow.id), status: sessionRow.status as OpsSession["status"], summary, receipt };
+}
+
+export type StockCountBatch = {
+  batchId: string;
+  productName: string;
+  remainingKg: number;
+  receivedKg: number;
+  daysToExpiry: number;
+};
+
+export type StockCountLineState = {
+  lineId: string;
+  countedKg: number;
+  systemKg: number;
+  applied: boolean;
+};
+
+export type StockCountState = {
+  sessionId: string | null;
+  batches: StockCountBatch[];
+  /** Keyed by batchId — the count already recorded for that batch this session. */
+  lines: Record<string, StockCountLineState>;
+};
+
+/**
+ * Today's stock count: the active batches to count, plus any counts already recorded this
+ * session (so a refresh resumes mid-count). Counting records evidence only — stock is never
+ * changed here, only by applying a line through the correction path.
+ */
+export async function getStockCountState(branchId: string, now = new Date()): Promise<StockCountState> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: sessionRow } = await supabase
+    .from("ops_checklist_sessions")
+    .select("id")
+    .eq("branch_id", branchId)
+    .eq("kind", "stock_count")
+    .eq("business_date", businessDateUtc(now))
+    .eq("status", "in_progress")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const batches: StockCountBatch[] = (await getInventoryBatches(branchId))
+    .filter((b) => b.status === "active" && b.remainingWeightKg > 0)
+    .map((b) => ({
+      batchId: b.id,
+      productName: b.productName,
+      remainingKg: b.remainingWeightKg,
+      receivedKg: b.receivedWeightKg,
+      daysToExpiry: b.daysToExpiry,
+    }));
+
+  const lines: Record<string, StockCountLineState> = {};
+  if (sessionRow) {
+    const { data: lineRows } = await supabase
+      .from("stock_count_lines")
+      .select("id, batch_id, counted_weight_kg, system_weight_kg, applied_at")
+      .eq("session_id", sessionRow.id);
+    for (const row of lineRows ?? []) {
+      lines[String(row.batch_id)] = {
+        lineId: String(row.id),
+        countedKg: Number(row.counted_weight_kg),
+        systemKg: Number(row.system_weight_kg),
+        applied: row.applied_at !== null,
+      };
+    }
+  }
+
+  return { sessionId: sessionRow ? String(sessionRow.id) : null, batches, lines };
 }
 
 /** A persisted completion receipt for a finished opening/closing ritual. */

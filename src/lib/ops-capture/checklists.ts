@@ -62,6 +62,7 @@ const CLOSING: ChecklistDefinition = {
       why: "Writing off what didn't sell is how the shop learns where money leaks — and keeps your stock honest.",
       input: { kind: "confirm" },
       critical: false,
+      action: { href: "/admin/inventory", label: "Log waste" },
     },
     {
       key: "stock_glance",
@@ -69,6 +70,7 @@ const CLOSING: ChecklistDefinition = {
       why: "A 60-second look at what's left keeps the system matching the fridge, so 'running low' warnings can be trusted.",
       input: { kind: "confirm" },
       critical: false,
+      action: { href: "/admin/stock-count", label: "Do a stock count" },
     },
     {
       key: "cash_counted",
