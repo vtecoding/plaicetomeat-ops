@@ -12,6 +12,8 @@ import {
   PlayCircle,
   Sparkles,
   Sprout,
+  Sunrise,
+  Sunset,
   TrendingUp,
 } from "lucide-react";
 
@@ -403,6 +405,8 @@ function SummaryColumn({
 
 function MoreDetail() {
   const links = [
+    { href: "/admin/open", label: "Open the shop", detail: "Morning checklist", icon: Sunrise, testid: "open-shop-link" },
+    { href: "/admin/close", label: "Close the shop", detail: "End-of-day checklist", icon: Sunset, testid: "close-shop-link" },
     { href: "/counter", label: "Counter", detail: "Serve and prepare orders", icon: LayoutDashboard },
     { href: "/admin/briefing", label: "Full briefing", detail: "The detail behind today", icon: Sparkles, testid: "briefing-link" },
     { href: "/admin", label: "More detail", detail: "Full numbers and insights", icon: TrendingUp },

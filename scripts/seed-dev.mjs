@@ -147,6 +147,14 @@ async function seedOrders() {
   }
 }
 
+async function clearOpsSessions() {
+  // Reset the V10 opening/closing/stock-count rituals so each run starts with a clean day.
+  // Cascades to ops_checklist_events and stock_count_lines.
+  const { error } = await supabase.from("ops_checklist_sessions").delete().in("branch_id", [BRANCH_A, BRANCH_B]);
+  if (error) throw error;
+  console.log("  ops checklist sessions cleared");
+}
+
 async function main() {
   console.log("Seeding auth users...");
   await ensureBranchB();
@@ -155,6 +163,7 @@ async function main() {
   }
   console.log("Seeding today's orders...");
   await seedOrders();
+  await clearOpsSessions();
   console.log("Done. Test password for all users:", TEST_PASSWORD);
 }
 

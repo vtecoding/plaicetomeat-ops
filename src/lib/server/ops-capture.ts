@@ -6,7 +6,15 @@ import type { ChecklistReceipt, ChecklistSummary, OpsEvent, OpsSession } from "@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDisplayDate } from "@/lib/utils";
 
-type ChecklistKind = "opening" | "closing";
+export type ChecklistKind = "opening" | "closing";
+
+/** Everything the open/close page needs in one read: resume state or a finished receipt. */
+export type TodaysChecklistState = {
+  sessionId: string | null;
+  status: OpsSession["status"] | null;
+  summary: ChecklistSummary;
+  receipt: ChecklistReceipt | null;
+};
 
 /** The trading day, in UTC, matching the RPC default so reads and writes agree. */
 export function businessDateUtc(now = new Date()): string {
@@ -72,6 +80,43 @@ export async function getActiveChecklist(
 
   const events = await loadEvents(String(sessionRow.id));
   return { session: mapSession(sessionRow), summary: summariseChecklist(def, events) };
+}
+
+/**
+ * Today's opening/closing ritual in one shot: the latest session for the day plus its
+ * resume summary, and — once finished — the persisted completion receipt. This is what
+ * makes a refresh land back exactly where the owner left off (or on their receipt).
+ */
+export async function getTodaysChecklistState(
+  branchId: string,
+  kind: ChecklistKind,
+  now = new Date(),
+): Promise<TodaysChecklistState> {
+  const supabase = await createSupabaseServerClient();
+  const def = getChecklist(kind);
+
+  const { data: sessionRow } = await supabase
+    .from("ops_checklist_sessions")
+    .select("*")
+    .eq("branch_id", branchId)
+    .eq("kind", kind)
+    .eq("business_date", businessDateUtc(now))
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!sessionRow) {
+    return { sessionId: null, status: null, summary: summariseChecklist(def, []), receipt: null };
+  }
+
+  const events = await loadEvents(String(sessionRow.id));
+  const summary = summariseChecklist(def, events);
+  const receipt =
+    sessionRow.status === "completed"
+      ? buildReceipt(def, events, sessionRow.completed_at ? formatDisplayDate(new Date(String(sessionRow.completed_at))) : null)
+      : null;
+
+  return { sessionId: String(sessionRow.id), status: sessionRow.status as OpsSession["status"], summary, receipt };
 }
 
 /** A persisted completion receipt for a finished opening/closing ritual. */
