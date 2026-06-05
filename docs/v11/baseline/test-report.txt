@@ -1,0 +1,9 @@
+﻿
+ RUN  v4.1.7 C:/Users/xxxsa/Desktop/plaicetomeat-ops
+
+
+ Test Files  37 passed (37)
+      Tests  254 passed (254)
+   Start at  12:29:57
+   Duration  1.21s (transform 4.44s, setup 0ms, import 6.49s, tests 315ms, environment 5ms)
+

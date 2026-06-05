@@ -19,7 +19,8 @@
     "playwright:full": "node scripts/run-playwright.mjs full",
     "playwright:legacy-audit": "node scripts/run-playwright.mjs legacy-audit",
     "playwright:hosted": "node scripts/run-playwright.mjs hosted",
-    "release:report": "node scripts/release-report.mjs"
+    "release:report": "node scripts/release-report.mjs",
+    "audit:bundle": "node scripts/audit-bundle.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
