@@ -1,0 +1,126 @@
+ÿþ
+Running 98 tests using 1 worker
+
+  ok  1 [chromium] :  tests\e2e\admin-action-dashboard.spec.ts:6:7 :  admin action dashboard :  shows the new priority and insight sections (961ms)
+  ok  2 [chromium] :  tests\e2e\admin-action-dashboard.spec.ts:19:7 :  admin action dashboard :  surfaces the launch readiness panel (730ms)
+  ok  3 [chromium] :  tests\e2e\admin-dashboard.spec.ts:12:7 :  owner dashboard :  shows correct counts and revenue from seeded orders (1.5s)
+  ok  4 [chromium] :  tests\e2e\admin-dashboard.spec.ts:29:7 :  owner dashboard :  staff cannot reach the admin dashboard (1.4s)
+  ok  5 [chromium] :  tests\e2e\admin-inventory.spec.ts:6:7 :  admin inventory :  manager can view batch intake and waste risk (745ms)
+  ok  6 [chromium] :  tests\e2e\admin-inventory.spec.ts:15:7 :  admin inventory :  staff cannot access inventory admin (771ms)
+  ok  7 [chromium] :  tests\e2e\admin-mobile-dashboard.spec.ts:9:7 :  owner dashboard mobile mode :  shows the compact counter-service view (1.4s)
+  ok  8 [chromium] :  tests\e2e\admin-pickup-windows.spec.ts:10:7 :  admin pickup windows :  disabling a window removes it from checkout; re-enabling restores it (1.6s)
+  ok  9 [chromium] :  tests\e2e\admin-pickup-windows.spec.ts:40:7 :  admin pickup windows :  invalid pickup window (start after end) is rejected (944ms)
+  ok 10 [chromium] :  tests\e2e\admin-pickup-windows.spec.ts:53:7 :  admin pickup windows :  staff cannot reach pickup-window admin (781ms)
+  ok 11 [chromium] :  tests\e2e\admin-products.spec.ts:10:7 :  admin product CRUD :  manager creates, prices, and hides a product; public shop reflects it (1.9s)
+  ok 12 [chromium] :  tests\e2e\admin-products.spec.ts:48:7 :  admin product CRUD :  empty product name is rejected by the server action (867ms)
+  ok 13 [chromium] :  tests\e2e\admin-products.spec.ts:60:7 :  admin product CRUD :  staff cannot reach the product admin (765ms)
+  ok 14 [chromium] :  tests\e2e\admin-shop-closures.spec.ts:22:7 :  admin shop closures :  manager adds and removes a closure; it persists across reload (1.4s)
+  ok 15 [chromium] :  tests\e2e\admin-shop-closures.spec.ts:47:7 :  admin shop closures :  staff cannot reach shop-closure admin (791ms)
+  ok 16 [chromium] :  tests\e2e\admin-suppliers.spec.ts:6:7 :  admin supplier compliance :  manager can view supplier compliance tools (704ms)
+  ok 17 [chromium] :  tests\e2e\admin-suppliers.spec.ts:13:7 :  admin supplier compliance :  staff cannot access supplier compliance admin (747ms)
+  ok 18 [chromium] :  tests\e2e\auth.spec.ts:6:7 :  authentication :  public header hides back-office links (411ms)
+  ok 19 [chromium] :  tests\e2e\auth.spec.ts:12:7 :  authentication :  manager can log in and reach /admin (611ms)
+  ok 20 [chromium] :  tests\e2e\auth.spec.ts:18:7 :  authentication :  staff can log in and reach /counter (545ms)
+  ok 21 [chromium] :  tests\e2e\auth.spec.ts:26:7 :  authentication :  owner can reach both /admin and /counter (708ms)
+  ok 22 [chromium] :  tests\e2e\auth.spec.ts:32:7 :  authentication :  manager can also reach /counter (696ms)
+  ok 23 [chromium] :  tests\e2e\auth.spec.ts:38:7 :  authentication :  staff cannot reach /admin (796ms)
+node : [2m[WebServer] [22mloginAction signIn failed {
+At line:1 char:167
++ ... D = "true"; node scripts/run-playwright.mjs full *> docs/v11/phase-1. ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([2m[WebServer]...signIn failed {:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[2m[WebServer] [22m  email: [32m'owner@ptm.test'[39m,
+[2m[WebServer] [22m  message: [32m'Invalid login credentials'[39m,
+[2m[WebServer] [22m  status: [33m400[39m,
+[2m[WebServer] [22m  code: [32m'invalid_credentials'[39m
+[2m[WebServer] [22m}
+[2m[WebServer] [22mloginAction signIn failed {
+[2m[WebServer] [22m  email: [32m'nobody@ptm.test'[39m,
+[2m[WebServer] [22m  message: [32m'Invalid login credentials'[39m,
+[2m[WebServer] [22m  status: [33m400[39m,
+[2m[WebServer] [22m  code: [32m'invalid_credentials'[39m
+[2m[WebServer] [22m}
+  ok 24 [chromium] :  tests\e2e\auth.spec.ts:45:7 :  authentication :  failed login shows a safe, non-enumerating error (419ms)
+[2m[WebServer] [22mloginAction profile missing or inactive {
+[2m[WebServer] [22m  email: [32m'inactive@ptm.test'[39m,
+[2m[WebServer] [22m  userId: [32m'510b50ee-f341-4077-a396-b4c07e144fbe'[39m,
+[2m[WebServer] [22m  profile: { role: [32m'staff'[39m, is_active: [33mfalse[39m }
+[2m[WebServer] [22m}
+  ok 25 [chromium] :  tests\e2e\auth.spec.ts:59:7 :  authentication :  inactive account cannot sign in (471ms)
+  ok 26 [chromium] :  tests\e2e\auth.spec.ts:67:7 :  authentication :  logout removes access and protected URL fails afterwards (770ms)
+  ok 27 [chromium] :  tests\e2e\auth.spec.ts:75:7 :  authentication :  sanitised returnTo sends an authorised user to their target (473ms)
+  ok 28 [chromium] :  tests\e2e\checkout.spec.ts:6:7 :  checkout server validation :  rejects an invalid phone even if the client is bypassed (21ms)
+  ok 29 [chromium] :  tests\e2e\checkout.spec.ts:32:7 :  checkout server validation :  rejects an empty basket server-side (5ms)
+  ok 30 [chromium] :  tests\e2e\checkout.spec.ts:47:7 :  checkout server validation :  rejects malformed JSON (4ms)
+  ok 31 [chromium] :  tests\e2e\counter-persistence.spec.ts:13:7 :  counter status persistence :  moving an order persists across a refresh (1.6s)
+  ok 32 [chromium] :  tests\e2e\counter-realtime.spec.ts:13:7 :  counter realtime :  a status change in one context appears in another within 3s (2.5s)
+  ok 33 [chromium] :  tests\e2e\counter-realtime.spec.ts:43:7 :  counter realtime :  manual degradation flips the badge to polling honestly (1.4s)
+  ok 34 [chromium] :  tests\e2e\counter-usability.spec.ts:9:7 :  counter usability :  order cards show phone, age, notes count, SMS state, and no raw UUIDs (1.5s)
+  ok 35 [chromium] :  tests\e2e\customer-trust.spec.ts:4:7 :  customer trust :  homepage trust strip links to halal promise without overclaiming (381ms)
+  ok 36 [chromium] :  tests\e2e\customer-trust.spec.ts:12:7 :  customer trust :  product education tags render without blocking basket controls (216ms)
+  ok 37 [chromium] :  tests\e2e\cutting-guide.spec.ts:6:7 :  cutting & pricing guide :  renders the simple calculator before showing pricing detail (722ms)
+  ok 38 [chromium] :  tests\e2e\cutting-guide.spec.ts:20:7 :  cutting & pricing guide :  calculation shows result summary and recommended price cards (828ms)
+  ok 39 [chromium] :  tests\e2e\cutting-guide.spec.ts:35:7 :  cutting & pricing guide :  cut map opens only after viewing a cut and highlights the selected region (819ms)
+  ok 40 [chromium] :  tests\e2e\cutting-guide.spec.ts:62:7 :  cutting & pricing guide :  advanced product mapping is hidden by default (1.4s)
+  ok 41 [chromium] :  tests\e2e\cutting-guide.spec.ts:90:7 :  cutting & pricing guide :  carcass intake confirms, creates stock and updates a linked product (1.4s)
+  ok 42 [chromium] :  tests\e2e\cutting-guide.spec.ts:131:7 :  cutting & pricing guide :  animal switching keeps the professional map stable on mobile (703ms)
+  ok 43 [chromium] :  tests\e2e\cutting-guide.spec.ts:146:7 :  cutting & pricing guide :  accounts for chiller shrinkage in the real meat cost (734ms)
+  ok 44 [chromium] :  tests\e2e\halal-promise.spec.ts:6:7 :  halal promise :  loads publicly without exposing supplier contact details (216ms)
+  ok 45 [chromium] :  tests\e2e\hosted-smoke.spec.ts:13:9 :  hosted smoke :  / renders (326ms)
+  ok 46 [chromium] :  tests\e2e\hosted-smoke.spec.ts:13:9 :  hosted smoke :  /shop renders (214ms)
+  ok 47 [chromium] :  tests\e2e\hosted-smoke.spec.ts:13:9 :  hosted smoke :  /basket renders (225ms)
+  ok 48 [chromium] :  tests\e2e\hosted-smoke.spec.ts:13:9 :  hosted smoke :  /checkout renders (246ms)
+  ok 49 [chromium] :  tests\e2e\hosted-smoke.spec.ts:13:9 :  hosted smoke :  /our-halal-promise renders (210ms)
+  ok 50 [chromium] :  tests\e2e\hosted-smoke.spec.ts:20:9 :  hosted smoke :  /counter is protected (252ms)
+  ok 51 [chromium] :  tests\e2e\hosted-smoke.spec.ts:20:9 :  hosted smoke :  /admin is protected (196ms)
+  ok 52 [chromium] :  tests\e2e\hosted-smoke.spec.ts:20:9 :  hosted smoke :  /admin/releases is protected (229ms)
+  ok 53 [chromium] :  tests\e2e\hosted-smoke.spec.ts:20:9 :  hosted smoke :  /admin/compliance is protected (211ms)
+  ok 54 [chromium] :  tests\e2e\hosted-smoke.spec.ts:20:9 :  hosted smoke :  /admin/inventory is protected (211ms)
+  ok 55 [chromium] :  tests\e2e\ops-capture.spec.ts:12:7 :  v10 guided capture   rituals :  opening: record a step, resume across refresh, finish to a persisted receipt (2.8s)
+  ok 56 [chromium] :  tests\e2e\ops-capture.spec.ts:60:7 :  v10 guided capture   rituals :  a step can be skipped, and the skip is a real recorded state (1.7s)
+  ok 57 [chromium] :  tests\e2e\ops-capture.spec.ts:75:7 :  v10 guided capture   rituals :  stock count: count, apply a correction, resume across refresh (2.4s)
+  ok 58 [chromium] :  tests\e2e\ops-capture.spec.ts:104:7 :  v10 guided capture   rituals :  closing checklist is reachable from today and starts clean (1.4s)
+  ok 59 [chromium] :  tests\e2e\owner-brain.spec.ts:13:7 :  v9 owner brain   today :  managers land on the Owner Brain home (1.2s)
+  ok 60 [chromium] :  tests\e2e\owner-brain.spec.ts:35:7 :  v9 owner brain   today :  a decision opens a standardised decision card (2.4s)
+  ok 61 [chromium] :  tests\e2e\owner-brain.spec.ts:55:7 :  v9 owner brain   today :  never shows scores, raw severity, or technical jargon (1.3s)
+  ok 62 [chromium] :  tests\e2e\owner-brain.spec.ts:69:7 :  v9 owner brain   today :  offers an optional guided walk through the day (V10) (1.6s)
+  ok 63 [chromium] :  tests\e2e\owner-brain.spec.ts:101:7 :  v9 owner brain   today :  offers a route to the full detail dashboard (1.5s)
+  ok 64 [chromium] :  tests\e2e\owner-guide.spec.ts:7:7 :  owner guide :  manager sees the everyday job guides and the dry-run script (661ms)
+  ok 65 [chromium] :  tests\e2e\owner-guide.spec.ts:18:7 :  owner guide :  reachable from the Dad Mode home (758ms)
+  ok 66 [chromium] :  tests\e2e\password-reset.spec.ts:4:7 :  password reset :  login page offers a forgot-password flow (231ms)
+  ok 67 [chromium] :  tests\e2e\password-reset.spec.ts:13:7 :  password reset :  update-password page asks for a valid link when opened without a token (225ms)
+  ok 68 [chromium] :  tests\e2e\phone-validation.spec.ts:18:9 :  checkout phone validation :  rejects letters (286ms)
+  ok 69 [chromium] :  tests\e2e\phone-validation.spec.ts:18:9 :  checkout phone validation :  rejects too short (269ms)
+  ok 70 [chromium] :  tests\e2e\phone-validation.spec.ts:18:9 :  checkout phone validation :  rejects UK landline (291ms)
+  ok 71 [chromium] :  tests\e2e\phone-validation.spec.ts:18:9 :  checkout phone validation :  rejects whitespace only (245ms)
+  ok 72 [chromium] :  tests\e2e\phone-validation.spec.ts:29:7 :  checkout phone validation :  accepts 07700900123 and clears the error (250ms)
+  ok 73 [chromium] :  tests\e2e\phone-validation.spec.ts:40:7 :  checkout phone validation :  accepts +447700900123 (245ms)
+  ok 74 [chromium] :  tests\e2e\purchasing.spec.ts:6:7 :  purchasing & stock planning :  manager sees the purchasing decision-support page (735ms)
+  ok 75 [chromium] :  tests\e2e\purchasing.spec.ts:18:7 :  purchasing & stock planning :  shows an honest data-quality score and a back route to the dashboard (674ms)
+  ok 76 [chromium] :  tests\e2e\realtime-degraded.spec.ts:6:7 :  realtime degraded mode :  counter can be switched to polling without showing a live badge (716ms)
+  ok 77 [chromium] :  tests\e2e\route-protection.spec.ts:21:7 :  route protection :  unauthenticated users are redirected to login for every back-office route (530ms)
+  ok 78 [chromium] :  tests\e2e\route-protection.spec.ts:28:7 :  route protection :  staff cannot reach any manager-only route (1.6s)
+  ok 79 [chromium] :  tests\e2e\route-protection.spec.ts:36:7 :  route protection :  managers cannot reach owner-only release/audit tools (929ms)
+  ok 80 [chromium] :  tests\e2e\route-protection.spec.ts:44:7 :  route protection :  public pages never leak back-office navigation (369ms)
+  ok 81 [chromium] :  tests\e2e\route-protection.spec.ts:51:7 :  route protection :  manager sees back-office nav; plain staff does not (1.2s)
+  ok 82 [chromium] :  tests\e2e\safe-test-order.spec.ts:30:7 :  safe test order   secure access boundary :  checkout ’! access-id status ’! cancel; reference is not a credential (1.5s)
+  ok 83 [chromium] :  tests\e2e\setup-checklist.spec.ts:7:7 :  setup checklist :  manager sees the grouped setup sections (759ms)
+  ok 84 [chromium] :  tests\e2e\setup-checklist.spec.ts:19:7 :  setup checklist :  only the owner sees the launch safety panel (1.3s)
+  ok 85 [chromium] :  tests\e2e\setup-checklist.spec.ts:33:7 :  setup checklist :  reachable from the Dad Mode home (736ms)
+  ok 86 [chromium] :  tests\e2e\sms-status.spec.ts:21:5 :  marking an order ready records a disabled SMS, never a fake 'sent' (1.8s)
+  ok 87 [chromium] :  tests\e2e\staff-notes.spec.ts:17:7 :  staff notes :  a note persists, is visible to other staff, and stays internal (2.4s)
+  ok 88 [chromium] :  tests\e2e\staff-notes.spec.ts:56:7 :  staff notes :  empty notes are rejected client-side (1.2s)
+  ok 89 [chromium] :  tests\e2e\storefront.spec.ts:6:7 :  storefront homepage :  shows the shop call to action without a staff counter shortcut (343ms)
+  ok 90 [chromium] :  tests\e2e\storefront.spec.ts:14:7 :  storefront homepage :  featured products come from the catalogue or show a safe empty state (335ms)
+  ok 91 [chromium] :  tests\e2e\v4-ops-intelligence.spec.ts:9:7 :  V4 operations intelligence :  shows the business insight panels (1.4s)
+  ok 92 [chromium] :  tests\e2e\v4-ops-intelligence.spec.ts:24:7 :  V4 operations intelligence :  shows release governance and migration health (1.4s)
+  ok 93 [chromium] :  tests\e2e\v4-ops-intelligence.spec.ts:33:7 :  V4 operations intelligence :  supports audit investigation filters (1.4s)
+  ok 94 [chromium] :  tests\e2e\v8-briefing.spec.ts:12:7 :  v8 shop briefing :  managers can open the briefing from Today and see the core sections (1.5s)
+  ok 95 [chromium] :  tests\e2e\v8-briefing.spec.ts:30:7 :  v8 shop briefing :  never shows raw severity or developer wording to the owner (1.4s)
+  ok 96 [chromium] :  tests\e2e\v8-briefing.spec.ts:41:7 :  v8 shop briefing :  links findings to the operational playbooks (1.6s)
+  ok 97 [chromium] :  tests\e2e\v8-briefing.spec.ts:53:7 :  v8 shop briefing :  staff cannot reach the manager briefing (1.5s)
+  ok 98 [chromium] :  tests\e2e\waste-risk.spec.ts:6:7 :  waste risk board :  shows honest risk summary on inventory page (674ms)
+
+  98 passed (1.5m)

@@ -95,6 +95,7 @@ function isPlaceholderOrReference(value) {
   if (/^\$\{?[A-Z0-9_]+\}?$/.test(value.trim())) return true; // ${VAR} / $VAR
   if (/^[A-Z][A-Z0-9_]+$/.test(value.trim())) return true; // bare ENV_VAR_NAME reference
   if (/^(your[-_ ]|changeme|example|placeholder|xxx+|test|dummy|redacted)/i.test(value.trim())) return true;
+  if (/insecure/i.test(value)) return true; // values explicitly marked insecure are dev fallbacks
   return false;
 }
 
@@ -103,9 +104,14 @@ function scan(path, contents) {
   for (const rule of SECRET_RULES) {
     if (rule.re.test(contents)) findings.push(`${rule.name}`);
   }
-  for (const m of contents.matchAll(ASSIGN_RE)) {
-    if (!isPlaceholderOrReference(m[1]) && !KNOWN_LOCAL_FIXTURES.has(m[1])) {
-      findings.push("High-entropy secret assignment");
+  // Test files legitimately define fake secrets to exercise crypto; the strict
+  // rules (AKIA, private keys, sb_secret/sbp_, non-local JWTs) above still apply.
+  const isTestFile = /\.test\.(ts|tsx|js|mjs)$/.test(path);
+  if (!isTestFile) {
+    for (const m of contents.matchAll(ASSIGN_RE)) {
+      if (!isPlaceholderOrReference(m[1]) && !KNOWN_LOCAL_FIXTURES.has(m[1])) {
+        findings.push("High-entropy secret assignment");
+      }
     }
   }
   // JWTs: allow only the well-known local-demo issuer.

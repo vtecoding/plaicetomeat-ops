@@ -1,0 +1,151 @@
+ÿþV11.1 migration verification
+
+[1] CLEAN database: apply all 18 migrations in order
+node : NOTICE:  database "ptm_v11_clean" does not exist, skipping
+At line:1 char:157
++ ... TEXITCODE"; node scripts/verify-v11-migrations.mjs *> docs/v11/phase- ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (NOTICE:  databa...exist, skipping:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+NOTICE:  trigger "audit_logs_append_only" for relation "public.audit_logs" does not exist, skipping
+NOTICE:  policy "owners can read order annual sequences" for relation "public.order_annual_sequences" does not exist, 
+skipping
+NOTICE:  policy "staff can read branch order status events" for relation "public.order_status_events" does not exist, 
+skipping
+NOTICE:  policy "staff can create branch order status events" for relation "public.order_status_events" does not 
+exist, skipping
+NOTICE:  policy "staff can read branch order notes" for relation "public.order_notes" does not exist, skipping
+NOTICE:  policy "staff can create branch order notes" for relation "public.order_notes" does not exist, skipping
+NOTICE:  policy "managers can manage sms templates" for relation "public.sms_templates" does not exist, skipping
+NOTICE:  policy "managers can manage suppliers" for relation "public.suppliers" does not exist, skipping
+NOTICE:  policy "staff can read suppliers" for relation "public.suppliers" does not exist, skipping
+NOTICE:  policy "managers can manage supplier documents" for relation "public.supplier_documents" does not exist, 
+skipping
+NOTICE:  policy "staff can read supplier documents" for relation "public.supplier_documents" does not exist, skipping
+NOTICE:  policy "staff can read inventory batches" for relation "public.inventory_batches" does not exist, skipping
+NOTICE:  policy "managers can manage inventory batches" for relation "public.inventory_batches" does not exist, 
+skipping
+NOTICE:  policy "staff can read inventory movements" for relation "public.inventory_movements" does not exist, skipping
+NOTICE:  policy "staff can create inventory movements" for relation "public.inventory_movements" does not exist, 
+skipping
+NOTICE:  policy "staff can read branch sms log" for relation "public.sms_log" does not exist, skipping
+NOTICE:  trigger "audit_events_append_only" for relation "public.audit_events" does not exist, skipping
+NOTICE:  policy "staff can read own branch audit events" for relation "public.audit_events" does not exist, skipping
+NOTICE:  policy "authenticated can create audit events" for relation "public.audit_events" does not exist, skipping
+NOTICE:  trigger "audit_logs_mirror_to_events" for relation "public.audit_logs" does not exist, skipping
+NOTICE:  policy "staff can read branch waste events" for relation "public.inventory_waste_events" does not exist, 
+skipping
+NOTICE:  policy "managers can create branch waste events" for relation "public.inventory_waste_events" does not exist, 
+skipping
+NOTICE:  trigger "release_certifications_append_only" for relation "public.release_certifications" does not exist, 
+skipping
+NOTICE:  policy "managers can read release deployments" for relation "public.release_deployments" does not exist, 
+skipping
+NOTICE:  policy "managers can create release deployments" for relation "public.release_deployments" does not exist, 
+skipping
+NOTICE:  policy "managers can read release verifications" for relation "public.release_verifications" does not exist, 
+skipping
+NOTICE:  policy "managers can update release verifications" for relation "public.release_verifications" does not 
+exist, skipping
+NOTICE:  policy "managers can read release verification items" for relation "public.release_verification_items" does 
+not exist, skipping
+NOTICE:  policy "managers can update release verification items" for relation "public.release_verification_items" does 
+not exist, skipping
+NOTICE:  policy "managers can read release certifications" for relation "public.release_certifications" does not 
+exist, skipping
+NOTICE:  policy "managers can create release certifications" for relation "public.release_certifications" does not 
+exist, skipping
+NOTICE:  policy "managers can read expected migrations" for relation "public.expected_migrations" does not exist, 
+skipping
+NOTICE:  policy "staff can read branch carcass intakes" for relation "public.carcass_intakes" does not exist, skipping
+NOTICE:  policy "staff can read branch carcass intake cuts" for relation "public.carcass_intake_cuts" does not exist, 
+skipping
+NOTICE:  constraint "inventory_batches_expected_weight_check" of relation "inventory_batches" does not exist, skipping
+NOTICE:  constraint "inventory_batches_actual_weight_check" of relation "inventory_batches" does not exist, skipping
+NOTICE:  policy "managers read ops sessions" for relation "public.ops_checklist_sessions" does not exist, skipping
+NOTICE:  policy "managers read ops events" for relation "public.ops_checklist_events" does not exist, skipping
+NOTICE:  policy "managers read stock count lines" for relation "public.stock_count_lines" does not exist, skipping
+  PASS all migrations applied on clean DB
+  PASS legacy get_public_order removed
+  PASS cancel_order_by_ref removed
+  PASS orders.public_access_id column present
+  PASS cancel_public_order NOT executable by anon
+  PASS cancel_public_order executable by service_role
+  PASS establish_public_order_access NOT executable by anon
+  PASS get_public_order_status executable by anon (status stays readable)
+
+[2] UPGRADE: pre-V11 DB with a seeded order, then apply V11.1
+NOTICE:  database "ptm_v11_upgrade" does not exist, skipping
+NOTICE:  trigger "audit_logs_append_only" for relation "public.audit_logs" does not exist, skipping
+NOTICE:  policy "owners can read order annual sequences" for relation "public.order_annual_sequences" does not exist, 
+skipping
+NOTICE:  policy "staff can read branch order status events" for relation "public.order_status_events" does not exist, 
+skipping
+NOTICE:  policy "staff can create branch order status events" for relation "public.order_status_events" does not 
+exist, skipping
+NOTICE:  policy "staff can read branch order notes" for relation "public.order_notes" does not exist, skipping
+NOTICE:  policy "staff can create branch order notes" for relation "public.order_notes" does not exist, skipping
+NOTICE:  policy "managers can manage sms templates" for relation "public.sms_templates" does not exist, skipping
+NOTICE:  policy "managers can manage suppliers" for relation "public.suppliers" does not exist, skipping
+NOTICE:  policy "staff can read suppliers" for relation "public.suppliers" does not exist, skipping
+NOTICE:  policy "managers can manage supplier documents" for relation "public.supplier_documents" does not exist, 
+skipping
+NOTICE:  policy "staff can read supplier documents" for relation "public.supplier_documents" does not exist, skipping
+NOTICE:  policy "staff can read inventory batches" for relation "public.inventory_batches" does not exist, skipping
+NOTICE:  policy "managers can manage inventory batches" for relation "public.inventory_batches" does not exist, 
+skipping
+NOTICE:  policy "staff can read inventory movements" for relation "public.inventory_movements" does not exist, skipping
+NOTICE:  policy "staff can create inventory movements" for relation "public.inventory_movements" does not exist, 
+skipping
+NOTICE:  policy "staff can read branch sms log" for relation "public.sms_log" does not exist, skipping
+NOTICE:  trigger "audit_events_append_only" for relation "public.audit_events" does not exist, skipping
+NOTICE:  policy "staff can read own branch audit events" for relation "public.audit_events" does not exist, skipping
+NOTICE:  policy "authenticated can create audit events" for relation "public.audit_events" does not exist, skipping
+NOTICE:  trigger "audit_logs_mirror_to_events" for relation "public.audit_logs" does not exist, skipping
+NOTICE:  policy "staff can read branch waste events" for relation "public.inventory_waste_events" does not exist, 
+skipping
+NOTICE:  policy "managers can create branch waste events" for relation "public.inventory_waste_events" does not exist, 
+skipping
+NOTICE:  trigger "release_certifications_append_only" for relation "public.release_certifications" does not exist, 
+skipping
+NOTICE:  policy "managers can read release deployments" for relation "public.release_deployments" does not exist, 
+skipping
+NOTICE:  policy "managers can create release deployments" for relation "public.release_deployments" does not exist, 
+skipping
+NOTICE:  policy "managers can read release verifications" for relation "public.release_verifications" does not exist, 
+skipping
+NOTICE:  policy "managers can update release verifications" for relation "public.release_verifications" does not 
+exist, skipping
+NOTICE:  policy "managers can read release verification items" for relation "public.release_verification_items" does 
+not exist, skipping
+NOTICE:  policy "managers can update release verification items" for relation "public.release_verification_items" does 
+not exist, skipping
+NOTICE:  policy "managers can read release certifications" for relation "public.release_certifications" does not 
+exist, skipping
+NOTICE:  policy "managers can create release certifications" for relation "public.release_certifications" does not 
+exist, skipping
+NOTICE:  policy "managers can read expected migrations" for relation "public.expected_migrations" does not exist, 
+skipping
+NOTICE:  policy "staff can read branch carcass intakes" for relation "public.carcass_intakes" does not exist, skipping
+NOTICE:  policy "staff can read branch carcass intake cuts" for relation "public.carcass_intake_cuts" does not exist, 
+skipping
+NOTICE:  constraint "inventory_batches_expected_weight_check" of relation "inventory_batches" does not exist, skipping
+NOTICE:  constraint "inventory_batches_actual_weight_check" of relation "inventory_batches" does not exist, skipping
+NOTICE:  policy "managers read ops sessions" for relation "public.ops_checklist_sessions" does not exist, skipping
+NOTICE:  policy "managers read ops events" for relation "public.ops_checklist_events" does not exist, skipping
+NOTICE:  policy "managers read stock count lines" for relation "public.stock_count_lines" does not exist, skipping
+  PASS pre-V11: orders has NO public_access_id column
+  PASS pre-V11: legacy get_public_order present (the hole)
+  PASS upgrade: seeded order backfilled with public_access_id
+  PASS upgrade: public_access_id is NOT NULL on all rows
+  PASS upgrade: public_access_version defaults to 1
+  PASS legacy get_public_order removed
+  PASS cancel_order_by_ref removed
+  PASS orders.public_access_id column present
+  PASS cancel_public_order NOT executable by anon
+  PASS cancel_public_order executable by service_role
+  PASS establish_public_order_access NOT executable by anon
+  PASS get_public_order_status executable by anon (status stays readable)
+
+RESULT: clean-apply and pre-V11 upgrade migration checks PASSED

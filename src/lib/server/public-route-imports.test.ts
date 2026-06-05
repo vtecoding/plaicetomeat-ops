@@ -34,7 +34,7 @@ describe("public order surface import graph", () => {
     });
   }
 
-  it("public-order-access uses the anon public client, not the service client", () => {
+  it("public-order-access (status read) uses the anon public client, not the service client", () => {
     const src = readFileSync(join(ROOT, "src/lib/server/public-order-access.ts"), "utf8");
     expect(src.includes("createSupabasePublicClient")).toBe(true);
     expect(src.includes("createSupabaseServiceClient")).toBe(false);
@@ -43,5 +43,21 @@ describe("public order surface import graph", () => {
   it("getOrderByRef no longer exists in the orders repository", () => {
     const src = readFileSync(join(ROOT, "src/lib/server/orders.ts"), "utf8");
     expect(/export\s+async\s+function\s+getOrderByRef/.test(src)).toBe(false);
+  });
+
+  // The privileged mutation module is the ONE allowed service-role user for the
+  // public flow. It must be contained: only the two safe RPCs, no raw order reads.
+  it("order-access-privileged calls only the safe RPCs and reads no order rows", () => {
+    const src = readFileSync(join(ROOT, "src/lib/server/order-access-privileged.ts"), "utf8");
+    expect(src.includes("createSupabaseServiceClient")).toBe(true);
+    // No raw order table access / internal select.
+    expect(src.includes('.from("orders")')).toBe(false);
+    expect(src.includes(".from('orders')")).toBe(false);
+    expect(src.includes("ORDER_SELECT")).toBe(false);
+    // Only the two intended RPCs are referenced.
+    expect(src.includes("establish_public_order_access")).toBe(true);
+    expect(src.includes("cancel_public_order")).toBe(true);
+    expect(src.includes("get_public_order_status")).toBe(false);
+    expect(src.includes("create_checkout_order")).toBe(false);
   });
 });

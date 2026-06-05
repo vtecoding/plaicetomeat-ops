@@ -2,8 +2,8 @@
 
 import { redirect } from "next/navigation";
 
+import { establishPublicOrderAccess } from "@/lib/server/order-access-privileged";
 import { grantOrderAccess } from "@/lib/server/order-access-session";
-import { establishPublicOrderAccess } from "@/lib/server/public-order-access";
 
 export type EstablishAccessState = {
   ok: boolean;
@@ -23,7 +23,7 @@ export async function establishOrderAccessAction(
 
   switch (result.kind) {
     case "ok":
-      await grantOrderAccess(result.publicAccessId);
+      await grantOrderAccess(result.publicAccessId, result.version);
       redirectTo = `/order/status/${result.publicAccessId}`;
       break;
     case "invalid":

@@ -1,15 +1,16 @@
-// V11.1 adversarial verification — public order access boundary.
+// V11.1 adversarial verification — public order access boundary (sealed).
 //
-// Runs against the LOCAL Supabase stack and exercises the public order RPCs the
-// way an attacker (anon) and the app (anon + authenticated staff) would. Proves
-// the spec §8.1.6 mandatory cases:
-//   * reference enumeration retrieves zero order data;
-//   * cancellation is impossible without a valid access id (ref is not enough);
-//   * one order's access id never exposes/cancels another order;
-//   * a staff transition racing a customer cancellation yields one valid winner;
-//   * brute-force attempts trip the rate limiter;
-//   * the public DTO contains no forbidden internal fields;
-//   * the retired reference-only cancel RPC is gone.
+// Runs against the LOCAL Supabase stack as an attacker (anon) and as the trusted
+// server (service_role, simulating the privileged module that runs AFTER session
+// verification). Proves spec §8.1.6 plus the V11.1 sealing requirements:
+//   * reference enumeration / anon mutation is impossible;
+//   * cancel_public_order with a VALID access id but no session (anon) fails and
+//     leaves the order unchanged;
+//   * public_access_revoked_at and public_access_version are enforced;
+//   * unknown-reference and wrong-phone establishment are indistinguishable;
+//   * the safe DTO leaks no internal fields; cross-order isolation holds;
+//   * a staff transition racing a cancellation yields one valid winner;
+//   * rate limiting trips after the configured maximum.
 // Exits non-zero on any unmet expectation.
 
 import { createClient } from "@supabase/supabase-js";
@@ -70,7 +71,7 @@ async function createIncomingOrder(phone = "07700900123") {
       subtotal: 10.0,
       idempotency_key: `vpa-${RUN}-${seq}`,
     })
-    .select("id, order_ref, public_access_id, customer_phone, status")
+    .select("id, order_ref, public_access_id, public_access_version, customer_phone, status")
     .single();
   if (error) throw new Error(`order insert failed: ${error.message}`);
   return data;
@@ -87,7 +88,7 @@ async function cleanup() {
 }
 
 async function main() {
-  console.log(`V11.1 public access adversarial checks (run ${RUN})`);
+  console.log(`V11.1 sealed public-access adversarial checks (run ${RUN})`);
 
   // --- 1. Anon cannot read the orders table directly --------------------------
   {
@@ -97,44 +98,52 @@ async function main() {
       `rows=${data?.length} err=${error?.message}`);
   }
 
-  // --- 2. Reference enumeration yields zero data ------------------------------
+  // --- 2. Anon cannot invoke the mutation/establishment RPCs at all -----------
   {
-    const real = await createIncomingOrder("07700900999");
-    // 2a. establish with many synthetic refs + a bogus phone -> always null.
-    let leaked = 0;
-    for (let i = 1; i <= 400; i += 1) {
-      const ref = `PTM-2099-${String(i).padStart(5, "0")}`;
-      const { data } = await anon.rpc("establish_public_order_access", { p_order_ref: ref, p_phone: "07000000000" });
-      if (data) leaked += 1;
-    }
-    check("400 enumerated refs + wrong phone -> no access id", leaked === 0, `leaked=${leaked}`);
+    const order = await createIncomingOrder();
+    const est = await anon.rpc("establish_public_order_access", { p_order_ref: order.order_ref, p_phone: order.customer_phone });
+    check("anon establish_public_order_access is DENIED", !!est.error, est.error ? "(permission error)" : "CALLABLE!");
 
-    // 2b. real ref but WRONG phone -> null.
-    const wrong = await anon.rpc("establish_public_order_access", { p_order_ref: real.order_ref, p_phone: "07000000000" });
-    check("real ref + wrong phone -> no access id", !wrong.data, `data=${wrong.data}`);
+    // The key sealing test: a VALID access id with NO session (anon) cannot cancel.
+    const can = await anon.rpc("cancel_public_order", { p_public_access_id: order.public_access_id, p_reason: "x", p_expected_version: order.public_access_version });
+    check("anon cancel_public_order with VALID access id is DENIED", !!can.error, can.error ? "(permission error)" : "CALLABLE!");
+    check("order unchanged after anon cancel attempt", (await readStatus(order.id)) === "incoming");
 
-    // 2c. real ref + RIGHT phone (any UK format) -> the correct access id.
-    const right = await anon.rpc("establish_public_order_access", { p_order_ref: real.order_ref, p_phone: "+44 7700 900999" });
-    check("real ref + right phone (normalised) -> correct access id", right.data === real.public_access_id,
-      `data=${right.data}`);
-
-    // 2d. random access id -> no status.
+    // Status reads remain anon (the unguessable id is the credential).
     const rnd = await anon.rpc("get_public_order_status", { p_public_access_id: randomUUID() });
-    check("random access id -> null status", rnd.data === null, `data=${JSON.stringify(rnd.data)}`);
+    check("anon status by random access id -> null", !rnd.error && rnd.data === null, `data=${JSON.stringify(rnd.data)} err=${rnd.error?.message}`);
+
+    // The legacy reference-keyed reader must be gone (it leaked customer_name).
+    const legacy = await anon.rpc("get_public_order", { target_order_ref: order.order_ref });
+    check("legacy get_public_order(ref) is removed/uncallable by anon", !!legacy.error, legacy.error ? "(gone)" : "STILL LEAKS!");
   }
 
-  // --- 3. Safe DTO: correct order, no forbidden fields ------------------------
+  // --- 3. Establishment correctness + unknown/wrong indistinguishable (server) -
+  {
+    const real = await createIncomingOrder("07700900999");
+    const right = await service.rpc("establish_public_order_access", { p_order_ref: real.order_ref, p_phone: "+44 7700 900999" });
+    check("server establish: real ref + right phone -> id+version",
+      !right.error && right.data?.publicAccessId === real.public_access_id && right.data?.version === real.public_access_version,
+      `data=${JSON.stringify(right.data)}`);
+
+    const wrongPhone = await service.rpc("establish_public_order_access", { p_order_ref: real.order_ref, p_phone: "07000000000" });
+    const unknownRef = await service.rpc("establish_public_order_access", { p_order_ref: "PTM-2099-99999", p_phone: "07700900999" });
+    check("unknown-ref and wrong-phone establish results are identical (null)",
+      wrongPhone.data === null && unknownRef.data === null && JSON.stringify(wrongPhone.data) === JSON.stringify(unknownRef.data),
+      `wrongPhone=${JSON.stringify(wrongPhone.data)} unknownRef=${JSON.stringify(unknownRef.data)}`);
+  }
+
+  // --- 4. Safe DTO: correct order, no forbidden fields ------------------------
   {
     const order = await createIncomingOrder();
     const { data, error } = await anon.rpc("get_public_order_status", { p_public_access_id: order.public_access_id });
     check("status by access id returns the order", !error && data?.orderRef === order.order_ref, error?.message);
-    const keys = data ? Object.keys(data) : [];
-    const bad = keys.filter((k) => FORBIDDEN.includes(k));
+    const bad = (data ? Object.keys(data) : []).filter((k) => FORBIDDEN.includes(k));
     check("public DTO has no forbidden fields", bad.length === 0, `bad=${bad.join(",")}`);
     check("DTO customerDisplayName is first-name only", data?.customerDisplayName === "Test", `got=${data?.customerDisplayName}`);
   }
 
-  // --- 4. Cross-order isolation ----------------------------------------------
+  // --- 5. Cross-order isolation ----------------------------------------------
   {
     const a = await createIncomingOrder();
     const b = await createIncomingOrder();
@@ -142,29 +151,43 @@ async function main() {
     check("access id A returns only order A", sa.data?.orderRef === a.order_ref && sa.data?.orderRef !== b.order_ref);
   }
 
-  // --- 5. Cancellation requires a valid access id (ref is not enough) ---------
-  {
-    const order = await createIncomingOrder();
-    // 5a. retired reference-only RPC is gone.
-    const byRef = await anon.rpc("cancel_order_by_ref", { p_order_ref: order.order_ref, p_reason: "x" });
-    check("cancel_order_by_ref is removed/not callable", !!byRef.error, byRef.error ? "(error as expected)" : "STILL CALLABLE");
-    // 5b. random access id -> not found, order unchanged.
-    const rnd = await anon.rpc("cancel_public_order", { p_public_access_id: randomUUID(), p_reason: "x" });
-    check("cancel with random access id rejected", !!rnd.error);
-    check("order still incoming after bogus cancel", (await readStatus(order.id)) === "incoming");
-  }
-
-  // --- 6. Valid cancellation cancels only the target -------------------------
+  // --- 6. Valid cancellation (server, correct version) cancels only target ----
   {
     const a = await createIncomingOrder();
     const b = await createIncomingOrder();
-    const res = await anon.rpc("cancel_public_order", { p_public_access_id: a.public_access_id, p_reason: "changed mind" });
-    check("valid access id cancels its order", !res.error && res.data?.ok === true, res.error?.message);
+    const res = await service.rpc("cancel_public_order", { p_public_access_id: a.public_access_id, p_reason: "changed mind", p_expected_version: a.public_access_version });
+    check("server cancel (correct version) cancels its order", !res.error && res.data?.ok === true, res.error?.message);
     check("target order A is cancelled", (await readStatus(a.id)) === "cancelled");
     check("other order B untouched", (await readStatus(b.id)) === "incoming");
   }
 
-  // --- 7. Race: staff transition vs customer cancellation --------------------
+  // --- 7. public_access_version enforced --------------------------------------
+  {
+    const order = await createIncomingOrder();
+    const wrongVer = await service.rpc("cancel_public_order", { p_public_access_id: order.public_access_id, p_reason: "x", p_expected_version: 999 });
+    check("cancel with wrong expected_version is rejected", !!wrongVer.error, wrongVer.error ? "(rejected)" : "ACCEPTED!");
+    check("order unchanged after version mismatch", (await readStatus(order.id)) === "incoming");
+    const rightVer = await service.rpc("cancel_public_order", { p_public_access_id: order.public_access_id, p_reason: "x", p_expected_version: order.public_access_version });
+    check("cancel with correct expected_version succeeds", !rightVer.error && rightVer.data?.ok === true, rightVer.error?.message);
+  }
+
+  // --- 8. public_access_revoked_at enforced on all paths ----------------------
+  {
+    const order = await createIncomingOrder("07700900777");
+    await service.from("orders").update({ public_access_revoked_at: new Date().toISOString() }).eq("id", order.id);
+
+    const status = await anon.rpc("get_public_order_status", { p_public_access_id: order.public_access_id });
+    check("revoked: status returns null", !status.error && status.data === null, `data=${JSON.stringify(status.data)}`);
+
+    const est = await service.rpc("establish_public_order_access", { p_order_ref: order.order_ref, p_phone: "07700900777" });
+    check("revoked: establish returns null", est.data === null, `data=${JSON.stringify(est.data)}`);
+
+    const can = await service.rpc("cancel_public_order", { p_public_access_id: order.public_access_id, p_reason: "x", p_expected_version: order.public_access_version });
+    check("revoked: cancel is rejected (not found)", !!can.error, can.error ? "(rejected)" : "ACCEPTED!");
+    check("revoked: order unchanged", (await readStatus(order.id)) === "incoming");
+  }
+
+  // --- 9. Race: staff transition vs customer cancellation --------------------
   {
     const manager = await sessionClient("manager@ptm.test");
     let oneWinnerEachTime = true;
@@ -173,12 +196,11 @@ async function main() {
       const order = await createIncomingOrder();
       const [staff, cancel] = await Promise.allSettled([
         manager.rpc("transition_order_status", { p_order_id: order.id, p_next_status: "prepping" }),
-        anon.rpc("cancel_public_order", { p_public_access_id: order.public_access_id, p_reason: "race" }),
+        service.rpc("cancel_public_order", { p_public_access_id: order.public_access_id, p_reason: "race", p_expected_version: order.public_access_version }),
       ]);
       const staffOk = staff.status === "fulfilled" && !staff.value.error;
       const cancelOk = cancel.status === "fulfilled" && !cancel.value.error;
       const final = await readStatus(order.id);
-      // Exactly one side must win, and the final state must match the winner.
       if (staffOk === cancelOk) oneWinnerEachTime = false;
       if (!((staffOk && final === "prepping") || (cancelOk && final === "cancelled"))) clobbered = true;
     }
@@ -186,7 +208,7 @@ async function main() {
     check("race: final state always matches winner (no clobber)", !clobbered);
   }
 
-  // --- 8. Rate limiting trips after the configured maximum --------------------
+  // --- 10. Rate limiting trips after the configured maximum -------------------
   {
     const id = `vpa-${RUN}-rl`;
     const results = [];
@@ -205,7 +227,7 @@ async function main() {
     console.error(`RESULT: ${failures} check(s) FAILED`);
     process.exit(1);
   }
-  console.log("RESULT: all public-access adversarial checks PASSED");
+  console.log("RESULT: all sealed public-access adversarial checks PASSED");
 }
 
 main().catch(async (e) => {

@@ -1,30 +1,38 @@
 import "server-only";
 
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+
+import { decodeGrants, encodeGrants, type Grant } from "@/lib/server/order-access-token";
 
 // V11.1 — signed, HttpOnly order-access session.
 //
 // Cancellation requires that the caller's session grants access to the target
-// order's public_access_id (spec §6.1). The cookie holds a capped list of
-// access ids the browser has legitimately established (at checkout, or via
-// ref+phone lookup), signed with HMAC so it cannot be forged client-side.
+// order's public_access_id AND matches its public_access_version (spec §6.1).
+// The cookie holds a capped list of {id, version} grants the browser has
+// legitimately established (at checkout, or via ref+phone lookup), signed with
+// HMAC-SHA256 so it cannot be forged client-side.
 
 const COOKIE_NAME = "ptm_order_access";
-const MAX_IDS = 10;
+const COOKIE_PATH = "/order"; // only sent on order routes; never elsewhere
+const MAX_GRANTS = 10;
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 14; // 14 days
-const DEV_FALLBACK_SECRET = "dev-insecure-order-access-secret-do-not-use-in-prod";
+const MIN_SECRET_LENGTH = 32; // require >= 32 bytes of secret material
+// Dev-only fallback (>= 32 chars). Never used when NODE_ENV === 'production'.
+const DEV_FALLBACK_SECRET = "dev-insecure-order-access-secret-please-set-ORDER_ACCESS_SECRET";
 
 let warnedDevSecret = false;
 
 function getSecret(): string {
   const secret = process.env.ORDER_ACCESS_SECRET;
-  if (secret && secret.length >= 16) return secret;
+  if (secret && Buffer.byteLength(secret, "utf8") >= MIN_SECRET_LENGTH) return secret;
 
-  // No silent production fallback (spec §6.7): in production a missing secret is
-  // a visible failure, not a guessable default.
+  // No silent production fallback (spec §6.7): a missing/short secret in
+  // production is a visible failure, not a guessable default.
   if (process.env.NODE_ENV === "production") {
-    throw new Error("ORDER_ACCESS_SECRET must be set (>=16 chars) in production.");
+    throw new Error(`ORDER_ACCESS_SECRET must be set with >= ${MIN_SECRET_LENGTH} bytes in production.`);
+  }
+  if (secret && Buffer.byteLength(secret, "utf8") < MIN_SECRET_LENGTH) {
+    throw new Error(`ORDER_ACCESS_SECRET is too short (need >= ${MIN_SECRET_LENGTH} bytes).`);
   }
   if (!warnedDevSecret) {
     console.warn("[order-access] ORDER_ACCESS_SECRET not set — using INSECURE dev secret.");
@@ -33,63 +41,39 @@ function getSecret(): string {
   return DEV_FALLBACK_SECRET;
 }
 
-function b64url(input: Buffer | string): string {
-  return Buffer.from(input).toString("base64url");
+function encode(grants: Grant[]): string {
+  return encodeGrants(grants, getSecret());
 }
 
-function sign(payload: string): string {
-  return createHmac("sha256", getSecret()).update(payload).digest("base64url");
+function decode(token: string | undefined): Grant[] {
+  return decodeGrants(token, getSecret());
 }
 
-function safeEqual(a: string, b: string): boolean {
-  const ba = Buffer.from(a);
-  const bb = Buffer.from(b);
-  if (ba.length !== bb.length) return false;
-  return timingSafeEqual(ba, bb);
-}
-
-type SessionPayload = { ids: string[]; iat: number };
-
-function encode(ids: string[]): string {
-  const payload = b64url(JSON.stringify({ ids, iat: Date.now() } satisfies SessionPayload));
-  return `${payload}.${sign(payload)}`;
-}
-
-function decode(token: string | undefined): string[] {
-  if (!token) return [];
-  const dot = token.lastIndexOf(".");
-  if (dot <= 0) return [];
-  const payload = token.slice(0, dot);
-  const sig = token.slice(dot + 1);
-  if (!safeEqual(sig, sign(payload))) return [];
-  try {
-    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as SessionPayload;
-    if (!Array.isArray(parsed.ids)) return [];
-    return parsed.ids.filter((id) => typeof id === "string");
-  } catch {
-    return [];
-  }
-}
-
-/** Grant the current browser session access to an order's public_access_id. */
-export async function grantOrderAccess(publicAccessId: string): Promise<void> {
+/** Grant the current browser session access to an order at a specific version. */
+export async function grantOrderAccess(publicAccessId: string, version: number): Promise<void> {
   const store = await cookies();
   const existing = decode(store.get(COOKIE_NAME)?.value);
-  const next = [publicAccessId, ...existing.filter((id) => id !== publicAccessId)].slice(0, MAX_IDS);
+  const next = [{ i: publicAccessId, v: version }, ...existing.filter((g) => g.i !== publicAccessId)].slice(0, MAX_GRANTS);
   store.set(COOKIE_NAME, encode(next), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    path: "/",
+    path: COOKIE_PATH,
     maxAge: MAX_AGE_SECONDS,
   });
 }
 
+/** The bound version for an established id, or null if the session has no grant. */
+export async function getOrderAccessVersion(publicAccessId: string): Promise<number | null> {
+  const store = await cookies();
+  const grant = decode(store.get(COOKIE_NAME)?.value).find((g) => g.i === publicAccessId);
+  return grant ? grant.v : null;
+}
+
 /** True when the current session has legitimately established access to this id. */
 export async function hasOrderAccess(publicAccessId: string): Promise<boolean> {
-  const store = await cookies();
-  return decode(store.get(COOKIE_NAME)?.value).includes(publicAccessId);
+  return (await getOrderAccessVersion(publicAccessId)) !== null;
 }
 
 // Exported for unit testing of the signing/verification round-trip.
-export const __testing = { encode, decode, COOKIE_NAME };
+export const __testing = { encode, decode, COOKIE_NAME, COOKIE_PATH, MIN_SECRET_LENGTH };

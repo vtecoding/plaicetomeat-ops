@@ -11,7 +11,7 @@ effect (see [baseline/baseline-freeze.md](baseline/baseline-freeze.md) §4).
 | Phase | Title | Branch | Status |
 |---|---|---|---|
 | V11.0 | Baseline Freeze & Reproducibility | `v11-baseline-and-governance` | DONE |
-| V11.1 | Emergency Public Security Boundary | `v11-public-order-access` | DONE (DB+app+adversarial; e2e pending CI) — see [phase-1.1/evidence.md](phase-1.1/evidence.md) |
+| V11.1 | Emergency Public Security Boundary | `v11-public-order-access` | DONE + SEALED (283 unit, 25/25 adversarial, 98 e2e, clean+upgrade migration tests) — see [phase-1.1/evidence.md](phase-1.1/evidence.md), [phase-1.1/sealing-pass.md](phase-1.1/sealing-pass.md) |
 | V11.2 | Audit Authenticity & Privileged Data Access | `v11-audit-authenticity` | not started |
 | V11.3 | Checkout & Capacity Correctness | `v11-checkout-concurrency` | not started |
 | V11.4 | Checklist & Operational Evidence Integrity | `v11-checklist-invariants` | not started |

@@ -45,7 +45,8 @@ export async function createOrderAction(_: CheckoutActionState, formData: FormDa
 
   // Establish the signed, HttpOnly order-access session so the customer can view
   // and cancel their order without the (enumerable) reference being sufficient.
-  await grantOrderAccess(result.publicAccessId);
+  // A freshly created order is always at public_access_version 1.
+  await grantOrderAccess(result.publicAccessId, 1);
 
   return {
     ok: true,

@@ -38,16 +38,30 @@ export async function clientNetworkHash(): Promise<string> {
 
 export type RateLimitResult = { allowed: boolean; degraded: boolean };
 
+export type RateLimitOptions = { failClosed?: boolean };
+
 /**
- * Returns { allowed } for the given bucket+identity. On rate-limit storage
- * failure we fail OPEN but flag `degraded` and emit an alert-level log, so a
- * throttle outage cannot silently lock out real customers (spec §11.2) while
- * still surfacing the incident.
+ * Returns { allowed } for the given bucket+identity.
+ *
+ * On rate-limit storage failure the behaviour depends on `failClosed`:
+ *  - failClosed=false (default, e.g. status reads): fail OPEN so a throttle
+ *    outage cannot lock real customers out of viewing their order (spec §11.2).
+ *  - failClosed=true (establishment + cancellation): fail CLOSED so an attacker
+ *    cannot defeat the limiter by knocking out its storage. The caller maps this
+ *    to a generic temporary failure that does not reveal whether an order exists.
+ *
+ * Either way a storage failure is logged at ALERT level and flagged `degraded`.
  */
-export async function checkRateLimit(config: RateBucket, identity: string): Promise<RateLimitResult> {
+export async function checkRateLimit(
+  config: RateBucket,
+  identity: string,
+  options: RateLimitOptions = {},
+): Promise<RateLimitResult> {
   const cfg = RATE_LIMITS[config];
+  const onFailure = (): RateLimitResult => ({ allowed: options.failClosed ? false : true, degraded: true });
+
   if (!hasSupabasePublicEnv()) {
-    return { allowed: true, degraded: true };
+    return onFailure();
   }
   try {
     const supabase = createSupabasePublicClient();
@@ -58,15 +72,16 @@ export async function checkRateLimit(config: RateBucket, identity: string): Prom
       p_window_seconds: cfg.windowSeconds,
     });
     if (error) {
-      console.error("[rate-limit] ALERT storage error — failing open", { bucket: cfg.bucket, error: error.message });
-      return { allowed: true, degraded: true };
+      console.error("[rate-limit] ALERT storage error", { bucket: cfg.bucket, failClosed: !!options.failClosed, error: error.message });
+      return onFailure();
     }
     return { allowed: data === true, degraded: false };
   } catch (e) {
-    console.error("[rate-limit] ALERT unexpected error — failing open", {
+    console.error("[rate-limit] ALERT unexpected error", {
       bucket: cfg.bucket,
+      failClosed: !!options.failClosed,
       error: e instanceof Error ? e.message : String(e),
     });
-    return { allowed: true, degraded: true };
+    return onFailure();
   }
 }

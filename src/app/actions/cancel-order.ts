@@ -1,7 +1,7 @@
 "use server";
 
-import { hasOrderAccess } from "@/lib/server/order-access-session";
-import { cancelPublicOrder } from "@/lib/server/public-order-access";
+import { cancelPublicOrder } from "@/lib/server/order-access-privileged";
+import { getOrderAccessVersion } from "@/lib/server/order-access-session";
 
 export type CancelOrderState = {
   ok: boolean;
@@ -20,14 +20,16 @@ export async function cancelOrderAction(_: CancelOrderState, formData: FormData)
 
   // The established, signed order-access session is required: an enumerable
   // reference (or a leaked status URL alone) must never authorise cancellation.
-  if (!(await hasOrderAccess(publicAccessId))) {
+  // The cancel RPC is service_role-only, so this server action is the sole path.
+  const version = await getOrderAccessVersion(publicAccessId);
+  if (version === null) {
     return {
       ok: false,
       message: "Please confirm it's your order first by entering your order number and phone.",
     };
   }
 
-  const result = await cancelPublicOrder(publicAccessId, reason || null);
+  const result = await cancelPublicOrder(publicAccessId, reason || null, version);
 
   switch (result.kind) {
     case "ok":

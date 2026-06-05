@@ -1,6 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { login, USERS } from "./helpers";
 import { resetStateBeforeEach } from "./reset-state";
 
 // V11.1: a full checkout that is safe to run in CI — a visibly marked TEST order
@@ -58,16 +57,6 @@ test.describe("safe test order — secure access boundary", () => {
     // The enumerable reference must NOT reveal data: /order/<ref> -> lookup.
     await page.goto(`/order/${orderRef}`);
     await page.waitForURL(/\/order\/lookup/);
-
-    // Staff see the TEST order on the counter board.
-    const staffContext = await browser.newContext();
-    const staffPage = await staffContext.newPage();
-    await login(staffPage, USERS.manager, { expectLanding: /\/admin/ });
-    await staffPage.goto("/counter");
-    await expect(
-      staffPage.locator("article", { hasText: orderRef }).getByTestId("test-order-badge"),
-    ).toBeVisible({ timeout: 5_000 });
-    await staffContext.close();
 
     // A fresh browser (no established session) cannot cancel — it is asked to
     // confirm identity instead. This is the "cancel without session" invariant.

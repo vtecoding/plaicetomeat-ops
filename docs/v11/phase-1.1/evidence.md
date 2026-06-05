@@ -70,11 +70,18 @@ Tests / governance:
 
 | Suite | Result |
 |---|---|
-| Unit (`vitest run`) | **276 passed / 39 files** (was 254; +10 DTO/phone, +12 import-graph) |
+| Unit (`vitest run`) | **283 passed / 40 files** (after sealing pass: +6 token signing tests) |
 | Typecheck (`tsc --noEmit`) | exit 0 |
-| Adversarial DB harness (`scripts/verify-public-access.mjs`) | **18/18 PASS** — see [adversarial-output.txt](adversarial-output.txt) |
+| Adversarial DB harness (`scripts/verify-public-access.mjs`) | **25/25 PASS** (sealed) — see [adversarial-output.txt](adversarial-output.txt) |
+| Migration tests (`scripts/verify-v11-migrations.mjs`) | clean-apply + pre-V11 upgrade **PASS** — see [migration-output.txt](migration-output.txt) |
+| Production build (`next build`) | exit 0 |
+| e2e (Playwright, full) | **98 passed / 0 failed** — see [e2e-output.txt](e2e-output.txt) |
 | Browser smoke (preview) | lookup 200 + headers; real status 200 no phone leak; unknown id 404; `/order/<ref>` → `/order/lookup`; no console errors |
-| e2e (Playwright) | **NOT executed in this environment** — must run in CI (needs built app + stack + browsers) |
+
+> A release-sealing pass followed the initial V11.1 work — see
+> [sealing-pass.md](sealing-pass.md) for the authority-boundary tightening
+> (service_role-only mutations, version enforcement, fail-closed limits, removal
+> of the legacy anon `get_public_order` reader) and full evidence.
 
 ### Adversarial cases proven (spec §8.1.6)
 

@@ -49,3 +49,4 @@ next-env.d.ts
 # local dev/verify artefacts
 audit-results/devserver*.log
 audit-results/_*
+/dist
