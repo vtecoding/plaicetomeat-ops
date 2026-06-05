@@ -9,15 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 
 const initial: CancelOrderState = { ok: false, message: "" };
 
-export function CancelOrderForm({ orderRef }: { orderRef: string }) {
+export function CancelOrderForm({ publicAccessId }: { publicAccessId: string }) {
   const [state, formAction, isPending] = useActionState(cancelOrderAction, initial);
 
   useEffect(() => {
     if (state.ok) {
-      const timer = setTimeout(() => window.location.assign(`/order/${orderRef}`), 1200);
+      const timer = setTimeout(() => window.location.assign(`/order/status/${publicAccessId}`), 1200);
       return () => clearTimeout(timer);
     }
-  }, [state.ok, orderRef]);
+  }, [state.ok, publicAccessId]);
 
   if (state.ok) {
     return (
@@ -30,7 +30,7 @@ export function CancelOrderForm({ orderRef }: { orderRef: string }) {
 
   return (
     <form className="mt-6 grid gap-5" action={formAction}>
-      <input type="hidden" name="orderRef" value={orderRef} />
+      <input type="hidden" name="publicAccessId" value={publicAccessId} />
       <div className="grid gap-2">
         <label className="text-sm font-semibold" htmlFor="reason">
           Reason

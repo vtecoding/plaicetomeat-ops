@@ -1,0 +1,21 @@
+﻿V11.1 public access adversarial checks (run 43c46791)
+  PASS anon direct orders SELECT returns no rows (RLS)
+  PASS 400 enumerated refs + wrong phone -> no access id
+  PASS real ref + wrong phone -> no access id
+  PASS real ref + right phone (normalised) -> correct access id
+  PASS random access id -> null status
+  PASS status by access id returns the order
+  PASS public DTO has no forbidden fields
+  PASS DTO customerDisplayName is first-name only
+  PASS access id A returns only order A
+  PASS cancel_order_by_ref is removed/not callable
+  PASS cancel with random access id rejected
+  PASS order still incoming after bogus cancel
+  PASS valid access id cancels its order
+  PASS target order A is cancelled
+  PASS other order B untouched
+  PASS race: exactly one winner every time
+  PASS race: final state always matches winner (no clobber)
+  PASS rate limiter allows up to max then blocks
+
+RESULT: all public-access adversarial checks PASSED

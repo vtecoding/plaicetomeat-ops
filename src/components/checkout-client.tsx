@@ -90,12 +90,12 @@ export function CheckoutClient({
   }, [branchId, cutoffHour]);
 
   useEffect(() => {
-    if (!actionState.ok || !actionState.orderRef) {
+    if (!actionState.ok || !actionState.publicAccessId) {
       return;
     }
 
     window.localStorage.removeItem(getBasketStorageKey(branchId));
-    window.location.assign(`/order/${actionState.orderRef}`);
+    window.location.assign(`/order/status/${actionState.publicAccessId}`);
   }, [actionState, branchId]);
 
   return (

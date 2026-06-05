@@ -17,9 +17,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: result.message }, { status: result.status });
   }
 
+  // Note: this programmatic endpoint returns the publicAccessId so an API caller
+  // can build the status URL, but it does NOT set the browser access-session
+  // cookie (that is established by the interactive checkout server action).
   return NextResponse.json(
     {
       orderRef: result.orderRef,
+      publicAccessId: result.publicAccessId,
       message: result.message,
     },
     { status: 201 },

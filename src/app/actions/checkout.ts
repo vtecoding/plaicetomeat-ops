@@ -1,11 +1,13 @@
 "use server";
 
+import { grantOrderAccess } from "@/lib/server/order-access-session";
 import { submitCheckout } from "@/lib/server/orders";
 
 export type CheckoutActionState = {
   ok: boolean;
   message: string;
   orderRef?: string;
+  publicAccessId?: string;
 };
 
 export async function createOrderAction(_: CheckoutActionState, formData: FormData): Promise<CheckoutActionState> {
@@ -41,9 +43,14 @@ export async function createOrderAction(_: CheckoutActionState, formData: FormDa
     };
   }
 
+  // Establish the signed, HttpOnly order-access session so the customer can view
+  // and cancel their order without the (enumerable) reference being sufficient.
+  await grantOrderAccess(result.publicAccessId);
+
   return {
     ok: true,
     message: result.message,
     orderRef: result.orderRef,
+    publicAccessId: result.publicAccessId,
   };
 }

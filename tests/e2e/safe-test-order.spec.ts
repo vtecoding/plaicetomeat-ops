@@ -3,9 +3,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { login, USERS } from "./helpers";
 import { resetStateBeforeEach } from "./reset-state";
 
-// Phase 8: a full checkout that is safe to run in CI — a visibly marked TEST
-// order that writes a real row, gets a real PTM ref, appears on the counter,
-// and never triggers a real SMS.
+// V11.1: a full checkout that is safe to run in CI — a visibly marked TEST order
+// that writes a real row and gets a real PTM ref — exercised through the SECURE
+// access boundary: the redirect goes to the unguessable access-id URL, the
+// enumerable reference does not reveal data, and cancellation needs a session.
 
 const PRODUCT_SLUG = "whole-chicken";
 
@@ -13,7 +14,6 @@ const PRODUCT_SLUG = "whole-chicken";
 function nextWeekdayDate(): string {
   const d = new Date();
   d.setDate(d.getDate() + 2);
-  // Avoid Sunday (ISO 7); the seeded Lunchtime window covers Mon–Sat.
   if (d.getDay() === 0) d.setDate(d.getDate() + 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -25,13 +25,12 @@ async function addItemAndCheckout(page: Page) {
   await page.goto("/checkout");
 }
 
-test.describe("safe test order", () => {
+test.describe("safe test order — secure access boundary", () => {
   resetStateBeforeEach();
 
-  test("submits a TEST order end to end without sending SMS", async ({ page, browser }) => {
+  test("checkout → access-id status → cancel; reference is not a credential", async ({ page, browser }) => {
     await addItemAndCheckout(page);
 
-    // Test-mode toggle is available because CHECKOUT_TEST_MODE_ENABLED is on.
     await expect(page.getByTestId("test-order-toggle")).toBeVisible();
     await page.getByTestId("test-order-toggle").locator("input").check();
 
@@ -39,33 +38,48 @@ test.describe("safe test order", () => {
     await page.getByLabel("UK mobile number").fill("07700900123");
     await page.getByLabel("Pickup date").fill(nextWeekdayDate());
 
-    // Lunchtime runs Mon–Sat, so it is valid for any non-Sunday pickup date.
     const select = page.getByTestId("pickup-window-select");
-    const lunchtimeValue = await select
-      .locator("option", { hasText: "Lunchtime" })
-      .first()
-      .getAttribute("value");
+    const lunchtimeValue = await select.locator("option", { hasText: "Lunchtime" }).first().getAttribute("value");
     await select.selectOption(lunchtimeValue!);
 
     await page.getByRole("button", { name: /place pay-on-collection order/i }).click();
 
-    // Confirmation page renders with a PTM ref and the TEST badge, no raw UUID.
-    await page.waitForURL(/\/order\/PTM-\d{4}-\d{5}/);
-    await expect(page.getByTestId("test-order-badge")).toBeVisible();
-    const orderRef = page.url().split("/order/")[1];
-    expect(orderRef).toMatch(/^PTM-\d{4}-\d{5}$/);
+    // The redirect goes to the UNGUESSABLE access-id URL, never /order/<ref>.
+    await page.waitForURL(/\/order\/status\/[0-9a-f-]{36}/);
+    const publicAccessId = page.url().split("/order/status/")[1].split(/[/?#]/)[0];
+    expect(publicAccessId).toMatch(/^[0-9a-f-]{36}$/);
 
-    // A test order is visibly marked as such for staff. (The counter board shows
-    // today's pickups; test orders carry the TEST badge wherever they render.)
+    // Status shows the human ref (label) and the customer's first name only.
+    const heading = page.getByRole("heading", { name: /^PTM-\d{4}-\d{5}$/ });
+    await expect(heading).toBeVisible();
+    const orderRef = (await heading.innerText()).trim();
+    await expect(page.getByText("Order for Playwright")).toBeVisible();
+
+    // The enumerable reference must NOT reveal data: /order/<ref> -> lookup.
+    await page.goto(`/order/${orderRef}`);
+    await page.waitForURL(/\/order\/lookup/);
+
+    // Staff see the TEST order on the counter board.
     const staffContext = await browser.newContext();
     const staffPage = await staffContext.newPage();
     await login(staffPage, USERS.manager, { expectLanding: /\/admin/ });
-    await staffPage.goto(`/order/${orderRef}`);
-    await expect(staffPage.getByTestId("test-order-badge")).toBeVisible();
+    await staffPage.goto("/counter");
+    await expect(
+      staffPage.locator("article", { hasText: orderRef }).getByTestId("test-order-badge"),
+    ).toBeVisible({ timeout: 5_000 });
     await staffContext.close();
 
-    // The test order can be cancelled safely (still 'incoming').
-    await page.goto(`/order/${orderRef}/cancel`);
+    // A fresh browser (no established session) cannot cancel — it is asked to
+    // confirm identity instead. This is the "cancel without session" invariant.
+    const strangerContext = await browser.newContext();
+    const stranger = await strangerContext.newPage();
+    await stranger.goto(`/order/status/${publicAccessId}/cancel`);
+    await expect(stranger.getByText(/confirm it'?s my order/i)).toBeVisible();
+    await expect(stranger.getByTestId("confirm-cancel")).toHaveCount(0);
+    await strangerContext.close();
+
+    // The original customer (session established at checkout) CAN cancel.
+    await page.goto(`/order/status/${publicAccessId}/cancel`);
     await page.getByTestId("confirm-cancel").click();
     await expect(page.getByTestId("cancel-success")).toBeVisible();
   });

@@ -10,6 +10,7 @@ type CheckoutResult =
   | {
       ok: true;
       orderRef: string;
+      publicAccessId: string;
       message: string;
     }
   | {
@@ -140,20 +141,9 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
   return mapOrderRow(data as OrderRow);
 }
 
-export async function getOrderByRef(orderRef: string): Promise<Order | null> {
-  if (!hasSupabaseServiceEnv()) {
-    return getDemoOrders().find((order) => order.orderRef === orderRef) ?? null;
-  }
-
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase.from("orders").select(ORDER_SELECT).eq("order_ref", orderRef).maybeSingle();
-
-  if (error || !data) {
-    return null;
-  }
-
-  return mapOrderRow(data as OrderRow);
-}
+// NOTE: getOrderByRef was removed in V11.1. The public order flow must never read
+// an internal order by its (enumerable) reference. Public routes use the safe
+// access-id RPCs in src/lib/server/public-order-access.ts instead.
 
 type OrderNoteRow = {
   id: string;
@@ -251,9 +241,21 @@ async function createCheckoutOrder(input: CheckoutInput): Promise<CheckoutResult
     };
   }
 
+  // create_checkout_order now returns { orderRef, publicAccessId }.
+  const result = data as { orderRef?: string; publicAccessId?: string } | null;
+  if (!result?.orderRef || !result?.publicAccessId) {
+    console.error("[checkout] unexpected RPC result shape", { branchId: input.branchId });
+    return {
+      ok: false,
+      status: 500,
+      message: "Sorry — we couldn't place your order just now. Please call the shop.",
+    };
+  }
+
   return {
     ok: true,
-    orderRef: String(data),
+    orderRef: result.orderRef,
+    publicAccessId: result.publicAccessId,
     message: "Order created.",
   };
 }

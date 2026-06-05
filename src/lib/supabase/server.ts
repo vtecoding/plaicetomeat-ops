@@ -38,6 +38,28 @@ export async function createSupabaseServerClient() {
   });
 }
 
+/**
+ * Anonymous server-side client (anon key, no user session). Used by the public
+ * order-access boundary to call SECURITY DEFINER RPCs that return only safe DTOs.
+ * Deliberately NOT the service-role client: public paths must never hold an
+ * RLS-bypassing capability (spec §7.4).
+ */
+export function createSupabasePublicClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
 export function createSupabaseServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
