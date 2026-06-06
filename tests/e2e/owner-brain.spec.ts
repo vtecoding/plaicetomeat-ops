@@ -98,12 +98,12 @@ test.describe("v9 owner brain — today", () => {
     await expect(page.getByRole("heading", { name: "Ready for trading" })).toBeVisible();
   });
 
-  test("offers a route to the full detail dashboard", async ({ page }) => {
+  test("offers a route to Business Insights (the single analysis hub)", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 
-    const moreDetail = page.getByRole("link", { name: "More detail" });
-    await expect(moreDetail).toBeVisible();
-    await moreDetail.click();
+    const insights = page.getByTestId("business-insights-link");
+    await expect(insights).toBeVisible();
+    await insights.click();
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByTestId("owner-dashboard")).toBeVisible();
   });

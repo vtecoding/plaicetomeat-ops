@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Beef, ClipboardCheck, LayoutDashboard, LogIn, Settings, Sparkles, ShoppingBasket } from "lucide-react";
+import { Beef, ClipboardCheck, LayoutDashboard, ListChecks, LogIn, ShieldCheck, ShoppingBasket, TrendingUp } from "lucide-react";
 
 import { LogoutButton } from "@/components/logout-button";
 import { Badge } from "@/components/ui/badge";
@@ -17,12 +17,14 @@ const PUBLIC_LINKS: NavLink[] = [
 
 const STAFF_LINKS: NavLink[] = [
   { href: "/counter", label: "Counter", icon: LayoutDashboard },
-  { href: "/counter/compliance", label: "Compliance", icon: ClipboardCheck },
+  { href: "/counter/compliance", label: "Food safety", icon: ShieldCheck },
 ];
 
+// One door per job: Today is the only operational home; Business Insights is the
+// single analysis destination. (Briefing was retired — it redirects to Today.)
 const MANAGER_LINKS: NavLink[] = [
-  { href: "/admin/today", label: "Today", icon: Settings },
-  { href: "/admin/briefing", label: "Briefing", icon: Sparkles },
+  { href: "/admin/today", label: "Today", icon: ListChecks },
+  { href: "/admin", label: "Business Insights", icon: TrendingUp },
 ];
 
 export async function SiteHeader() {

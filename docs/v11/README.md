@@ -13,7 +13,9 @@ effect (see [baseline/baseline-freeze.md](baseline/baseline-freeze.md) §4).
 | V11.0 | Baseline Freeze & Reproducibility | `v11-baseline-and-governance` | DONE |
 | V11.1 | Emergency Public Security Boundary | `v11-public-order-access` | DONE + SEALED (283 unit, 25/25 adversarial, 98 e2e, clean+upgrade migration tests) — see [phase-1.1/evidence.md](phase-1.1/evidence.md), [phase-1.1/sealing-pass.md](phase-1.1/sealing-pass.md) |
 | V11.2 | Audit Authenticity & Privileged Data Access | `v11-2-audit-authenticity` | **Phase B complete locally — PRODUCTION SEAL PENDING.** PR #13 (stacked on #12). 41/41 audit adversarial, 25/25 V11.1 regression, 288 unit, 98/0 e2e — see [phase-1.2/audit-authenticity.md](phase-1.2/audit-authenticity.md). **Not production-complete** until Production Gate A is executed ([phase-1.2/production-gate-a.md](phase-1.2/production-gate-a.md)): both #12 and #13 are *repository* security only until then. |
-| V11.3 | Checkout & Capacity Correctness | `v11-checkout-concurrency` | not started |
+| V11.3 | Owner OS Consolidation ("one door per job") | `v11-3-owner-os-consolidation` | **Core done locally** (PR stacked on #13). Today = sole operational home; Briefing retired→redirect; `/admin` = Business Insights (analysis only); counter-mode removed; stock-count is the single correction door. Compliance 4-domain split + temperature dedup **deferred to V11.3b**. See [v11-3-consolidation-audit.md](v11-3-consolidation-audit.md). NOT merged (build-ahead). |
+| V11.3b | Compliance domains + temperature single-source | `v11-3b-compliance-temperature` | not started (deferred from V11.3) |
+| V11.x | Checkout & Capacity Correctness | `v11-checkout-concurrency` | not started (re-sequenced after consolidation) |
 | V11.4 | Checklist & Operational Evidence Integrity | `v11-checklist-invariants` | not started |
 | V11.5 | Inventory Reconciliation Integrity | `v11-stock-count-cas` | not started |
 | V11.6 | Canonical Owner Operating System | `v11-owner-os-consolidation` | not started |

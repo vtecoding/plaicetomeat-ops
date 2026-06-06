@@ -24,7 +24,13 @@ export default async function AdminInventoryPage() {
   return (
     <PageFrame>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <AdminInventoryClient branchId={branchId} products={products} suppliers={suppliers} batches={batches} />
+        <AdminInventoryClient
+          branchId={branchId}
+          products={products}
+          suppliers={suppliers}
+          batches={batches}
+          canDirectAdjust={profile.role === "owner"}
+        />
       </main>
     </PageFrame>
   );

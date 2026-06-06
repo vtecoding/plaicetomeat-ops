@@ -4,57 +4,39 @@ import type { ReactNode } from "react";
 import {
   AlertTriangle,
   CalendarOff,
-  CheckCircle2,
-  Circle,
   ClipboardList,
   FileClock,
   FlaskConical,
   LayoutDashboard,
+  ListChecks,
   PackageCheck,
   PackageSearch,
   PoundSterling,
   Recycle,
-  Rocket,
   Scissors,
   Settings,
   ShoppingBag,
-  Sun,
   TrendingUp,
   Users,
 } from "lucide-react";
 
+import { BusinessInsightsSections } from "@/components/admin/business-insights";
 import { PageFrame } from "@/components/site-header";
-import { severityToUrgency, URGENCY_LABEL } from "@/lib/domain/dad-mode";
-import { LAUNCH_OVERALL_LABEL, type LaunchItem, type LaunchReadiness } from "@/lib/domain/launch-readiness";
 import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getLaunchReadiness } from "@/lib/server/launch-readiness";
 import { getCurrentProfile } from "@/lib/server/auth";
 import { getPublicBranch } from "@/lib/server/catalog";
 import { getDashboardMetrics } from "@/lib/server/dashboard";
 import { getOperationsIntelligence } from "@/lib/server/operations-intelligence";
-import { cn, formatCurrency, formatDisplayDate } from "@/lib/utils";
+import { getShopIntelligence } from "@/lib/server/shop-intelligence";
+import { formatCurrency, formatDisplayDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = {
-  mode?: string;
-};
-
-type PriorityAction = {
-  id: string;
-  severity: string;
-  title: string;
-  explanation: string;
-  recommendedAction: string;
-};
-
-type OperationalIssue = {
-  id: string;
-  label: string;
-  severity: "red" | "amber";
-  title: string;
-  detail: string;
-};
+// V11.3 — "One door per job". /admin is the SINGLE analysis hub ("Business Insights",
+// a.k.a. Review Business): historical analysis only. Daily operations (what needs
+// attention, what to do today, the morning walk, setup) live on Today. The counter
+// is /counter. There is no longer a counter-service mode or a launch-readiness card
+// here, and no duplicate "what needs fixing" operational board.
 
 type InsightPanel = {
   icon: typeof ShoppingBag;
@@ -63,18 +45,17 @@ type InsightPanel = {
   content: ReactNode;
 };
 
-const quickActionLinks = [
+type ToolLink = { href: string; label: string; detail: string; icon: typeof ShoppingBag; ownerOnly?: boolean };
+
+const analysisToolLinks = [
   { href: "/admin/purchasing", label: "What should I buy next?", detail: "Stock to order before you call your supplier", icon: TrendingUp },
   { href: "/admin/cutting-guide", label: "Cutting & Pricing", detail: "What a whole animal is worth & what to charge", icon: Scissors },
-  { href: "/admin/orders", label: "Orders", detail: "Every order customers placed", icon: ShoppingBag },
   { href: "/admin/products", label: "Products & Prices", detail: "What you sell and what it costs", icon: PackageSearch },
   { href: "/admin/inventory", label: "What stock do I have?", detail: "What's in, what's going off", icon: PackageCheck },
+  { href: "/admin/orders", label: "Order history", detail: "Past orders, search and exceptions", icon: ShoppingBag },
   { href: "/admin/compliance", label: "Supplier Certificates", detail: "Halal and food-safety paperwork", icon: ClipboardList },
-  { href: "/counter", label: "Counter", detail: "Service desk view", icon: LayoutDashboard },
   { href: "/admin/settings", label: "Shop Settings", detail: "Shop details and customer texts", icon: Settings },
 ] as const;
-
-type ToolLink = { href: string; label: string; detail: string; icon: typeof ShoppingBag; ownerOnly?: boolean };
 
 const moreToolLinks: ToolLink[] = [
   { href: "/admin/pickup-windows", label: "Collection Times", detail: "Time slots customers can choose", icon: ClipboardList },
@@ -83,467 +64,128 @@ const moreToolLinks: ToolLink[] = [
   { href: "/admin/releases", label: "System Checks", detail: "Technical checks for support — safe to skip", icon: ClipboardList, ownerOnly: true },
 ];
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+export default async function AdminPage() {
   const profile = await getCurrentProfile();
 
   if (!profile || !MANAGER_ROLES.includes(profile.role)) {
     redirect("/");
   }
 
-  const params = await searchParams;
-  const isCounterMode = params.mode === "counter";
   const branch = await getPublicBranch();
   const branchId = profile.branchId ?? branch.id;
-  const [metrics, intelligence] = await Promise.all([
+  const [metrics, intelligence, intel] = await Promise.all([
     getDashboardMetrics(branchId),
     getOperationsIntelligence(branchId),
+    getShopIntelligence(branchId),
   ]);
-  const launch = await getLaunchReadiness(branchId, metrics);
 
-  const priorityActions = intelligence.actions.slice(0, 5) as PriorityAction[];
-  const operationalIssues = buildOperationalIssues(metrics, intelligence);
-  const dailyFocus = buildDailyFocus(metrics, intelligence, operationalIssues);
   const insightPanels = buildInsightPanels(metrics, intelligence);
 
   return (
     <PageFrame>
-      <main
-        className={cn("mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8", isCounterMode && "max-w-5xl pb-24")}
-        data-testid="owner-dashboard"
-      >
-        {isCounterMode ? (
-          <CounterServiceMode
-            metrics={metrics}
-            operationalIssues={operationalIssues}
-            criticalAlertCount={operationalIssues.length}
-          />
-        ) : (
-          <>
-            <header className="flex flex-col gap-4 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Full dashboard</p>
-                <h1 className="mt-2 text-3xl font-black">All the detail</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6c5e52]">
-                  Every number behind today. For the short version, use Today.
-                </p>
-                <p className="mt-2 text-sm font-semibold text-[#0f5132]">Today - {formatDisplayDate(metrics.date)}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/admin/today"
-                  className="inline-flex h-11 items-center rounded-full bg-[#0f5132] px-4 text-sm font-bold text-white transition hover:bg-[#0c3f27]"
-                >
-                  Back to Today
-                </Link>
-                <Link
-                  href="/admin?mode=counter"
-                  className="inline-flex h-11 items-center rounded-full border border-[#d6cdc0] bg-[#f7f3ed] px-4 text-sm font-bold text-[#0f5132] transition hover:bg-[#efe8dd]"
-                >
-                  Counter-service mode
-                </Link>
-              </div>
-            </header>
-
-            <LaunchReadinessCard launch={launch} />
-
-            <section id="today-priorities" className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Action first</p>
-                  <h2 className="mt-1 text-xl font-black">What needs attention?</h2>
-                  <p className="mt-1 text-sm text-[#6c5e52]">The five things to handle before service.</p>
-                </div>
-                <BadgePill tone={priorityActions.length > 0 ? "amber" : "green"}>
-                  {priorityActions.length > 0 ? `${priorityActions.length} tasks` : "No urgent tasks"}
-                </BadgePill>
-              </div>
-
-              {priorityActions.length === 0 ? (
-                <p className="mt-4 rounded-xl bg-[#f7f3ed] p-4 text-sm text-[#5c5148]">
-                  Nothing needs attention right now.
-                </p>
-              ) : (
-                <ol className="mt-4 grid gap-3">
-                  {priorityActions.map((action, index) => (
-                    <li key={action.id} className="flex gap-3 rounded-xl border border-[#ece2d5] bg-[#fbfaf7] p-4">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0f5132] text-sm font-black text-white">
-                        {index + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-black">{action.title}</p>
-                          <BadgePill tone={severityTone(action.severity)}>
-                            {URGENCY_LABEL[severityToUrgency(action.severity as "info" | "warning" | "urgent")]}
-                          </BadgePill>
-                        </div>
-                        <p className="mt-1 text-sm leading-6 text-[#5c5148]">{action.explanation}</p>
-                        <p className="mt-1 text-sm font-semibold text-[#0f5132]">{action.recommendedAction}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-
-            <section className="mt-6 grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
-              <article className="rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <Sun className="mt-0.5 h-6 w-6 text-[#0f5132]" aria-hidden />
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Daily focus</p>
-                    <h2 className="mt-1 text-xl font-black">Today&apos;s Focus</h2>
-                  </div>
-                </div>
-                <div className="mt-4 space-y-2">
-                  {dailyFocus.lines.map((line) => (
-                    <p key={line} className="text-sm leading-6 text-[#5c5148]">
-                      {line}
-                    </p>
-                  ))}
-                </div>
-                <p className="mt-4 rounded-xl bg-[#f7f3ed] p-4 text-sm font-bold text-[#0f5132]">{dailyFocus.recommendation}</p>
-              </article>
-
-              <article className="rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Business snapshot">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Shop numbers</p>
-                  <h2 className="mt-1 text-xl font-black">What happened today?</h2>
-                  <p className="mt-1 text-sm text-[#6c5e52]">Orders, money, stock risk and certificates.</p>
-                </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  <SnapshotStat label="Orders today" value={String(metrics.orderCount)} testid="metric-order-count" />
-                  <SnapshotStat label="Orders awaiting prep" value={String(metrics.awaitingPrep)} testid="metric-awaiting-prep" />
-                  <SnapshotStat label="Ready orders" value={String(metrics.readyCount)} testid="metric-ready" />
-                  <SnapshotStat label="Revenue today" value={formatCurrency(metrics.estimatedRevenue)} testid="metric-revenue" />
-                  <SnapshotStat label="Waste this week" value={formatCurrency(intelligence.waste.weekValue)} testid="metric-waste-week" />
-                  <SnapshotStat label="Stock to use first" value={formatCurrency(metrics.stockValueAtRisk)} testid="metric-stock-risk" />
-                  <SnapshotStat label="Certificates expiring" value={String(metrics.expiringCertificates)} testid="metric-expiring-certificates" />
-                </div>
-              </article>
-            </section>
-
-            <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Operational status">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Needs attention</p>
-                  <h2 className="mt-1 text-xl font-black">What needs fixing?</h2>
-                  <p className="mt-1 text-sm text-[#6c5e52]">Only problems are shown here.</p>
-                </div>
-                {operationalIssues.length === 0 && <BadgePill tone="green">Healthy</BadgePill>}
-              </div>
-
-              {operationalIssues.length === 0 ? (
-                <p className="mt-4 rounded-xl bg-[#f7f3ed] p-4 text-sm text-[#5c5148]">
-                  Nothing needs attention right now.
-                </p>
-              ) : (
-                <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-                  {operationalIssues.map((issue) => (
-                    <article
-                      key={issue.id}
-                      className={cn(
-                        "rounded-xl border p-4",
-                        issue.severity === "red" ? "border-[#f5c2c7] bg-[#fff5f5]" : "border-[#f4d7a1] bg-[#fff9ef]",
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-black">{issue.label}</p>
-                        <BadgePill tone={issue.severity === "red" ? "red" : "amber"}>
-                          {issue.severity === "red" ? "Action required" : "Needs attention"}
-                        </BadgePill>
-                      </div>
-                      <p className="mt-2 text-sm font-bold text-[#1f1b16]">{issue.title}</p>
-                      <p className="mt-1 text-sm leading-6 text-[#5c5148]">{issue.detail}</p>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Quick actions">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Open a job</p>
-                <h2 className="mt-1 text-xl font-black">Where do I go next?</h2>
-                <p className="mt-1 text-sm text-[#6c5e52]">The main shop jobs in one place.</p>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {quickActionLinks.map((item) => (
-                  <QuickActionCard key={item.href} {...item} />
-                ))}
-              </div>
-            </section>
-
-            <section id="business-insights" className="mt-6" aria-label="Business insights">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">After the actions</p>
-                  <h2 className="mt-1 text-xl font-black">What should I watch?</h2>
-                  <p className="mt-1 text-sm text-[#6c5e52]">Stock, buying, margin, waste and certificates.</p>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 lg:hidden">
-                {insightPanels.map((panel) => (
-                  <details key={panel.title} className="group rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <panel.icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
-                        <div>
-                          <p className="text-sm font-black">{panel.title}</p>
-                          <p className="mt-0.5 text-xs text-[#6c5e52]">{panel.summary}</p>
-                        </div>
-                      </div>
-                      <span className="text-sm font-black text-[#0f5132] transition group-open:rotate-180">v</span>
-                    </summary>
-                    <div className="mt-4 border-t border-[#eee4d8] pt-4">{panel.content}</div>
-                  </details>
-                ))}
-              </div>
-
-              <div className="mt-4 hidden gap-4 lg:grid xl:grid-cols-3">
-                {insightPanels.map((panel) => (
-                  <IntelligencePanel key={panel.title} icon={panel.icon} title={panel.title}>
-                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">{panel.summary}</p>
-                    <div className="mt-4">{panel.content}</div>
-                  </IntelligencePanel>
-                ))}
-              </div>
-            </section>
-
-            <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="More tools">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">More tools</p>
-                <h2 className="mt-1 text-xl font-black">Admin links</h2>
-                <p className="mt-1 text-sm text-[#6c5e52]">The rest of the admin surface stays one tap away.</p>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {moreToolLinks
-                  .filter((item) => !item.ownerOnly || profile.role === "owner")
-                  .map((item) => (
-                    <QuickActionCard key={item.href} href={item.href} label={item.label} detail={item.detail} icon={item.icon} />
-                  ))}
-              </div>
-            </section>
-          </>
-        )}
-      </main>
-
-      <MobileActionBar compact={isCounterMode} />
-    </PageFrame>
-  );
-}
-
-function CounterServiceMode({
-  metrics,
-  operationalIssues,
-  criticalAlertCount,
-}: {
-  metrics: Awaited<ReturnType<typeof getDashboardMetrics>>;
-  operationalIssues: OperationalIssue[];
-  criticalAlertCount: number;
-}) {
-  return (
-    <>
-      <header className="flex flex-col gap-4 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Counter-service mode</p>
-          <h1 className="mt-2 text-3xl font-black">Service view</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6c5e52]">
-            A compact layout for serving customers. No analytics, no long scrolling, just the live counters that matter.
-          </p>
-          <p className="mt-2 text-sm font-semibold text-[#0f5132]">Today - {formatDisplayDate(metrics.date)}</p>
-        </div>
-        <Link
-          href="/admin"
-          className="inline-flex h-11 items-center rounded-full border border-[#d6cdc0] bg-[#f7f3ed] px-4 text-sm font-bold text-[#0f5132] transition hover:bg-[#efe8dd]"
-        >
-          Back to full dashboard
-        </Link>
-      </header>
-
-      <section className="mt-6 grid gap-4 sm:grid-cols-2">
-        <CompactMetricCard label="Orders awaiting prep" value={String(metrics.awaitingPrep)} testid="metric-awaiting-prep" />
-        <CompactMetricCard label="Ready orders" value={String(metrics.readyCount)} testid="metric-ready" />
-        <CompactMetricCard label="Revenue today" value={formatCurrency(metrics.estimatedRevenue)} testid="metric-revenue" />
-        <CompactMetricCard label="Critical alerts" value={String(criticalAlertCount)} testid="metric-critical-alerts" />
-      </section>
-
-      <section id="critical-alerts" className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Critical alerts">
-        <div className="flex items-start justify-between gap-4">
+      <main className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid="owner-dashboard">
+        <header className="flex flex-col gap-4 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Live status</p>
-            <h2 className="mt-1 text-xl font-black">Critical alerts</h2>
+            <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Business Insights</p>
+            <h1 className="mt-2 text-3xl font-black">Review the business</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6c5e52]">
+              Historical analysis — money, stock, waste, margin, customers and certificates. For today&apos;s jobs, use Today.
+            </p>
+            <p className="mt-2 text-sm font-semibold text-[#0f5132]">{formatDisplayDate(metrics.date)}</p>
           </div>
-          <BadgePill tone={criticalAlertCount === 0 ? "green" : "amber"}>
-            {criticalAlertCount === 0 ? "Clear" : `${criticalAlertCount} items`}
-          </BadgePill>
-        </div>
-        {operationalIssues.length === 0 ? (
-          <p className="mt-4 rounded-xl bg-[#f7f3ed] p-4 text-sm text-[#5c5148]">Nothing needs attention right now.</p>
-        ) : (
-          <div className="mt-4 grid gap-3">
-            {operationalIssues.map((issue) => (
-              <article
-                key={issue.id}
-                className={cn(
-                  "rounded-xl border p-4",
-                  issue.severity === "red" ? "border-[#f5c2c7] bg-[#fff5f5]" : "border-[#f4d7a1] bg-[#fff9ef]",
-                )}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-black">{issue.label}</p>
-                  <BadgePill tone={issue.severity === "red" ? "red" : "amber"}>
-                    {issue.severity === "red" ? "Action required" : "Needs attention"}
-                  </BadgePill>
-                </div>
-                <p className="mt-2 text-sm font-bold text-[#1f1b16]">{issue.title}</p>
-                <p className="mt-1 text-sm leading-6 text-[#5c5148]">{issue.detail}</p>
-              </article>
+          <Link
+            href="/admin/today"
+            className="inline-flex h-11 items-center rounded-full bg-[#0f5132] px-4 text-sm font-bold text-white transition hover:bg-[#0c3f27]"
+          >
+            Back to Today
+          </Link>
+        </header>
+
+        <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Business snapshot">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Shop numbers</p>
+            <h2 className="mt-1 text-xl font-black">What happened today?</h2>
+            <p className="mt-1 text-sm text-[#6c5e52]">Money, waste, stock risk and certificates.</p>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <SnapshotStat label="Orders today" value={String(metrics.orderCount)} testid="metric-order-count" />
+            <SnapshotStat label="Revenue today" value={formatCurrency(metrics.estimatedRevenue)} testid="metric-revenue" />
+            <SnapshotStat label="Waste this week" value={formatCurrency(intelligence.waste.weekValue)} testid="metric-waste-week" />
+            <SnapshotStat label="Stock to use first" value={formatCurrency(metrics.stockValueAtRisk)} testid="metric-stock-risk" />
+            <SnapshotStat label="Certificates expiring" value={String(metrics.expiringCertificates)} testid="metric-expiring-certificates" />
+          </div>
+        </section>
+
+        {/* Shop-intelligence analysis migrated from the retired Briefing. */}
+        <BusinessInsightsSections intel={intel} />
+
+        <section id="business-insights" className="mt-6" aria-label="Business insights">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">The detail</p>
+            <h2 className="mt-1 text-xl font-black">What should I watch?</h2>
+            <p className="mt-1 text-sm text-[#6c5e52]">Stock, buying, margin, waste, customers and certificates.</p>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:hidden">
+            {insightPanels.map((panel) => (
+              <details key={panel.title} className="group rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <panel.icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
+                    <div>
+                      <p className="text-sm font-black">{panel.title}</p>
+                      <p className="mt-0.5 text-xs text-[#6c5e52]">{panel.summary}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-black text-[#0f5132] transition group-open:rotate-180">v</span>
+                </summary>
+                <div className="mt-4 border-t border-[#eee4d8] pt-4">{panel.content}</div>
+              </details>
             ))}
           </div>
-        )}
-      </section>
 
-      <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Service note</p>
-        <p className="mt-2 text-sm leading-6 text-[#5c5148]">
-          Counter-service mode keeps the screen lean during service. Open the full dashboard later for priorities,
-          insights, and admin tools.
-        </p>
-      </section>
-    </>
+          <div className="mt-4 hidden gap-4 lg:grid xl:grid-cols-3">
+            {insightPanels.map((panel) => (
+              <IntelligencePanel key={panel.title} icon={panel.icon} title={panel.title}>
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">{panel.summary}</p>
+                <div className="mt-4">{panel.content}</div>
+              </IntelligencePanel>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Analysis tools">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Dig deeper</p>
+            <h2 className="mt-1 text-xl font-black">Analysis tools</h2>
+            <p className="mt-1 text-sm text-[#6c5e52]">Buying, pricing, products, stock and history.</p>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {analysisToolLinks.map((item) => (
+              <QuickActionCard key={item.href} {...item} />
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="More tools">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">More tools</p>
+            <h2 className="mt-1 text-xl font-black">Admin links</h2>
+            <p className="mt-1 text-sm text-[#6c5e52]">The rest of the admin surface stays one tap away.</p>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {moreToolLinks
+              .filter((item) => !item.ownerOnly || profile.role === "owner")
+              .map((item) => (
+                <QuickActionCard key={item.href} href={item.href} label={item.label} detail={item.detail} icon={item.icon} />
+              ))}
+          </div>
+        </section>
+      </main>
+
+      <MobileActionBar />
+    </PageFrame>
   );
-}
-
-function buildOperationalIssues(
-  metrics: Awaited<ReturnType<typeof getDashboardMetrics>>,
-  intelligence: Awaited<ReturnType<typeof getOperationsIntelligence>>,
-) {
-  const issues: OperationalIssue[] = [];
-
-  if (metrics.awaitingPrep > 0) {
-    issues.push({
-      id: "counter-backlog",
-      label: "Counter status",
-      severity: metrics.awaitingPrep >= 4 ? "red" : "amber",
-      title: `${metrics.awaitingPrep} orders still need prep`,
-      detail:
-        metrics.readyCount > 0
-          ? `${metrics.readyCount} order${metrics.readyCount === 1 ? "" : "s"} are already ready, so the prep queue can be cleared in order.`
-          : "No ready orders are waiting, so the prep queue is the first thing to clear.",
-    });
-  }
-
-  if (metrics.stockValueAtRisk > 0 || metrics.batchesExpiringWithin3Days > 0) {
-    issues.push({
-      id: "inventory-risk",
-      label: "Inventory risk",
-      severity: metrics.batchesExpiringWithin3Days > 0 ? "red" : "amber",
-      title: `${formatCurrency(metrics.stockValueAtRisk)} stock at risk`,
-      detail:
-        metrics.batchesExpiringWithin3Days > 0
-          ? `${metrics.batchesExpiringWithin3Days} batch${metrics.batchesExpiringWithin3Days === 1 ? "" : "es"} expire within 3 days.`
-          : "No batches are expiring immediately, but current stock value is still exposed to waste.",
-    });
-  }
-
-  const certificateIssueCount = metrics.expiredCertificates + metrics.expiringCertificates + metrics.missingCertificates;
-  if (certificateIssueCount > 0) {
-    issues.push({
-      id: "compliance-risk",
-      label: "Compliance",
-      severity: metrics.expiredCertificates > 0 || metrics.missingCertificates > 0 ? "red" : "amber",
-      title: `${certificateIssueCount} certificate issue${certificateIssueCount === 1 ? "" : "s"}`,
-      detail:
-        metrics.expiredCertificates > 0
-          ? `${metrics.expiredCertificates} certificate${metrics.expiredCertificates === 1 ? "" : "s"} are expired and need immediate follow-up.`
-          : metrics.missingCertificates > 0
-            ? `${metrics.missingCertificates} supplier record${metrics.missingCertificates === 1 ? "" : "s"} still need a certificate attached.`
-            : `${metrics.expiringCertificates} certificate${metrics.expiringCertificates === 1 ? "" : "s"} expire within 30 days.`,
-    });
-  }
-
-  if (metrics.failedSmsCount > 0) {
-    issues.push({
-      id: "sms-status",
-      label: "SMS status",
-      severity: "amber",
-      title: `${metrics.failedSmsCount} failed SMS message${metrics.failedSmsCount === 1 ? "" : "s"} today`,
-      detail: "Orders still work, but failed notifications may need manual follow-up.",
-    });
-  }
-
-  if (metrics.realtimeMode !== "websocket") {
-    issues.push({
-      id: "realtime-status",
-      label: "Realtime status",
-      severity: "amber",
-      title: metrics.realtimeMode === "polling" ? "Counter updates are polling" : "Counter updates need verification",
-      detail:
-        metrics.realtimeMode === "polling"
-          ? "Live push is not confirmed, so the counter board is using polling fallback."
-          : "Open the counter board and confirm orders appear immediately during service.",
-    });
-  }
-
-  if (intelligence.dataState.status === "error" && intelligence.dataState.message) {
-    issues.push({
-      id: "intelligence-error",
-      label: "Insights",
-      severity: "amber",
-      title: "Some intelligence failed to load",
-      detail: intelligence.dataState.message,
-    });
-  }
-
-  return issues;
-}
-
-function buildDailyFocus(
-  metrics: Awaited<ReturnType<typeof getDashboardMetrics>>,
-  intelligence: Awaited<ReturnType<typeof getOperationsIntelligence>>,
-  issues: OperationalIssue[],
-) {
-  const lines: string[] = [];
-  let recommendation = "Keep the dashboard clear and check the next order wave.";
-
-  if (intelligence.waste.weekValue > 0) {
-    lines.push(`${formatCurrency(intelligence.waste.weekValue)} waste opportunity identified.`);
-    recommendation = "Reduce waste before placing the next supplier order.";
-  }
-
-  if (intelligence.customers.firstTimeCustomers > 0) {
-    lines.push(`${intelligence.customers.firstTimeCustomers} customers have not returned.`);
-    if (recommendation === "Keep the dashboard clear and check the next order wave.") {
-      recommendation = "Contact recent customers and encourage a repeat order.";
-    }
-  }
-
-  const complianceIssue = issues.find((issue) => issue.label === "Compliance");
-  if (complianceIssue) {
-    lines.push(
-      complianceIssue.severity === "red"
-        ? `${metrics.expiredCertificates + metrics.missingCertificates} compliance risks need action.`
-        : `${metrics.expiringCertificates} compliance items are due soon.`,
-    );
-    recommendation = "Contact suppliers and upload updated certificates.";
-  } else if (metrics.stockValueAtRisk > 0) {
-    lines.push(`${formatCurrency(metrics.stockValueAtRisk)} stock is currently at risk.`);
-    if (recommendation === "Keep the dashboard clear and check the next order wave.") {
-      recommendation = "Review the next stock order before anything expires.";
-    }
-  }
-
-  if (lines.length === 0) {
-    lines.push("Nothing needs attention right now.");
-    lines.push("Recommendations will appear when a new order, waste, or compliance risk shows up.");
-    recommendation = "Use the time to prepare the counter and keep service smooth.";
-  }
-
-  return {
-    lines: lines.slice(0, 3),
-    recommendation,
-  };
 }
 
 function buildInsightPanels(
@@ -747,33 +389,6 @@ function buildInsightPanels(
   ];
 }
 
-function severityTone(severity: string) {
-  if (severity === "urgent") return "red";
-  if (severity === "warning") return "amber";
-  return "green";
-}
-
-function BadgePill({
-  tone,
-  children,
-}: {
-  tone: "green" | "amber" | "red";
-  children: ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.08em]",
-        tone === "green" && "bg-[#e6f5ec] text-[#0f5132]",
-        tone === "amber" && "bg-[#fff4d8] text-[#8b5e00]",
-        tone === "red" && "bg-[#fde8e7] text-[#9f1d1d]",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
 function SnapshotStat({ label, value, testid }: { label: string; value: string; testid?: string }) {
   return (
     <div className="rounded-xl bg-[#f7f3ed] p-4">
@@ -782,17 +397,6 @@ function SnapshotStat({ label, value, testid }: { label: string; value: string; 
         {value}
       </p>
     </div>
-  );
-}
-
-function CompactMetricCard({ label, value, testid }: { label: string; value: string; testid?: string }) {
-  return (
-    <article className="rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.08em] text-[#6c5e52]">{label}</p>
-      <p className="mt-2 text-3xl font-black" data-testid={testid}>
-        {value}
-      </p>
-    </article>
   );
 }
 
@@ -846,12 +450,12 @@ function IntelligencePanel({
   );
 }
 
-function MobileActionBar({ compact = false }: { compact?: boolean }) {
+function MobileActionBar() {
   const links = [
+    { href: "/admin/today", label: "Today", icon: ListChecks },
+    { href: "/counter", label: "Counter", icon: LayoutDashboard },
     { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
     { href: "/admin/inventory", label: "Inventory", icon: PackageCheck },
-    { href: "/counter", label: "Counter", icon: LayoutDashboard },
-    { href: compact ? "/admin#critical-alerts" : "/admin#today-priorities", label: "Actions", icon: Sun },
   ] as const;
 
   return (
@@ -874,60 +478,4 @@ function MobileActionBar({ compact = false }: { compact?: boolean }) {
 
 function formatNullableCurrency(value: number | null) {
   return value === null ? "Add a cost to see profit" : formatCurrency(value);
-}
-
-function LaunchReadinessCard({ launch }: { launch: LaunchReadiness }) {
-  const overallTone =
-    launch.overall === "ready"
-      ? { border: "#bfe3cf", bg: "#f2fbf5", text: "#0f5132" }
-      : launch.overall === "attention"
-        ? { border: "#f0d8a8", bg: "#fdf6e9", text: "#92510a" }
-        : { border: "#ded6ca", bg: "#f7f3ed", text: "#6c5e52" };
-
-  return (
-    <section
-      className="mt-6 rounded-2xl border p-5 shadow-sm"
-      style={{ borderColor: overallTone.border, backgroundColor: overallTone.bg }}
-      aria-label="Launch readiness"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Rocket className="h-6 w-6" style={{ color: overallTone.text }} aria-hidden />
-          <div>
-            <h2 className="text-xl font-black">Launch Readiness</h2>
-            <p className="text-sm text-[#6c5e52]">
-              {launch.readyCount} of {launch.autoCheckedCount} checks ready. The app only ticks what it can actually see —
-              the last two are for you to confirm.
-            </p>
-          </div>
-        </div>
-        <span
-          className="rounded-full px-3 py-1 text-sm font-black"
-          style={{ backgroundColor: "white", color: overallTone.text, border: `1px solid ${overallTone.border}` }}
-        >
-          {LAUNCH_OVERALL_LABEL[launch.overall]}
-        </span>
-      </div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {launch.items.map((item) => (
-          <LaunchReadinessRow key={item.key} item={item} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function LaunchReadinessRow({ item }: { item: LaunchItem }) {
-  const Icon = item.status === "ready" ? CheckCircle2 : item.status === "attention" ? AlertTriangle : Circle;
-  const color = item.status === "ready" ? "#0f5132" : item.status === "attention" ? "#b45309" : "#8a7d70";
-
-  return (
-    <div className="flex items-start gap-3 rounded-md bg-white/70 p-3">
-      <Icon className="mt-0.5 h-5 w-5 shrink-0" style={{ color }} aria-hidden />
-      <div>
-        <p className="text-sm font-black">{item.label}</p>
-        <p className="mt-0.5 text-xs leading-5 text-[#5c5148]">{item.detail}</p>
-      </div>
-    </div>
-  );
 }

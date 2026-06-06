@@ -3,25 +3,31 @@ import { expect, test } from "@playwright/test";
 import { login, USERS } from "./helpers";
 import { resetStateBeforeEach } from "./reset-state";
 
-// V8 Shop Intelligence: the briefing home at /admin/briefing — daily briefing,
-// operational health score, explain-everything findings, weekly report, confidence,
-// and the knowledge-layer playbooks it links to.
-test.describe("v8 shop briefing", () => {
+// V11.3 — Briefing retired. /admin/briefing now redirects to Today (the sole
+// operational home), and the V8 shop-intelligence analysis (health score,
+// explain-everything findings, weekly report, confidence) lives on the single
+// analysis hub at /admin ("Business Insights"). Knowledge-layer playbooks unchanged.
+test.describe("shop intelligence after consolidation", () => {
   resetStateBeforeEach();
 
-  test("managers can open the briefing from Today and see the core sections", async ({ page }) => {
+  test("/admin/briefing redirects to Today", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 
-    const link = page.getByTestId("briefing-link");
+    await page.goto("/admin/briefing");
+    await expect(page).toHaveURL(/\/admin\/today/);
+    await expect(page.getByTestId("owner-brain-home")).toBeVisible();
+  });
+
+  test("the analysis now lives on Business Insights, reachable from Today", async ({ page }) => {
+    await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
+
+    const link = page.getByTestId("business-insights-link");
     await expect(link).toBeVisible();
     await link.click();
 
-    await expect(page).toHaveURL(/\/admin\/briefing/);
-    await expect(page.getByTestId("briefing-page")).toBeVisible();
-
-    await expect(page.getByRole("heading", { name: "Today's briefing" })).toBeVisible();
+    await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByRole("heading", { name: "How the shop is doing" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Things to look at" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Things to review" })).toBeVisible();
     await expect(page.getByTestId("health-score")).toBeVisible();
     await expect(page.getByTestId("weekly-report")).toBeVisible();
     await expect(page.getByTestId("confidence-banner")).toBeVisible();
@@ -29,9 +35,9 @@ test.describe("v8 shop briefing", () => {
 
   test("never shows raw severity or developer wording to the owner", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
-    await page.goto("/admin/briefing");
+    await page.goto("/admin");
 
-    await expect(page.getByTestId("briefing-page")).toBeVisible();
+    await expect(page.getByTestId("owner-dashboard")).toBeVisible();
     // No raw enum badges like `info` / `warning` / `urgent`.
     await expect(page.getByText(/^(info|warning|urgent)$/)).toHaveCount(0);
     // No raw confidence enums.
@@ -50,10 +56,12 @@ test.describe("v8 shop briefing", () => {
     await expect(page.getByRole("heading", { name: "Step by step" })).toBeVisible();
   });
 
-  test("staff cannot reach the manager briefing", async ({ page }) => {
+  test("staff cannot reach the manager analysis hub", async ({ page }) => {
     await login(page, USERS.staff, { expectLanding: /\/counter/ });
-    await page.goto("/admin/briefing");
+    await page.goto("/admin");
     // Middleware route protection keeps staff out of /admin/*.
+    await expect(page).not.toHaveURL(/\/admin$/);
+    await page.goto("/admin/briefing");
     await expect(page).not.toHaveURL(/\/admin\/briefing/);
   });
 });

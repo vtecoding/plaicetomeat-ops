@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, ClipboardCheck } from "lucide-react";
 
 import { adjustInventoryRemainingWithReason, createInventoryBatch, recordWaste } from "@/app/actions/compliance-inventory";
 import { Button } from "@/components/ui/button";
@@ -28,11 +29,15 @@ export function AdminInventoryClient({
   products,
   suppliers,
   batches,
+  canDirectAdjust,
 }: {
   branchId: string;
   products: Product[];
   suppliers: Supplier[];
   batches: InventoryBatch[];
+  // V11.3 — one stock-correction door. Direct adjustment here is an owner-only
+  // exception; managers/staff are routed to /admin/stock-count (the authority).
+  canDirectAdjust: boolean;
 }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -106,7 +111,9 @@ export function AdminInventoryClient({
             Add your first stock item to start expiry and waste tracking.
           </p>
         ) : (
-          batches.map((batch) => <BatchRow key={batch.id} batch={batch} onResult={announce} />)
+          batches.map((batch) => (
+            <BatchRow key={batch.id} batch={batch} onResult={announce} canDirectAdjust={canDirectAdjust} />
+          ))
         )}
       </div>
     </div>
@@ -260,9 +267,11 @@ function BatchForm({
 function BatchRow({
   batch,
   onResult,
+  canDirectAdjust,
 }: {
   batch: InventoryBatch;
   onResult: (result: Awaited<ReturnType<typeof recordWaste>>) => void;
+  canDirectAdjust: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [isAdjusting, startAdjustTransition] = useTransition();
@@ -322,47 +331,62 @@ function BatchRow({
           {isPending ? "Recording..." : "Record loss"}
         </Button>
       </form>
-      <form
-        className="mt-4 flex flex-wrap items-end gap-3 border-t border-[#eee5d8] pt-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          startAdjustTransition(async () => {
-            onResult(
-              await adjustInventoryRemainingWithReason({
-                batchId: batch.id,
-                newRemainingKg: Number(newRemaining),
-                reason: adjustReason,
-              }),
-            );
-          });
-        }}
-      >
-        <label className="grid gap-1 text-sm font-semibold">
-          Correct stock left kg
-          <Input
-            type="number"
-            step="0.001"
-            min="0"
-            max={batch.receivedWeightKg}
-            value={newRemaining}
-            onChange={(event) => setNewRemaining(event.target.value)}
-            required
-          />
-        </label>
-        <label className="min-w-64 flex-1 grid gap-1 text-sm font-semibold">
-          Reason
-          <Input
-            value={adjustReason}
-            onChange={(event) => setAdjustReason(event.target.value)}
-            minLength={4}
-            maxLength={300}
-            required
-          />
-        </label>
-        <Button type="submit" variant="outline" disabled={isAdjusting}>
-          {isAdjusting ? "Correcting..." : "Correct stock"}
-        </Button>
-      </form>
+      {canDirectAdjust ? (
+        <form
+          className="mt-4 flex flex-wrap items-end gap-3 border-t border-[#eee5d8] pt-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            startAdjustTransition(async () => {
+              onResult(
+                await adjustInventoryRemainingWithReason({
+                  batchId: batch.id,
+                  newRemainingKg: Number(newRemaining),
+                  reason: adjustReason,
+                }),
+              );
+            });
+          }}
+        >
+          <label className="grid gap-1 text-sm font-semibold">
+            Correct stock left kg
+            <Input
+              type="number"
+              step="0.001"
+              min="0"
+              max={batch.receivedWeightKg}
+              value={newRemaining}
+              onChange={(event) => setNewRemaining(event.target.value)}
+              required
+            />
+          </label>
+          <label className="min-w-64 flex-1 grid gap-1 text-sm font-semibold">
+            Reason
+            <Input
+              value={adjustReason}
+              onChange={(event) => setAdjustReason(event.target.value)}
+              minLength={4}
+              maxLength={300}
+              required
+            />
+          </label>
+          <Button type="submit" variant="outline" disabled={isAdjusting}>
+            {isAdjusting ? "Correcting..." : "Correct stock (owner)"}
+          </Button>
+        </form>
+      ) : (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#eee5d8] pt-4">
+          <p className="text-sm text-[#6c5e52]">
+            Stock corrections are done in one place — the weekly Stock count.
+          </p>
+          <Link
+            href="/admin/stock-count"
+            className="inline-flex items-center gap-2 rounded-full border border-[#d6cdc0] bg-[#f7f3ed] px-4 py-2 text-sm font-bold text-[#0f5132] transition hover:bg-[#efe8dd]"
+          >
+            <ClipboardCheck className="h-4 w-4" aria-hidden />
+            Correct stock in Stock count
+          </Link>
+        </div>
+      )}
     </article>
   );
 }
