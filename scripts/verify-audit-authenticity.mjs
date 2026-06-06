@@ -110,7 +110,6 @@ async function main() {
   console.log(`V11.2 audit authenticity adversarial checks (run ${RUN})`);
 
   const managerUid = await uidFor("manager@ptm.test");
-  const staffUid = await uidFor("staff@ptm.test");
   const ownerUid = await uidFor("owner@ptm.test");
   const manager = await sessionClient("manager@ptm.test");
   const staff = await sessionClient("staff@ptm.test");
@@ -144,17 +143,13 @@ async function main() {
     check("manager direct INSERT with forged owner actor is DENIED", !!forged.error, forged.error ? "" : "INSERTED!");
   }
 
-  // --- 4. staff cannot forge another actor (emit forces auth.uid()) -----------
+  // --- 4. staff cannot directly emit generic audit evidence -------------------
   {
     const emitted = await staff.rpc("emit_audit_log", {
       p_event_type: "order_status_changed", p_target_type: "order", p_target_id: null,
       p_branch_id: BRANCH_A, p_metadata: { note: `vaa-${RUN}` },
     });
-    check("staff legitimate emit (own branch) succeeds", !emitted.error && !!emitted.data, emitted.error?.message);
-    if (emitted.data) {
-      const row = await rowById(emitted.data);
-      check("emitted row actor_id is the staff uid (not forgeable)", row?.actor_id === staffUid, `actor=${row?.actor_id} expected=${staffUid}`);
-    }
+    check("staff direct emit_audit_log is DENIED", !!emitted.error, emitted.error ? "" : "ACCEPTED!");
     const forged = await staff.from("audit_logs").insert({ event_type: "order_created", target_type: "order", branch_id: BRANCH_A, actor_id: managerUid });
     check("staff direct INSERT with forged manager actor is DENIED", !!forged.error, forged.error ? "" : "INSERTED!");
   }
@@ -195,16 +190,21 @@ async function main() {
   // --- 7. caller cannot override created_at/actor/branch -----------------------
   {
     const before = Date.now();
-    const r = await manager.rpc("emit_audit_log", {
+    const r = await service.rpc("emit_audit_log", {
       p_event_type: "branch_settings_updated", p_target_type: "branch", p_target_id: BRANCH_A,
       p_branch_id: BRANCH_A, p_metadata: { note: `vaa-${RUN}-trusted` },
     });
-    check("manager emit (own branch) succeeds", !r.error && !!r.data, r.error?.message);
-    if (r.data) {
-      const row = await rowById(r.data);
+    check("manager direct emit_audit_log is DENIED", !!r.error, r.error ? "" : "ACCEPTED!");
+    const trusted = await service.rpc("emit_audit_log", {
+      p_event_type: "branch_settings_updated", p_target_type: "branch", p_target_id: BRANCH_A,
+      p_branch_id: BRANCH_A, p_metadata: { note: `vaa-${RUN}-trusted` }, p_system_reason: "trusted server emission",
+    });
+    check("service trusted emit succeeds", !trusted.error && !!trusted.data, trusted.error?.message);
+    if (trusted.data) {
+      const row = await rowById(trusted.data);
       const ts = new Date(row.created_at).getTime();
       check("created_at is set server-side (≈now)", Math.abs(ts - before) < 60_000, `created_at=${row?.created_at}`);
-      check("actor_id is the manager uid (server-derived)", row?.actor_id === managerUid, `actor=${row?.actor_id}`);
+      check("actor_id is NULL for trusted system emission", row?.actor_id === null, `actor=${row?.actor_id}`);
       check("branch_id is the validated branch", row?.branch_id === BRANCH_A, `branch=${row?.branch_id}`);
     }
     // The direct path where created_at COULD be forged is itself blocked.
@@ -214,14 +214,15 @@ async function main() {
 
   // --- 8. secret-like metadata is redacted ------------------------------------
   {
-    const r = await manager.rpc("emit_audit_log", {
+    const r = await service.rpc("emit_audit_log", {
       p_event_type: "order_status_changed", p_target_type: "order", p_target_id: null, p_branch_id: BRANCH_A,
       p_metadata: {
         public_access_id: randomUUID(), access_token: "sk_live_abc", password: "hunter2",
         session_cookie: "ptm_session=zzz", api_key: "key_123", note: "keep me", amount: 5,
       },
+      p_system_reason: "metadata redaction probe",
     });
-    check("emit with secret metadata succeeds (redacting, not failing)", !r.error && !!r.data, r.error?.message);
+    check("service emit with secret metadata succeeds (redacting, not failing)", !r.error && !!r.data, r.error?.message);
     if (r.data) {
       const row = await rowById(r.data);
       const keys = Object.keys(row?.metadata ?? {});
@@ -319,6 +320,13 @@ async function main() {
     );
     if (p.ok) {
       check("no INSERT/ALL RLS policy remains on audit tables", p.out === "", `policies: ${p.out}`);
+    }
+    const f = psql(
+      "SELECT has_function_privilege('anon','public.emit_audit_log(text,text,uuid,uuid,jsonb,text)','EXECUTE')::text || ',' || " +
+        "has_function_privilege('authenticated','public.emit_audit_log(text,text,uuid,uuid,jsonb,text)','EXECUTE')::text;",
+    );
+    if (f.ok) {
+      check("emit_audit_log is not executable by anon/authenticated", f.out === "false,false", `privileges=${f.out}`);
     }
   }
 

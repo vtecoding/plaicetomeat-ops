@@ -208,15 +208,19 @@ async function main() {
     check("race: final state always matches winner (no clobber)", !clobbered);
   }
 
-  // --- 10. Rate limiting trips after the configured maximum -------------------
+  // --- 10. Rate limiting is server-authoritative and trips after max ----------
   {
     const id = `vpa-${RUN}-rl`;
+    const direct = await anon.rpc("check_rate_limit", { p_bucket: "test", p_identity: id, p_max: 3, p_window_seconds: 60 });
+    check("anon direct check_rate_limit is DENIED", !!direct.error, direct.error ? "(permission error)" : "CALLABLE!");
+
     const results = [];
     for (let i = 0; i < 5; i += 1) {
-      const { data } = await anon.rpc("check_rate_limit", { p_bucket: "test", p_identity: id, p_max: 3, p_window_seconds: 60 });
+      const { data, error } = await service.rpc("check_rate_limit", { p_bucket: "test", p_identity: id, p_max: 3, p_window_seconds: 60 });
+      if (error) throw new Error(`service check_rate_limit failed: ${error.message}`);
       results.push(data);
     }
-    check("rate limiter allows up to max then blocks", JSON.stringify(results) === JSON.stringify([true, true, true, false, false]),
+    check("service-mediated rate limiter allows up to max then blocks", JSON.stringify(results) === JSON.stringify([true, true, true, false, false]),
       `results=${JSON.stringify(results)}`);
   }
 
