@@ -1,0 +1,30 @@
+V11.2 migration apply — local clean reset (2026-06-06T10:54:38Z)
+branch: v11-2-audit-authenticity  base: 25fc0e8
+command: npx supabase db reset
+
+Applying migration 202606051200_v11_1_public_order_access.sql...
+Applying migration 202606051300_v11_1_seal_public_access.sql...
+Applying migration 202606051400_v11_2_audit_authenticity.sql...
+NOTICE (00000): V11.2 audit authenticity: direct-write hole closed (0 write grants, 0 insert policies).
+Finished supabase db reset on branch v11-2-audit-authenticity.
+
+--- applied versions (DB) ---
+202605290001
+202605300001
+202605300002
+202605300003
+202605300004
+202605310001
+202605310002
+202605310003
+202606011430
+202606011900
+202606012030
+202606021000
+202606021100
+202606021500
+202606031000
+202606041700
+202606051200
+202606051300
+202606051400

@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
+    "playwright": "node scripts/run-playwright.mjs full",
     "playwright:smoke": "node scripts/run-playwright.mjs smoke",
     "playwright:v3": "node scripts/run-playwright.mjs v3",
     "playwright:v4": "node scripts/run-playwright.mjs v4",

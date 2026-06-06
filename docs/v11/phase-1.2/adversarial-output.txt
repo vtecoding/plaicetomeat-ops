@@ -1,0 +1,44 @@
+V11.2 audit authenticity adversarial checks (run c143d30e)
+  PASS anon INSERT audit_logs is DENIED
+  PASS anon INSERT audit_events is DENIED
+  PASS staff direct INSERT audit_logs is DENIED
+  PASS staff direct INSERT audit_events is DENIED
+  PASS manager direct INSERT audit_logs is DENIED
+  PASS manager emit with system_reason is DENIED
+  PASS manager direct INSERT with forged owner actor is DENIED
+  PASS staff legitimate emit (own branch) succeeds
+  PASS emitted row actor_id is the staff uid (not forgeable)
+  PASS staff direct INSERT with forged manager actor is DENIED
+  PASS manager emit for branch B is DENIED
+  PASS manager direct INSERT for branch B is DENIED
+  PASS service system emit succeeds
+  PASS service UPDATE audit_logs is DENIED (append-only)
+  PASS service DELETE audit_logs is DENIED (append-only)
+  PASS service UPDATE audit_events is DENIED (append-only)
+  PASS service DELETE audit_events is DENIED (append-only)
+  PASS manager emit (own branch) succeeds
+  PASS created_at is set server-side (≈now)
+  PASS actor_id is the manager uid (server-derived)
+  PASS branch_id is the validated branch
+  PASS manager direct INSERT with forged created_at is DENIED
+  PASS emit with secret metadata succeeds (redacting, not failing)
+  PASS secret-like keys are stripped from stored metadata
+  PASS non-secret keys are retained
+  PASS redaction is recorded in _redacted_keys
+  PASS flow: status transition succeeds
+  PASS flow: order_status_changed audit row emitted
+  PASS flow: cancellation succeeds
+  PASS flow: cancellation audit row emitted
+  PASS flow: inventory adjustment succeeds
+  PASS flow: stock_corrected audit row emitted
+  PASS flow: waste logging succeeds
+  PASS flow: waste_recorded audit row emitted
+  PASS flow: product price/cost commit succeeds
+  PASS flow: pricing_committed audit row emitted
+  PASS flow: supplier certificate upsert succeeds
+  PASS flow: certificate audit row emitted
+  PASS all public SECURITY DEFINER functions pin search_path
+  PASS no INSERT/UPDATE/DELETE grant on audit tables for anon/authenticated
+  PASS no INSERT/ALL RLS policy remains on audit tables
+
+RESULT: all audit authenticity adversarial checks PASSED
