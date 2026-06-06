@@ -1,5 +1,16 @@
 # V11.2 Phase B — Audit Authenticity Boundary: Evidence
 
+> **Release status: V11.2 PHASE B COMPLETE LOCALLY — PRODUCTION SEAL PENDING.**
+> This is *repository* security, not yet *production* security. PR #13 and the
+> stacked PR #12 only become real security once **Production Gate A** is executed
+> ([production-gate-a.md](production-gate-a.md)). Do **not** record V11.2 as "fully
+> complete," and do not begin Today/Dashboard consolidation, until Gate A is sealed
+> and audit authenticity is verified against production. Correct sequence:
+> **(1)** merge #12 → **(2)** execute Production Gate A → **(3)** archive prod
+> evidence → **(4)** retarget/rebase #13 onto `main` → **(5)** re-run full
+> local/regression → **(6)** merge #13 → **(7)** verify audit authenticity against
+> production → **(8)** only then start UX consolidation.
+
 **Branch:** `v11-2-audit-authenticity` · **Base commit:** `25fc0e8` (V11.1 sealed)
 **Head commit:** tip of branch `v11-2-audit-authenticity` (see `git log`)
 
@@ -140,5 +151,34 @@ test). No server action accepts caller-controlled audit metadata without validat
    the existing product requirement that branch staff can see their branch's audit
    trail. The forgery fix is write-side; reads were out of scope.
 3. **Local-only evidence.** The catalog meta-checks (#10/#11) run via `docker exec`
-   against the local stack (`AUDIT_DB_CONTAINER`). The production equivalent is part
-   of the Phase A runbook.
+   against the local stack (`AUDIT_DB_CONTAINER`). The production equivalent is below.
+
+## Production verification (sequence step 7 — after #13 merges + migration applied)
+
+Run **read-only** catalog checks against production (the full adversarial harness
+writes append-only rows + test orders and must NOT be pointed at prod). Against the
+prod DB connection:
+
+```sql
+-- A. No client write capability on the audit tables (expect 0 rows):
+SELECT grantee, privilege_type FROM information_schema.role_table_grants
+WHERE table_schema='public' AND table_name IN ('audit_logs','audit_events')
+  AND grantee IN ('anon','authenticated')
+  AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE');
+
+-- B. No INSERT/ALL RLS policy remains on the audit tables (expect 0 rows):
+SELECT tablename, policyname FROM pg_policies
+WHERE schemaname='public' AND tablename IN ('audit_logs','audit_events')
+  AND cmd IN ('INSERT','ALL');
+
+-- C. All public SECURITY DEFINER functions pin search_path (expect 0 rows):
+SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+WHERE n.nspname='public' AND p.prosecdef AND NOT EXISTS
+  (SELECT 1 FROM unnest(coalesce(p.proconfig,'{}'::text[])) c WHERE c LIKE 'search_path=%');
+```
+
+Then confirm a known-legitimate flow (e.g. mark one real order ready, or a price
+update) still produces an `audit_events` row in the admin audit view. Archive the
+three "0 rows" results + the positive emit alongside the Gate A evidence.
+
+> **This phase is not production-complete until these prod checks pass.**

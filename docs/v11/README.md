@@ -12,7 +12,7 @@ effect (see [baseline/baseline-freeze.md](baseline/baseline-freeze.md) §4).
 |---|---|---|---|
 | V11.0 | Baseline Freeze & Reproducibility | `v11-baseline-and-governance` | DONE |
 | V11.1 | Emergency Public Security Boundary | `v11-public-order-access` | DONE + SEALED (283 unit, 25/25 adversarial, 98 e2e, clean+upgrade migration tests) — see [phase-1.1/evidence.md](phase-1.1/evidence.md), [phase-1.1/sealing-pass.md](phase-1.1/sealing-pass.md) |
-| V11.2 | Audit Authenticity & Privileged Data Access | `v11-audit-authenticity` | not started |
+| V11.2 | Audit Authenticity & Privileged Data Access | `v11-2-audit-authenticity` | **Phase B complete locally — PRODUCTION SEAL PENDING.** PR #13 (stacked on #12). 41/41 audit adversarial, 25/25 V11.1 regression, 288 unit, 98/0 e2e — see [phase-1.2/audit-authenticity.md](phase-1.2/audit-authenticity.md). **Not production-complete** until Production Gate A is executed ([phase-1.2/production-gate-a.md](phase-1.2/production-gate-a.md)): both #12 and #13 are *repository* security only until then. |
 | V11.3 | Checkout & Capacity Correctness | `v11-checkout-concurrency` | not started |
 | V11.4 | Checklist & Operational Evidence Integrity | `v11-checklist-invariants` | not started |
 | V11.5 | Inventory Reconciliation Integrity | `v11-stock-count-cas` | not started |
