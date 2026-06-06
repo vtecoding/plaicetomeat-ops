@@ -50,3 +50,10 @@ next-env.d.ts
 audit-results/devserver*.log
 audit-results/_*
 /dist
+
+# large audit evidence bundles (kept locally; sanitized bundle lives in audit/)
+/docs/full-audit-pack/
+/docs/full-audit-pack-v11/
+/screenshots-v11/
+/screenshots-v11.zip
+/plaicetomeat-v11-source.zip
