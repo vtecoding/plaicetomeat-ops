@@ -1,7 +1,9 @@
 import "server-only";
 
 import { demoBranch, demoBranchSettings, demoCategories, demoProducts } from "@/lib/data/demo";
+import { configurationRequired, healthy, noData, unavailable, type DataResult } from "@/lib/domain/data-result";
 import type { Branch, BranchSettings, Product, ProductCategory } from "@/lib/domain/types";
+import { allowDemoFallback, configuredCanonicalBranchId, isProductionRuntime } from "@/lib/server/runtime-truth";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
 type BranchRow = {
@@ -88,42 +90,58 @@ function mapCategory(row: CategoryRow): ProductCategory {
   };
 }
 
-/**
- * The primary public branch. Single-branch storefront: we use the demo branch id
- * (which matches the seeded branch A) as the canonical public branch, falling back
- * to demo data when Supabase is not configured.
- */
-export async function getPublicBranch(): Promise<Branch> {
+export async function getPublicBranchResult(): Promise<DataResult<Branch>> {
   if (!hasSupabaseServiceEnv()) {
-    return demoBranch;
+    return allowDemoFallback()
+      ? healthy(demoBranch, "Using explicit development demo branch.")
+      : configurationRequired("Supabase service credentials are required before the storefront can choose a branch.");
+  }
+
+  const canonicalId = configuredCanonicalBranchId();
+  if (isProductionRuntime() && !canonicalId) {
+    return configurationRequired("A canonical storefront branch must be configured before production storefront reads are available.");
   }
 
   const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from("branches")
-    .select("id, name, slug, address, phone, timezone")
-    .eq("is_active", true)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle<BranchRow>();
+  let query = supabase.from("branches").select("id, name, slug, address, phone, timezone").eq("is_active", true);
+  query = canonicalId ? query.eq("id", canonicalId) : query.order("created_at", { ascending: true }).limit(1);
+  const { data, error } = await query.maybeSingle<BranchRow>();
 
-  if (error || !data) {
-    return demoBranch;
+  if (error) {
+    return unavailable("Storefront branch data is temporarily unavailable.", [error.message]);
+  }
+  if (!data) {
+    return canonicalId
+      ? configurationRequired("The configured canonical storefront branch was not found or is inactive.")
+      : noData<Branch>(null, "No active storefront branch is configured.");
   }
 
-  return {
+  return healthy({
     id: data.id,
     name: data.name,
     slug: data.slug,
     address: data.address,
     phone: data.phone,
     timezone: data.timezone ?? "Europe/London",
-  };
+  });
 }
 
-export async function getBranchSettings(branchId: string): Promise<BranchSettings> {
+/**
+ * Compatibility wrapper. Production callers should prefer getPublicBranchResult
+ * so configuration/unavailable states can be shown honestly.
+ */
+export async function getPublicBranch(): Promise<Branch> {
+  const result = await getPublicBranchResult();
+  if (result.data) return result.data;
+  if (allowDemoFallback()) return demoBranch;
+  throw new Error(result.message);
+}
+
+export async function getBranchSettingsResult(branchId: string): Promise<DataResult<BranchSettings>> {
   if (!hasSupabaseServiceEnv()) {
-    return demoBranchSettings;
+    return allowDemoFallback()
+      ? healthy(demoBranchSettings, "Using explicit development demo branch settings.")
+      : configurationRequired("Supabase service credentials are required before branch settings are available.");
   }
 
   const supabase = createSupabaseServiceClient();
@@ -133,23 +151,35 @@ export async function getBranchSettings(branchId: string): Promise<BranchSetting
     .eq("branch_id", branchId)
     .maybeSingle<SettingsRow>();
 
-  if (error || !data) {
-    return { ...demoBranchSettings, branchId };
+  if (error) {
+    return unavailable("Branch settings are temporarily unavailable.", [error.message]);
+  }
+  if (!data) {
+    return noData<BranchSettings>(null, "No branch settings have been configured yet.");
   }
 
-  return {
+  return healthy({
     branchId: data.branch_id,
     smsReadyTemplate: data.sms_ready_template ?? demoBranchSettings.smsReadyTemplate,
     cancellationWindowMinutes: data.cancellation_window_minutes ?? 60,
     maxOrdersPerDay: data.max_orders_per_day,
     minOrderValue: toNum(data.min_order_value, 0),
     sameDayCutoffTime: (data.same_day_cutoff_time ?? "16:00").slice(0, 5),
-  };
+  });
 }
 
-export async function getActiveCategories(branchId: string): Promise<ProductCategory[]> {
+export async function getBranchSettings(branchId: string): Promise<BranchSettings> {
+  const result = await getBranchSettingsResult(branchId);
+  if (result.data) return result.data;
+  if (allowDemoFallback()) return { ...demoBranchSettings, branchId };
+  throw new Error(result.message);
+}
+
+export async function getActiveCategoriesResult(branchId: string): Promise<DataResult<ProductCategory[]>> {
   if (!hasSupabaseServiceEnv()) {
-    return demoCategories;
+    return allowDemoFallback()
+      ? healthy(demoCategories, "Using explicit development demo categories.")
+      : configurationRequired("Supabase service credentials are required before categories are available.");
   }
 
   const supabase = createSupabaseServiceClient();
@@ -160,17 +190,25 @@ export async function getActiveCategories(branchId: string): Promise<ProductCate
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
-  if (error || !data) {
-    return demoCategories;
+  if (error) {
+    return unavailable("Categories are temporarily unavailable.", [error.message]);
   }
+  const categories = (data as CategoryRow[]).map(mapCategory);
+  return categories.length === 0 ? noData(categories, "No active categories have been added yet.") : healthy(categories);
+}
 
-  return (data as CategoryRow[]).map(mapCategory);
+export async function getActiveCategories(branchId: string): Promise<ProductCategory[]> {
+  const result = await getActiveCategoriesResult(branchId);
+  if (result.data) return result.data;
+  return allowDemoFallback() ? demoCategories : [];
 }
 
 /** All categories (active + inactive) for admin use. */
-export async function getAllCategories(branchId: string): Promise<ProductCategory[]> {
+export async function getAllCategoriesResult(branchId: string): Promise<DataResult<ProductCategory[]>> {
   if (!hasSupabaseServiceEnv()) {
-    return demoCategories;
+    return allowDemoFallback()
+      ? healthy(demoCategories, "Using explicit development demo categories.")
+      : configurationRequired("Supabase service credentials are required before categories are available.");
   }
 
   const supabase = createSupabaseServiceClient();
@@ -180,17 +218,25 @@ export async function getAllCategories(branchId: string): Promise<ProductCategor
     .eq("branch_id", branchId)
     .order("sort_order", { ascending: true });
 
-  if (error || !data) {
-    return demoCategories;
+  if (error) {
+    return unavailable("Categories are temporarily unavailable.", [error.message]);
   }
+  const categories = (data as CategoryRow[]).map(mapCategory);
+  return categories.length === 0 ? noData(categories, "No categories have been added yet.") : healthy(categories);
+}
 
-  return (data as CategoryRow[]).map(mapCategory);
+export async function getAllCategories(branchId: string): Promise<ProductCategory[]> {
+  const result = await getAllCategoriesResult(branchId);
+  if (result.data) return result.data;
+  return allowDemoFallback() ? demoCategories : [];
 }
 
 /** Publicly visible products (available only). */
-export async function getPublicProducts(branchId: string): Promise<Product[]> {
+export async function getPublicProductsResult(branchId: string): Promise<DataResult<Product[]>> {
   if (!hasSupabaseServiceEnv()) {
-    return demoProducts.filter((p) => p.isAvailable);
+    return allowDemoFallback()
+      ? healthy(demoProducts.filter((p) => p.isAvailable), "Using explicit development demo products.")
+      : configurationRequired("Supabase service credentials are required before products are available.");
   }
 
   const supabase = createSupabaseServiceClient();
@@ -201,16 +247,27 @@ export async function getPublicProducts(branchId: string): Promise<Product[]> {
     .eq("is_available", true)
     .order("sort_order", { ascending: true });
 
-  if (error || !data) {
-    return demoProducts.filter((p) => p.isAvailable);
+  if (error) {
+    return unavailable("Products are temporarily unavailable.", [error.message]);
   }
-
-  return (data as ProductRow[]).map(mapProduct);
+  const products = (data as ProductRow[]).map(mapProduct);
+  return products.length === 0 ? noData(products, "No products are available yet.") : healthy(products);
 }
 
-export async function getPublicProductBySlug(branchId: string, slug: string): Promise<Product | null> {
+export async function getPublicProducts(branchId: string): Promise<Product[]> {
+  const result = await getPublicProductsResult(branchId);
+  if (result.data) return result.data;
+  return allowDemoFallback() ? demoProducts.filter((p) => p.isAvailable) : [];
+}
+
+export async function getPublicProductBySlugResult(branchId: string, slug: string): Promise<DataResult<Product>> {
   if (!hasSupabaseServiceEnv()) {
-    return demoProducts.find((p) => p.slug === slug && p.isAvailable) ?? null;
+    const product = demoProducts.find((p) => p.slug === slug && p.isAvailable) ?? null;
+    return allowDemoFallback()
+      ? product
+        ? healthy(product, "Using explicit development demo product.")
+        : noData<Product>(null, "Product not found.")
+      : configurationRequired("Supabase service credentials are required before products are available.");
   }
 
   const supabase = createSupabaseServiceClient();
@@ -222,11 +279,20 @@ export async function getPublicProductBySlug(branchId: string, slug: string): Pr
     .eq("is_available", true)
     .maybeSingle<ProductRow>();
 
-  if (error || !data) {
-    return null;
+  if (error) {
+    return unavailable("Product data is temporarily unavailable.", [error.message]);
+  }
+  if (!data) {
+    return noData<Product>(null, "Product not found.");
   }
 
-  return mapProduct(data);
+  return healthy(mapProduct(data));
+}
+
+export async function getPublicProductBySlug(branchId: string, slug: string): Promise<Product | null> {
+  const result = await getPublicProductBySlugResult(branchId, slug);
+  if (result.data) return result.data;
+  return allowDemoFallback() ? demoProducts.find((p) => p.slug === slug && p.isAvailable) ?? null : null;
 }
 
 /**
@@ -253,9 +319,11 @@ export async function getProductCostMap(branchId: string): Promise<Map<string, n
 }
 
 /** All products (available + unavailable) for admin use. */
-export async function getAllProducts(branchId: string): Promise<Product[]> {
+export async function getAllProductsResult(branchId: string): Promise<DataResult<Product[]>> {
   if (!hasSupabaseServiceEnv()) {
-    return demoProducts;
+    return allowDemoFallback()
+      ? healthy(demoProducts, "Using explicit development demo products.")
+      : configurationRequired("Supabase service credentials are required before products are available.");
   }
 
   const supabase = createSupabaseServiceClient();
@@ -266,9 +334,15 @@ export async function getAllProducts(branchId: string): Promise<Product[]> {
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
-  if (error || !data) {
-    return demoProducts;
+  if (error) {
+    return unavailable("Products are temporarily unavailable.", [error.message]);
   }
+  const products = (data as ProductRow[]).map(mapProduct);
+  return products.length === 0 ? noData(products, "No products have been added yet.") : healthy(products);
+}
 
-  return (data as ProductRow[]).map(mapProduct);
+export async function getAllProducts(branchId: string): Promise<Product[]> {
+  const result = await getAllProductsResult(branchId);
+  if (result.data) return result.data;
+  return allowDemoFallback() ? demoProducts : [];
 }

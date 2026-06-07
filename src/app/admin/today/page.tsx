@@ -17,8 +17,9 @@ import {
 } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
+import type { DataState } from "@/lib/domain/data-result";
 import { buildDayShape } from "@/lib/owner-brain/brain";
-import { getOwnerBrain } from "@/lib/server/owner-brain";
+import { getOperationalSnapshotV1 } from "@/lib/server/operational-snapshot";
 import { requireStaffContext } from "@/lib/server/staff-context";
 import {
   DUE_WINDOW_LABEL,
@@ -41,8 +42,9 @@ const STATUS_TONE = {
 
 export default async function TodayPage() {
   const { branchId } = await requireStaffContext("manager", { branchScoped: true });
-  const brain = await getOwnerBrain(branchId);
-  const date = formatDisplayDate(new Date(brain.generatedAt));
+  const snapshot = await getOperationalSnapshotV1(branchId);
+  const brain = snapshot.result.data?.brain;
+  const date = formatDisplayDate(new Date(snapshot.asOf));
 
   return (
     <PageFrame>
@@ -53,7 +55,9 @@ export default async function TodayPage() {
           <p className="mt-2 text-sm font-semibold text-[#6c5e52]">{date}</p>
         </header>
 
-        {brain.setupMode ? (
+        {snapshot.result.state !== "HEALTHY" && <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />}
+
+        {!brain ? null : brain.setupMode ? (
           <SetupMode gettingStarted={brain.gettingStarted} />
         ) : (
           <>
@@ -94,6 +98,24 @@ export default async function TodayPage() {
         <MoreDetail />
       </main>
     </PageFrame>
+  );
+}
+
+function TruthStateBanner({ state, message }: { state: DataState; message: string }) {
+  const label: Record<DataState, string> = {
+    HEALTHY: "Live data",
+    NO_DATA: "No data yet",
+    DEGRADED: "Some data unavailable",
+    UNAVAILABLE: "Data unavailable",
+    UNAUTHORISED: "Unauthorised",
+    CONFIGURATION_REQUIRED: "Configuration required",
+  };
+
+  return (
+    <section className="mt-4 rounded-xl border border-[#f0c66e] bg-[#fff8e6] p-4 text-sm text-[#5a3900]" data-testid="truth-state-banner">
+      <p className="font-black">{label[state]}</p>
+      <p className="mt-1 font-semibold">{message}</p>
+    </section>
   );
 }
 

@@ -7,21 +7,27 @@ import { PayOnCollectionNote } from "@/components/pay-on-collection-note";
 import { PageFrame } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { StockBadge } from "@/components/product-card";
-import { getActiveCategories, getPublicBranch, getPublicProductBySlug } from "@/lib/server/catalog";
+import { getActiveCategoriesResult, getPublicBranchResult, getPublicProductBySlugResult } from "@/lib/server/catalog";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const branch = await getPublicBranch();
-  const product = await getPublicProductBySlug(branch.id, slug);
+  const branchResult = await getPublicBranchResult();
+  if (!branchResult.data) return <PublicDataUnavailable message={branchResult.message} />;
+  const branch = branchResult.data;
+  const productResult = await getPublicProductBySlugResult(branch.id, slug);
+  const product = productResult.data;
 
   if (!product) {
+    if (productResult.state === "UNAVAILABLE" || productResult.state === "CONFIGURATION_REQUIRED") {
+      return <PublicDataUnavailable message={productResult.message} />;
+    }
     notFound();
   }
 
-  const categories = await getActiveCategories(branch.id);
+  const categories = (await getActiveCategoriesResult(branch.id)).data ?? [];
   const category = categories.find((item) => item.id === product.categoryId);
   const unavailable = !product.isAvailable || product.stockStatus === "out_of_stock";
 
@@ -83,6 +89,19 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             </div>
             <PayOnCollectionNote />
           </aside>
+        </section>
+      </main>
+    </PageFrame>
+  );
+}
+
+function PublicDataUnavailable({ message }: { message: string }) {
+  return (
+    <PageFrame>
+      <main className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+        <section className="rounded-lg border border-[#f0c66e] bg-[#fff8e6] p-6 text-[#5a3900]" data-testid="public-truth-state">
+          <h1 className="text-2xl font-black">Product data is not ready</h1>
+          <p className="mt-3 text-sm font-semibold">{message}</p>
         </section>
       </main>
     </PageFrame>

@@ -4,6 +4,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { buildMigrationHealth } from "@/lib/domain/operations-intelligence";
+import { allowDemoFallback } from "@/lib/server/runtime-truth";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
 export type ReleaseGateResults = Record<string, "PASS" | "FAIL" | "PENDING">;
@@ -88,7 +89,7 @@ export async function getReleaseGovernance() {
 
   if (!hasSupabaseServiceEnv()) {
     return {
-      releases: [fallbackV3Release()],
+      releases: allowDemoFallback() ? [fallbackV3Release()] : [],
       migrationHealth: buildMigrationHealth({ expected, applied: [] }),
       configured: false,
     };
@@ -124,7 +125,7 @@ export async function getReleaseGovernance() {
   const releases = ((releaseRows ?? []) as ReleaseRow[]).map(mapReleaseRow);
 
   return {
-    releases: releases.length > 0 ? releases : [fallbackV3Release()],
+    releases: releases.length > 0 ? releases : allowDemoFallback() ? [fallbackV3Release()] : [],
     migrationHealth,
     configured: true,
   };

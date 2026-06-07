@@ -1,9 +1,11 @@
 import "server-only";
 
 import { getDemoOrders } from "@/lib/data/demo";
+import { configurationRequired, healthy, noData, unavailable, type DataResult } from "@/lib/domain/data-result";
 import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 import type { BasketItem, Order, OrderItem, OrderNote, OrderStatus, UnitType } from "@/lib/domain/types";
 import { checkRateLimit, clientNetworkHash } from "@/lib/server/rate-limit";
+import { allowDemoFallback } from "@/lib/server/runtime-truth";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 import { createCheckoutSchema, mergeCheckoutBasketItems, type CheckoutInput } from "@/lib/validation/checkout";
 
@@ -139,9 +141,11 @@ export function isCheckoutTestModeEnabled(): boolean {
   return process.env.CHECKOUT_TEST_MODE_ENABLED === "true";
 }
 
-export async function getCounterOrders(branchId: string, now = new Date()): Promise<Order[]> {
+export async function getCounterOrdersResult(branchId: string, now = new Date()): Promise<DataResult<Order[]>> {
   if (!hasSupabaseServiceEnv()) {
-    return getDemoOrders(now);
+    return allowDemoFallback()
+      ? healthy(getDemoOrders(now), "Using explicit development demo orders.")
+      : configurationRequired("Supabase service credentials are required before counter orders are available.");
   }
 
   const supabase = createSupabaseServiceClient();
@@ -152,16 +156,22 @@ export async function getCounterOrders(branchId: string, now = new Date()): Prom
     .eq("pickup_date", getLocalIsoDate(now))
     .order("created_at", { ascending: false });
 
-  if (error || !data) {
-    return getDemoOrders(now);
+  if (error) {
+    return unavailable("Counter orders are temporarily unavailable.", [error.message]);
   }
+  const orders = (data as OrderRow[]).map(mapOrderRow);
+  return orders.length === 0 ? noData(orders, "No orders for this pickup date yet.") : healthy(orders);
+}
 
-  return (data as OrderRow[]).map(mapOrderRow);
+export async function getCounterOrders(branchId: string, now = new Date()): Promise<Order[]> {
+  const result = await getCounterOrdersResult(branchId, now);
+  if (result.data) return result.data;
+  return allowDemoFallback() ? getDemoOrders(now) : [];
 }
 
 export async function getOrderById(orderId: string): Promise<Order | null> {
   if (!hasSupabaseServiceEnv()) {
-    return getDemoOrders().find((order) => order.id === orderId) ?? null;
+    return allowDemoFallback() ? getDemoOrders().find((order) => order.id === orderId) ?? null : null;
   }
 
   const supabase = createSupabaseServiceClient();

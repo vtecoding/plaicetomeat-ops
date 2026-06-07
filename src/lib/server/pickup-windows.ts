@@ -1,7 +1,9 @@
 import "server-only";
 
 import { demoPickupWindows, demoShopClosures } from "@/lib/data/demo";
+import { configurationRequired, healthy, noData, unavailable, type DataResult } from "@/lib/domain/data-result";
 import type { PickupWindow } from "@/lib/domain/types";
+import { allowDemoFallback } from "@/lib/server/runtime-truth";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
 export type ShopClosure = {
@@ -43,9 +45,11 @@ function mapRow(row: PickupWindowRow): PickupWindow {
  * All pickup windows for a branch (active and inactive). Falls back to demo
  * data only when Supabase is not configured.
  */
-export async function getPickupWindows(branchId: string): Promise<PickupWindow[]> {
+export async function getPickupWindowsResult(branchId: string): Promise<DataResult<PickupWindow[]>> {
   if (!hasSupabaseServiceEnv()) {
-    return demoPickupWindows;
+    return allowDemoFallback()
+      ? healthy(demoPickupWindows, "Using explicit development demo pickup windows.")
+      : configurationRequired("Supabase service credentials are required before pickup windows are available.");
   }
 
   const supabase = createSupabaseServiceClient();
@@ -55,11 +59,17 @@ export async function getPickupWindows(branchId: string): Promise<PickupWindow[]
     .eq("branch_id", branchId)
     .order("start_time", { ascending: true });
 
-  if (error || !data) {
-    return demoPickupWindows;
+  if (error) {
+    return unavailable("Pickup windows are temporarily unavailable.", [error.message]);
   }
+  const windows = (data as PickupWindowRow[]).map(mapRow);
+  return windows.length === 0 ? noData(windows, "No pickup windows have been configured yet.") : healthy(windows);
+}
 
-  return (data as PickupWindowRow[]).map(mapRow);
+export async function getPickupWindows(branchId: string): Promise<PickupWindow[]> {
+  const result = await getPickupWindowsResult(branchId);
+  if (result.data) return result.data;
+  return allowDemoFallback() ? demoPickupWindows : [];
 }
 
 /** Active pickup windows only — used by the public checkout dropdown. */
@@ -77,7 +87,7 @@ type ShopClosureRow = {
 
 export async function getShopClosures(branchId: string): Promise<ShopClosure[]> {
   if (!hasSupabaseServiceEnv()) {
-    return demoShopClosures.map((c) => ({ id: c.id, branchId: c.branchId, closeDate: c.closeDate, reason: c.reason }));
+    return allowDemoFallback() ? demoShopClosures.map((c) => ({ id: c.id, branchId: c.branchId, closeDate: c.closeDate, reason: c.reason })) : [];
   }
 
   const supabase = createSupabaseServiceClient();

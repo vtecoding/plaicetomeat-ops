@@ -1,17 +1,14 @@
 import { AdminSettingsClient } from "@/components/admin-settings-client";
 import { PageFrame } from "@/components/site-header";
-import { getBranchSettings, getPublicBranch } from "@/lib/server/catalog";
+import { getBranchSettings } from "@/lib/server/catalog";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
   const { branchId } = await requireStaffContext("manager", { branchScoped: true });
-  // Authoritative branch id comes from the signed-in profile; the public branch
-  // record is used only for its display fields (name/address) on this single-
-  // branch storefront.
-  const [branch, settings] = await Promise.all([getPublicBranch(), getBranchSettings(branchId)]);
-  const currentBranch = { ...branch, id: branchId };
+  const settings = await getBranchSettings(branchId);
+  const currentBranch = { id: branchId, name: "Current branch", slug: "current", address: "", phone: null, timezone: "Europe/London" };
 
   return (
     <PageFrame>
