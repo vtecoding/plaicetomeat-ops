@@ -23,6 +23,7 @@ const SAFE_PATTERNS = [
   "This stock count line is already applied",
   "Stock count line not found",
   "Stock item not found",
+  "STALE_STOCK_COUNT",
   "Counted weight cannot be negative",
   "Stock left cannot exceed the actual weight received",
   "Stock correction did not change the weight",

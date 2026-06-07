@@ -25,9 +25,7 @@ const SERVICE =
 
 const BASE_URL = process.env.CHECKOUT_BASE_URL ?? "http://127.0.0.1:3000";
 const BRANCH_A = "00000000-0000-4000-8000-000000000001";
-const PRODUCT = "00000000-0000-4000-8000-000000000207"; // Family Curry Pack: min 1, max 4, GBP 35
-const PRODUCT_PRICE = 35;
-const PRODUCT_MAX = 4;
+const PRODUCT = "00000000-0000-4000-8000-000000000207"; // Family Curry Pack: min 1, max 4 in the dev seed.
 const RUN = randomUUID().slice(0, 8);
 
 const service = createClient(URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -122,7 +120,18 @@ async function orderItemsFor(orderRef) {
   return { order, items };
 }
 
+async function productTruth() {
+  const { data, error } = await service.from("products").select("price_per_unit, max_order_quantity").eq("id", PRODUCT).single();
+  if (error) throw new Error(`product fixture fetch failed: ${error.message}`);
+  return {
+    price: Number(data.price_per_unit),
+    max: Number(data.max_order_quantity),
+  };
+}
+
 async function dbChecks() {
+  const truth = await productTruth();
+
   // --- price authority: client cannot influence price (not even a param) -------
   {
     const r = await rpc({ key: key("price"), items: [{ productId: PRODUCT, quantity: 2 }] });
@@ -131,10 +140,10 @@ async function dbChecks() {
       const { order, items } = await orderItemsFor(r.data.orderRef);
       check(
         "line price recomputed from product price (forged client price impossible)",
-        items.length === 1 && Number(items[0].unit_price_snapshot) === PRODUCT_PRICE,
-        `unit=${items[0]?.unit_price_snapshot}`,
+        items.length === 1 && Number(items[0].unit_price_snapshot) === truth.price,
+        `unit=${items[0]?.unit_price_snapshot} db=${truth.price}`,
       );
-      check("subtotal recomputed server-side", Number(order.subtotal) === PRODUCT_PRICE * 2, `subtotal=${order.subtotal}`);
+      check("subtotal recomputed server-side", Number(order.subtotal) === truth.price * 2, `subtotal=${order.subtotal} db=${truth.price}`);
     }
   }
 
@@ -158,7 +167,7 @@ async function dbChecks() {
     check(
       "merged quantity over per-product max is rejected (no dup-line bypass)",
       !!r.error && /no longer available/i.test(r.error.message),
-      r.error ? r.error.message : `CREATED max=${PRODUCT_MAX}`,
+      r.error ? r.error.message : `CREATED max=${truth.max}`,
     );
   }
 
