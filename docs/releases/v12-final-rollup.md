@@ -40,7 +40,8 @@ backup drill) before go-live.
 
 ## 3. Migrations
 
-23 SQL migrations total; four added by V12:
+24 SQL migrations total (23 through V12.10 + 1 post-cert compliance remediation,
+`202606071800_compliance_temperature_capture.sql`); four added by V12:
 
 | Version | Phase | File |
 |---|---|---|

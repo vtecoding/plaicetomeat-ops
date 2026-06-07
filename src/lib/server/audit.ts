@@ -48,6 +48,8 @@ export const AUDIT_EVENT_TYPES = [
   "supplier_created",
   "certificate_uploaded",
   "certificate_verified",
+  "compliance_reading_recorded",
+  "compliance_log_completed",
   "security_event",
 ] as const;
 

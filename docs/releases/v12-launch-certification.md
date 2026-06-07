@@ -28,7 +28,9 @@ the V12 programme (V12.0-V12.10) against its hardening and readiness objectives.
 | `113514b` | V12.8 | feat: add v12 observability foundation |
 | `03769c5` | V12.9 | docs: add v12 production readiness controls |
 
-- Migrations: 23 SQL files in `supabase/migrations/`. Four are V12:
+- Migrations: 24 SQL files in `supabase/migrations/` (23 through V12.10, plus the
+  post-cert `202606071800_compliance_temperature_capture.sql` remediation — see
+  `docs/releases/compliance-temperature-capture-validation.md`). Four are V12:
   - `202606061200_v12_1_rpc_authority_seal.sql`
   - `202606071000_v12_3_checkout_integrity.sql`
   - `202606071600_v12_5_inventory_stale_count_guard.sql`
