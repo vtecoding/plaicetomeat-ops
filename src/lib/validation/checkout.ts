@@ -7,6 +7,61 @@ import {
   normalizeUkMobileNumber,
 } from "@/lib/domain/checkout-rules";
 
+// V12.3 — checkout payload caps (abuse-resistance).
+export const MAX_DISTINCT_SKUS = 30;
+export const MAX_CHECKOUT_BODY_BYTES = 32 * 1024; // 32 KiB
+const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+const MAX_EMAIL_LENGTH = 254;
+
+/**
+ * Merge duplicate SKUs in a raw basket BEFORE validation: entries with the same
+ * `productId` have their quantities summed (so duplicate lines cannot bypass the
+ * per-SKU maximum). Malformed/foreign entries are passed through unchanged so the
+ * schema can still reject them. Pure and order-stable (first-seen order).
+ */
+export function mergeCheckoutBasketItems(items: unknown): unknown[] {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  const mergedOrder: string[] = [];
+  const byProduct = new Map<string, Record<string, unknown>>();
+  const passthrough: unknown[] = [];
+
+  for (const raw of items) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      passthrough.push(raw);
+      continue;
+    }
+
+    const item = raw as Record<string, unknown>;
+    const productId = item.productId;
+    const quantity = item.quantity;
+
+    if (typeof productId !== "string" || (typeof quantity !== "number" && typeof quantity !== "string")) {
+      passthrough.push(raw);
+      continue;
+    }
+
+    const numericQuantity = typeof quantity === "number" ? quantity : Number(quantity);
+    if (!Number.isFinite(numericQuantity)) {
+      passthrough.push(raw);
+      continue;
+    }
+
+    const existing = byProduct.get(productId);
+    if (existing) {
+      existing.quantity = (existing.quantity as number) + numericQuantity;
+    } else {
+      const copy = { ...item, quantity: numericQuantity };
+      byProduct.set(productId, copy);
+      mergedOrder.push(productId);
+    }
+  }
+
+  return [...mergedOrder.map((id) => byProduct.get(id)!), ...passthrough];
+}
+
 export const ukPhoneSchema = z
   .string()
   .trim()
@@ -37,7 +92,7 @@ export function createCheckoutSchema(
     customerPhone: ukPhoneSchema,
     customerEmail: z.preprocess(
       (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-      z.string().trim().email("Enter a valid email address.").optional(),
+      z.string().trim().email("Enter a valid email address.").max(MAX_EMAIL_LENGTH, "Email is too long.").optional(),
     ),
     pickupDate: z
       .string()
@@ -57,8 +112,11 @@ export function createCheckoutSchema(
       (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
       z.string().trim().max(500, "Notes must be 500 characters or less.").optional(),
     ),
-    idempotencyKey: z.string().trim().min(12),
-    basket: z.array(checkoutBasketItemSchema).min(1, "Basket cannot be empty."),
+    idempotencyKey: z.string().trim().min(12).max(MAX_IDEMPOTENCY_KEY_LENGTH),
+    basket: z
+      .array(checkoutBasketItemSchema)
+      .min(1, "Basket cannot be empty.")
+      .max(MAX_DISTINCT_SKUS, `You can order at most ${MAX_DISTINCT_SKUS} different items at once.`),
     isTest: z.preprocess((value) => value === true || value === "true", z.boolean()).optional(),
   });
 }

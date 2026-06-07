@@ -3,8 +3,9 @@ import "server-only";
 import { getDemoOrders } from "@/lib/data/demo";
 import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 import type { BasketItem, Order, OrderItem, OrderNote, OrderStatus, UnitType } from "@/lib/domain/types";
+import { checkRateLimit, clientNetworkHash } from "@/lib/server/rate-limit";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
-import { createCheckoutSchema, type CheckoutInput } from "@/lib/validation/checkout";
+import { createCheckoutSchema, mergeCheckoutBasketItems, type CheckoutInput } from "@/lib/validation/checkout";
 
 type CheckoutResult =
   | {
@@ -75,8 +76,17 @@ const ORDER_SELECT = `
   )
 `;
 
+/**
+ * The single hardened checkout service. Both the storefront server action and
+ * the public POST /api/checkout route go through here, so validation, payload
+ * caps, duplicate-SKU merging, rate limiting, the server-only test-order gate,
+ * and the service-role RPC are identical on every path.
+ */
 export async function submitCheckout(rawInput: unknown, options: { now?: Date } = {}): Promise<CheckoutResult> {
-  const parsed = createCheckoutSchema({ now: options.now }).safeParse(rawInput);
+  // Merge duplicate SKUs BEFORE validation so per-SKU caps and the distinct-SKU
+  // limit apply to aggregate quantities, never per-line.
+  const prepared = prepareCheckoutInput(rawInput);
+  const parsed = createCheckoutSchema({ now: options.now }).safeParse(prepared);
 
   if (!parsed.success) {
     return {
@@ -94,11 +104,34 @@ export async function submitCheckout(rawInput: unknown, options: { now?: Date } 
     };
   }
 
+  // Throttle BEFORE any mutation. Fail closed: a limiter outage must not become a
+  // free pass to spam order creation. Keyed on the hashed network identity.
+  const rate = await checkRateLimit("checkout", await clientNetworkHash(), { failClosed: true });
+  if (!rate.allowed) {
+    return {
+      ok: false,
+      status: 429,
+      message: "Too many checkout attempts just now. Please wait a moment and try again.",
+    };
+  }
+
   // Test orders are only honoured when explicitly enabled server-side, so the
   // flag cannot be abused from the public client in production.
   const isTest = Boolean(parsed.data.isTest) && isCheckoutTestModeEnabled();
 
   return createCheckoutOrder({ ...parsed.data, isTest });
+}
+
+/** Normalise raw checkout input by merging duplicate basket SKUs (if present). */
+function prepareCheckoutInput(rawInput: unknown): unknown {
+  if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput)) {
+    return rawInput;
+  }
+  const record = rawInput as Record<string, unknown>;
+  if (!("basket" in record)) {
+    return rawInput;
+  }
+  return { ...record, basket: mergeCheckoutBasketItems(record.basket) };
 }
 
 /** Server-side gate for safe test orders. Default OFF. */
