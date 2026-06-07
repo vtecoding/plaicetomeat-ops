@@ -34,6 +34,17 @@ function mapSession(row: Record<string, unknown>): OpsSession {
   };
 }
 
+function receiptMetadata(row: Record<string, unknown>): Partial<ChecklistReceipt> {
+  return {
+    sessionId: String(row.id),
+    definitionKey: row.definition_key ? String(row.definition_key) : null,
+    definitionVersion: row.definition_version === null || row.definition_version === undefined ? null : Number(row.definition_version),
+    actorId: row.completed_by ? String(row.completed_by) : null,
+    branchId: row.branch_id ? String(row.branch_id) : null,
+    completedAt: row.completed_at ? String(row.completed_at) : null,
+  };
+}
+
 function mapEvent(row: Record<string, unknown>): OpsEvent {
   return {
     id: String(row.id),
@@ -114,7 +125,12 @@ export async function getTodaysChecklistState(
   const summary = summariseChecklist(def, events);
   const receipt =
     sessionRow.status === "completed"
-      ? buildReceipt(def, events, sessionRow.completed_at ? formatDisplayDate(new Date(String(sessionRow.completed_at))) : null)
+      ? buildReceipt(
+          def,
+          events,
+          sessionRow.completed_at ? formatDisplayDate(new Date(String(sessionRow.completed_at))) : null,
+          receiptMetadata(sessionRow),
+        )
       : null;
 
   return { sessionId: String(sessionRow.id), status: sessionRow.status as OpsSession["status"], summary, receipt };
@@ -198,5 +214,5 @@ export async function getChecklistReceipt(sessionId: string): Promise<ChecklistR
 
   const events = await loadEvents(sessionId);
   const label = sessionRow.completed_at ? formatDisplayDate(new Date(String(sessionRow.completed_at))) : null;
-  return buildReceipt(getChecklist(sessionRow.kind as ChecklistKind), events, label);
+  return buildReceipt(getChecklist(sessionRow.kind as ChecklistKind), events, label, receiptMetadata(sessionRow));
 }

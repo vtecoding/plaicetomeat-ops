@@ -67,6 +67,7 @@ export function buildReceipt(
   definition: ChecklistDefinition,
   events: OpsEvent[],
   completedAtLabel: string | null,
+  metadata: Partial<ChecklistReceipt> = {},
 ): ChecklistReceipt {
   const summary = summariseChecklist(definition, events);
 
@@ -79,6 +80,12 @@ export function buildReceipt(
   return {
     kind: definition.kind,
     title: definition.title,
+    sessionId: metadata.sessionId ?? null,
+    definitionKey: metadata.definitionKey ?? null,
+    definitionVersion: metadata.definitionVersion ?? null,
+    actorId: metadata.actorId ?? null,
+    branchId: metadata.branchId ?? null,
+    completedAt: metadata.completedAt ?? null,
     completedAtLabel,
     handledCount: summary.handledCount,
     totalCount: summary.totalCount,

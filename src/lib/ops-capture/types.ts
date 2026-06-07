@@ -91,6 +91,12 @@ export type ChecklistReceiptLine = {
 export type ChecklistReceipt = {
   kind: OpsKind;
   title: string;
+  sessionId?: string | null;
+  definitionKey?: string | null;
+  definitionVersion?: number | null;
+  actorId?: string | null;
+  branchId?: string | null;
+  completedAt?: string | null;
   completedAtLabel: string | null;
   handledCount: number;
   totalCount: number;
