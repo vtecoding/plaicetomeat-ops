@@ -4,10 +4,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { resolvePostLoginPath } from "@/lib/domain/auth";
+import { SECURITY_REASON } from "@/lib/domain/security-events";
 import { issueEnvelope } from "@/lib/domain/session-envelope";
 import type { StaffRole } from "@/lib/domain/route-access";
 import { isLoginLocked, recordLoginAttempt } from "@/lib/server/login-attempts";
-import { clientNetworkHash } from "@/lib/server/rate-limit";
+import { clientNetworkHash, hashIdentity } from "@/lib/server/rate-limit";
+import { recordSecurityEvent } from "@/lib/server/security-audit";
 import { signEnvelope, STAFF_SESSION_COOKIE } from "@/lib/server/staff-session";
 import { createSupabaseServerClient, createSupabaseServiceClient, hasSupabasePublicEnv } from "@/lib/supabase/server";
 
@@ -52,11 +54,14 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
     return { error: "Sign-in is not available yet. Supabase is not configured." };
   }
 
-  // Hashed, salted network signal — never a raw IP (no PII at rest or in logs).
+  // Hashed, salted signals — never a raw email or IP (no PII at rest or in logs).
   const networkHash = await clientNetworkHash();
+  const emailHash = hashIdentity("email", email);
+  const securityMeta = { emailHash, networkHash };
 
   const lock = await isLoginLocked({ email, networkHash });
   if (lock.locked) {
+    await recordSecurityEvent({ reason: SECURITY_REASON.LOGIN_LOCKED_OUT, targetType: "auth", metadata: securityMeta });
     return {
       error: "Too many failed attempts. Please wait a few minutes and try again.",
     };
@@ -73,6 +78,7 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
       // No PII: log only non-identifying failure metadata.
       console.error("[auth] sign-in failed", { code: error?.code ?? null, status: error?.status ?? null });
       await recordLoginAttempt({ email, success: false, networkHash });
+      await recordSecurityEvent({ reason: SECURITY_REASON.LOGIN_FAILED, targetType: "auth", metadata: securityMeta });
       return { error: genericError };
     }
 
@@ -89,6 +95,7 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
       // Authenticated but not an active staff member - refuse and clear session.
       await supabase.auth.signOut();
       await recordLoginAttempt({ email, success: false, networkHash });
+      await recordSecurityEvent({ reason: SECURITY_REASON.LOGIN_FAILED, targetType: "auth", metadata: { ...securityMeta, detail: "inactive_or_no_role" } });
       return { error: genericError };
     }
 
@@ -120,6 +127,7 @@ export async function logoutAction(_prev: LogoutActionState, _formData: FormData
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error("[auth] sign-out failed", { code: error.code ?? null, status: error.status ?? null });
+      await recordSecurityEvent({ reason: SECURITY_REASON.LOGOUT_FAILED, targetType: "auth" });
       return { error: "We couldn't fully sign you out. Please try again." };
     }
   }

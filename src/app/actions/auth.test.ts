@@ -1,57 +1,149 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Adversarial/behavioural coverage for logout hardening (V12.2): a failed
-// signOut() must be SURFACED, never swallowed. We mock the server boundary so
-// the action can run in isolation.
+// V12.2 logout hardening + V12.4 security-event coverage for the auth surface.
+// The server boundary is mocked so the actions run in isolation.
 vi.mock("server-only", () => ({}));
 
-const { cookieStore, signOutMock, redirectMock } = vi.hoisted(() => ({
+const h = vi.hoisted(() => ({
   cookieStore: { set: vi.fn(), delete: vi.fn() },
+  signInMock: vi.fn(),
   signOutMock: vi.fn(),
+  profileResult: { data: null as unknown },
+  isLoginLockedMock: vi.fn(),
+  recordLoginAttemptMock: vi.fn(async () => {}),
+  recordSecurityEventMock: vi.fn(async (_input: import("@/lib/server/security-audit").SecurityEventInput) => {}),
   redirectMock: vi.fn((url: string) => {
     throw new Error(`redirect:${url}`);
   }),
 }));
 
 vi.mock("next/headers", () => ({
-  cookies: async () => cookieStore,
+  cookies: async () => h.cookieStore,
   headers: async () => ({ get: () => null }),
 }));
-vi.mock("next/navigation", () => ({ redirect: redirectMock }));
+vi.mock("next/navigation", () => ({ redirect: h.redirectMock }));
 vi.mock("@/lib/supabase/server", () => ({
   hasSupabasePublicEnv: () => true,
   hasSupabaseServiceEnv: () => false,
-  createSupabaseServerClient: async () => ({ auth: { signOut: signOutMock } }),
-  createSupabaseServiceClient: () => ({}),
+  createSupabaseServerClient: async () => ({ auth: { signInWithPassword: h.signInMock, signOut: h.signOutMock } }),
+  createSupabaseServiceClient: () => ({
+    from: () => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => h.profileResult }) }),
+    }),
+  }),
 }));
+vi.mock("@/lib/server/login-attempts", () => ({
+  isLoginLocked: h.isLoginLockedMock,
+  recordLoginAttempt: h.recordLoginAttemptMock,
+}));
+vi.mock("@/lib/server/rate-limit", () => ({
+  clientNetworkHash: async () => "hashed-net",
+  // Return only the label, never the raw value — guarantees no PII echo.
+  hashIdentity: (label: string) => `hashed-${label}`,
+}));
+vi.mock("@/lib/server/staff-session", () => ({
+  signEnvelope: async () => "signed-token",
+  STAFF_SESSION_COOKIE: "ptm_staff_last_seen",
+}));
+vi.mock("@/lib/server/security-audit", () => ({ recordSecurityEvent: h.recordSecurityEventMock }));
 
-import { logoutAction } from "@/app/actions/auth";
+import { loginAction, logoutAction } from "@/app/actions/auth";
+import { SECURITY_REASON } from "@/lib/domain/security-events";
+
+const EMAIL = "person@example.com";
+
+function loginForm(): FormData {
+  const fd = new FormData();
+  fd.set("email", EMAIL);
+  fd.set("password", "hunter2hunter2");
+  return fd;
+}
+
+function reasons() {
+  return h.recordSecurityEventMock.mock.calls.map((c) => c[0].reason);
+}
 
 beforeEach(() => {
-  cookieStore.set.mockClear();
-  cookieStore.delete.mockClear();
-  signOutMock.mockReset();
-  redirectMock.mockClear();
+  h.cookieStore.set.mockClear();
+  h.cookieStore.delete.mockClear();
+  h.signInMock.mockReset();
+  h.signOutMock.mockReset();
+  h.isLoginLockedMock.mockReset();
+  h.recordLoginAttemptMock.mockClear();
+  h.recordSecurityEventMock.mockClear();
+  h.redirectMock.mockClear();
+  h.profileResult = { data: null };
+  h.isLoginLockedMock.mockResolvedValue({ locked: false, lockedUntil: null });
 });
 
-const emptyForm = new FormData();
+describe("loginAction security events", () => {
+  it("emits login_locked_out when the account/network is locked", async () => {
+    h.isLoginLockedMock.mockResolvedValue({ locked: true, lockedUntil: new Date() });
 
-describe("logoutAction", () => {
-  it("surfaces a failed sign-out instead of swallowing it", async () => {
-    signOutMock.mockResolvedValue({ error: { code: "boom", status: 500 } });
+    const result = await loginAction({ error: null }, loginForm());
 
-    const result = await logoutAction({ error: null }, emptyForm);
-
-    expect(result.error).toMatch(/couldn't fully sign you out/i);
-    // Must NOT pretend success: no redirect, session cookie left intact.
-    expect(redirectMock).not.toHaveBeenCalled();
-    expect(cookieStore.delete).not.toHaveBeenCalled();
+    expect(result.error).toMatch(/too many/i);
+    expect(reasons()).toContain(SECURITY_REASON.LOGIN_LOCKED_OUT);
+    expect(h.signInMock).not.toHaveBeenCalled();
   });
 
-  it("clears the session cookie and redirects on a clean sign-out", async () => {
-    signOutMock.mockResolvedValue({ error: null });
+  it("emits login_failed on bad credentials", async () => {
+    h.signInMock.mockResolvedValue({ data: { user: null }, error: { code: "invalid", status: 400 } });
 
-    await expect(logoutAction({ error: null }, emptyForm)).rejects.toThrow("redirect:/login");
-    expect(cookieStore.delete).toHaveBeenCalledWith("ptm_staff_last_seen");
+    const result = await loginAction({ error: null }, loginForm());
+
+    expect(result.error).toBe("Invalid email or password.");
+    expect(reasons()).toContain(SECURITY_REASON.LOGIN_FAILED);
+  });
+
+  it("emits login_failed when the account is authenticated but not active staff", async () => {
+    h.signInMock.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    h.profileResult = { data: { role: null, is_active: false } };
+
+    const result = await loginAction({ error: null }, loginForm());
+
+    expect(result.error).toBe("Invalid email or password.");
+    expect(reasons()).toContain(SECURITY_REASON.LOGIN_FAILED);
+  });
+
+  it("does NOT emit a security event on a successful login", async () => {
+    h.signInMock.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    h.profileResult = { data: { role: "manager", is_active: true } };
+
+    await expect(loginAction({ error: null }, loginForm())).rejects.toThrow(/^redirect:/);
+    expect(h.recordSecurityEventMock).not.toHaveBeenCalled();
+    expect(h.cookieStore.set).toHaveBeenCalled();
+  });
+
+  it("never includes the raw email in security metadata (hashed only)", async () => {
+    h.signInMock.mockResolvedValue({ data: { user: null }, error: { code: "invalid" } });
+
+    await loginAction({ error: null }, loginForm());
+
+    const serialised = JSON.stringify(h.recordSecurityEventMock.mock.calls.map((c) => c[0]));
+    expect(serialised).not.toContain(EMAIL);
+    expect(serialised).toContain("hashed-email");
+    expect(serialised).toContain("hashed-net");
+  });
+});
+
+describe("logoutAction", () => {
+  it("emits logout_failed and surfaces the error when sign-out fails", async () => {
+    h.signOutMock.mockResolvedValue({ error: { code: "boom", status: 500 } });
+
+    const result = await logoutAction({ error: null }, new FormData());
+
+    expect(result.error).toMatch(/couldn't fully sign you out/i);
+    expect(reasons()).toContain(SECURITY_REASON.LOGOUT_FAILED);
+    expect(h.redirectMock).not.toHaveBeenCalled();
+    expect(h.cookieStore.delete).not.toHaveBeenCalled();
+  });
+
+  it("clears the cookie and redirects on a clean sign-out (no security event)", async () => {
+    h.signOutMock.mockResolvedValue({ error: null });
+
+    await expect(logoutAction({ error: null }, new FormData())).rejects.toThrow("redirect:/login");
+    expect(h.cookieStore.delete).toHaveBeenCalledWith("ptm_staff_last_seen");
+    expect(h.recordSecurityEventMock).not.toHaveBeenCalled();
   });
 });

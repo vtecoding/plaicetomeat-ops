@@ -11,7 +11,13 @@ import { describe, expect, it } from "vitest";
 const ROOT = process.cwd();
 const SRC = join(ROOT, "src");
 
-const AUDIT_MODULES = ["@/lib/server/audit", "@/lib/server/audit-events"];
+// security-audit is the V12.4 edge-safe security_event emitter. It is NOT
+// `server-only` (the Edge middleware imports it), but it carries the same
+// service-role transport, so it must likewise never reach a client bundle.
+const AUDIT_MODULES = ["@/lib/server/audit", "@/lib/server/audit-events", "@/lib/server/security-audit"];
+
+// Sanctioned modules permitted to call the emit_audit_log RPC.
+const SANCTIONED_EMITTERS = [join("lib", "server", "audit.ts"), join("lib", "server", "security-audit.ts")];
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -56,11 +62,11 @@ describe("audit emission import graph", () => {
     expect(offenders, `client modules importing audit helpers: ${offenders.join(", ")}`).toEqual([]);
   });
 
-  it("the emit_audit_log RPC is only ever called from the server-only audit module", () => {
+  it("the emit_audit_log RPC is only ever called from a sanctioned emitter module", () => {
     const callers: string[] = [];
     for (const file of ALL_FILES) {
       const src = readFileSync(file, "utf8");
-      if (src.includes("emit_audit_log") && !file.endsWith(join("lib", "server", "audit.ts"))) {
+      if (src.includes("emit_audit_log") && !SANCTIONED_EMITTERS.some((m) => file.endsWith(m))) {
         callers.push(file);
       }
     }

@@ -1,12 +1,22 @@
 import { createServerClient } from "@supabase/ssr";
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextFetchEvent, type NextRequest, NextResponse } from "next/server";
 
 import { canAccessStaffPath, isStaffFacingPath, type StaffRole } from "@/lib/domain/route-access";
+import { SECURITY_REASON, securityEventForSession } from "@/lib/domain/security-events";
 import { slideEnvelope } from "@/lib/domain/session-envelope";
+import { recordSecurityEvent, type SecurityEventInput } from "@/lib/server/security-audit";
 import { evaluateStaffSession, signEnvelope, STAFF_SESSION_COOKIE } from "@/lib/server/staff-session";
 
-export async function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
+
+  // Fire-and-forget security audit so a denied request is never slowed by it.
+  const audit = (input: SecurityEventInput) => {
+    const promise = recordSecurityEvent(input);
+    if (event && typeof event.waitUntil === "function") {
+      event.waitUntil(promise);
+    }
+  };
 
   if (!isStaffFacingPath(pathname)) {
     return NextResponse.next();
@@ -56,6 +66,16 @@ export async function middleware(request: NextRequest) {
   const session = await evaluateStaffSession(sessionToken, user.id);
 
   if (session.status !== "valid") {
+    const securityEvent = securityEventForSession(session);
+    if (securityEvent) {
+      audit({
+        reason: securityEvent.reason,
+        targetType: "session",
+        targetId: user.id,
+        metadata: { route: pathname, ...(securityEvent.detail ? { detail: securityEvent.detail } : {}) },
+      });
+    }
+
     await supabase.auth.signOut();
     // Timeouts (idle/absolute/missing) send the user back to sign in; a forged or
     // cross-user envelope is a hard authority failure and lands on /unauthorised.
@@ -71,6 +91,12 @@ export async function middleware(request: NextRequest) {
     .maybeSingle<{ role: StaffRole | null; is_active: boolean | null }>();
 
   if (!profile?.is_active || !canAccessStaffPath(profile.role, pathname)) {
+    audit({
+      reason: SECURITY_REASON.UNAUTHORISED_ROUTE,
+      targetType: "authority",
+      targetId: user.id,
+      metadata: { route: pathname, role: profile?.role ?? null, active: profile?.is_active ?? false },
+    });
     return redirectUnauthorised(request);
   }
 
