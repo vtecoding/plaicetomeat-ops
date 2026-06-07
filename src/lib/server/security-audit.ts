@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-import type { SecurityReason } from "@/lib/domain/security-events";
+import { SECURITY_REASON, type SecurityReason } from "@/lib/domain/security-events";
+import { log } from "@/lib/server/observability/log";
+import { incrementMetric } from "@/lib/server/observability/metrics";
 
 // V12.4 — the single, real path for emitting `security_event` audit evidence.
 //
@@ -30,7 +32,38 @@ export type SecurityEventInput = {
   metadata?: Record<string, unknown>;
 };
 
+// Map a security reason to the operational counter it should bump. Auth-failure
+// and authority-denial rates are the two an operator most needs to see; session
+// and logout reasons remain audit-only (no dedicated counter).
+function metricForReason(reason: SecurityReason): "login_failure" | "authority_denied" | null {
+  switch (reason) {
+    case SECURITY_REASON.LOGIN_FAILED:
+    case SECURITY_REASON.LOGIN_LOCKED_OUT:
+      return "login_failure";
+    case SECURITY_REASON.AUTHORITY_DENIED_ROLE:
+    case SECURITY_REASON.AUTHORITY_DENIED_BRANCH:
+    case SECURITY_REASON.AUTHORITY_DENIED_NO_BRANCH:
+    case SECURITY_REASON.UNAUTHORISED_ROUTE:
+      return "authority_denied";
+    default:
+      return null;
+  }
+}
+
 export async function recordSecurityEvent(input: SecurityEventInput): Promise<void> {
+  // Operational visibility (edge-safe, never throws): count + log alongside the
+  // durable audit emission below. Metadata is already non-PII by contract; the
+  // logger additionally redacts any secret-like fields defensively.
+  const metric = metricForReason(input.reason);
+  if (metric) {
+    incrementMetric(metric);
+  }
+  log("AUDIT", "warn", "security event", {
+    reason: input.reason,
+    targetType: input.targetType ?? "security",
+    branchId: input.branchId ?? null,
+  });
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -53,8 +86,10 @@ export async function recordSecurityEvent(input: SecurityEventInput): Promise<vo
       p_system_reason: input.reason,
     });
   } catch (error) {
-    // Observability of the observer: log without PII, but never break the caller.
-    console.error("[security-audit] emit failed", {
+    // Observability of the observer: count + log without PII, but never break the
+    // caller. A failed security-audit emission is itself a database fault.
+    incrementMetric("database_error");
+    log("AUDIT", "error", "security audit emit failed", {
       reason: input.reason,
       error: error instanceof Error ? error.message : String(error),
     });

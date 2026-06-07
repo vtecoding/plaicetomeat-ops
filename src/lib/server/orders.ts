@@ -4,6 +4,8 @@ import { getDemoOrders } from "@/lib/data/demo";
 import { configurationRequired, healthy, noData, unavailable, type DataResult } from "@/lib/domain/data-result";
 import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 import type { BasketItem, Order, OrderItem, OrderNote, OrderStatus, UnitType } from "@/lib/domain/types";
+import { log } from "@/lib/server/observability/log";
+import { incrementMetric, noteRpcFault } from "@/lib/server/observability/metrics";
 import { checkRateLimit, clientNetworkHash } from "@/lib/server/rate-limit";
 import { allowDemoFallback } from "@/lib/server/runtime-truth";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
@@ -273,9 +275,12 @@ async function createCheckoutOrder(input: CheckoutInput): Promise<CheckoutResult
 
   if (error) {
     const isKnown = SAFE_CHECKOUT_MESSAGES.some((fragment) => error.message.includes(fragment));
+    incrementMetric("checkout_failure");
     if (!isKnown) {
-      // Real fault, not a business rule — keep the detail for developers only.
-      console.error("[checkout] create_checkout_order failed", { branchId: input.branchId, error: error.message });
+      // Real fault, not a business rule — classify (denied vs db) and keep the
+      // detail for developers only.
+      noteRpcFault(error);
+      log("CHECKOUT", "error", "create_checkout_order failed", { branchId: input.branchId, error: error.message });
     }
     return {
       ok: false,
@@ -287,7 +292,9 @@ async function createCheckoutOrder(input: CheckoutInput): Promise<CheckoutResult
   // create_checkout_order now returns { orderRef, publicAccessId }.
   const result = data as { orderRef?: string; publicAccessId?: string } | null;
   if (!result?.orderRef || !result?.publicAccessId) {
-    console.error("[checkout] unexpected RPC result shape", { branchId: input.branchId });
+    incrementMetric("checkout_failure");
+    incrementMetric("database_error");
+    log("CHECKOUT", "error", "unexpected create_checkout_order result shape", { branchId: input.branchId });
     return {
       ok: false,
       status: 500,
@@ -295,6 +302,8 @@ async function createCheckoutOrder(input: CheckoutInput): Promise<CheckoutResult
     };
   }
 
+  incrementMetric("checkout_success");
+  log("CHECKOUT", "info", "order created", { branchId: input.branchId });
   return {
     ok: true,
     orderRef: result.orderRef,
