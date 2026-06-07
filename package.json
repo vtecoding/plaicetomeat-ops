@@ -25,7 +25,10 @@
     "playwright:legacy-audit": "node scripts/run-playwright.mjs legacy-audit",
     "playwright:hosted": "node scripts/run-playwright.mjs hosted",
     "release:report": "node scripts/release-report.mjs",
-    "audit:bundle": "node scripts/audit-bundle.mjs"
+    "audit:bundle": "node scripts/audit-bundle.mjs",
+    "verify:pricing-validation-integrity": "node scripts/verify-pricing-validation-integrity.mjs",
+    "verify:pricing-validation": "pnpm verify:pricing-validation-integrity",
+    "report:butcher-signoff": "node scripts/butcher-signoff-report.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
