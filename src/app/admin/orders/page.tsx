@@ -2,12 +2,15 @@ import Link from "next/link";
 
 import { PageFrame } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
-import { demoBranch } from "@/lib/data/demo";
 import { getCounterOrders } from "@/lib/server/orders";
+import { requireStaffContext } from "@/lib/server/staff-context";
 import { formatCurrency } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminOrdersPage() {
-  const orders = await getCounterOrders(demoBranch.id);
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
+  const orders = await getCounterOrders(branchId);
 
   return (
     <PageFrame>

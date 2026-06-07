@@ -1,22 +1,16 @@
-import { redirect } from "next/navigation";
-
 import { AdminSettingsClient } from "@/components/admin-settings-client";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
 import { getBranchSettings, getPublicBranch } from "@/lib/server/catalog";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
-  const settings = await getBranchSettings(branchId);
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
+  // Authoritative branch id comes from the signed-in profile; the public branch
+  // record is used only for its display fields (name/address) on this single-
+  // branch storefront.
+  const [branch, settings] = await Promise.all([getPublicBranch(), getBranchSettings(branchId)]);
   const currentBranch = { ...branch, id: branchId };
 
   return (

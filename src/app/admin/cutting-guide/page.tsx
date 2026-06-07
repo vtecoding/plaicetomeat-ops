@@ -1,25 +1,17 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowLeft, Scissors } from "lucide-react";
 
 import { CarcassCalculator } from "@/components/carcass-calculator";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getAllProducts, getProductCostMap, getPublicBranch } from "@/lib/server/catalog";
+import { getAllProducts, getProductCostMap } from "@/lib/server/catalog";
 import { getSuppliers } from "@/lib/server/compliance-inventory";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const metadata = { title: "Cutting & Pricing Guide" };
 export const dynamic = "force-dynamic";
 
 export default async function CuttingGuidePage() {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const [allProducts, costMap, supplierRows] = await Promise.all([
     getAllProducts(branchId),
     getProductCostMap(branchId),

@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { AlertTriangle, ArrowLeft, BookOpen, CheckCircle2 } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
+import { requireStaffContext } from "@/lib/server/staff-context";
 import { allPlaybookContent, getPlaybookContent } from "@/lib/shop-intelligence/playbook-content";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +13,7 @@ export function generateStaticParams() {
 }
 
 export default async function PlaybookPage({ params }: { params: Promise<{ slug: string }> }) {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
+  await requireStaffContext("manager");
 
   const { slug } = await params;
   const playbook = getPlaybookContent(slug);

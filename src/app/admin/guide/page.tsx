@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { BookOpen, ClipboardCheck } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
@@ -102,11 +100,7 @@ const DRY_RUN: DryRunGroup[] = [
 ];
 
 export default async function GuidePage() {
-  const profile = await getCurrentProfile();
-
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
+  await requireStaffContext("manager");
 
   return (
     <PageFrame>

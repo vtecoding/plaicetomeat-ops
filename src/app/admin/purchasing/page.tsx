@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -12,10 +11,8 @@ import {
 
 import { PageFrame } from "@/components/site-header";
 import type { PurchasingRecommendation, SupplierReadiness } from "@/lib/domain/purchasing-intelligence";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getPublicBranch } from "@/lib/server/catalog";
 import { getPurchasingPlan, type PurchasingPlan } from "@/lib/server/purchasing-intelligence";
+import { requireStaffContext } from "@/lib/server/staff-context";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -27,13 +24,8 @@ const CONFIDENCE_LABEL: Record<PurchasingRecommendation["confidence"], string> =
 };
 
 export default async function PurchasingPage() {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const plan = await getPurchasingPlan(profile.branchId ?? branch.id);
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
+  const plan = await getPurchasingPlan(branchId);
 
   return (
     <PageFrame>

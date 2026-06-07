@@ -1,22 +1,12 @@
-import { redirect } from "next/navigation";
-
 import { GuidedChecklist } from "@/components/ops-capture/guided-checklist";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import { getChecklist } from "@/lib/ops-capture/checklists";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getPublicBranch } from "@/lib/server/catalog";
 import { getTodaysChecklistState, type ChecklistKind } from "@/lib/server/ops-capture";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 /** Shared server shell for the opening and closing ritual screens. */
 export async function ChecklistPage({ kind, testid }: { kind: ChecklistKind; testid: string }) {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const state = await getTodaysChecklistState(branchId, kind);
   const def = getChecklist(kind);
 

@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import type { OpsStepState } from "@/lib/ops-capture/types";
-import { getCurrentProfile } from "@/lib/server/auth";
+import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ActionResult = { ok: true; message: string; id?: string } | { ok: false; message: string };
@@ -37,10 +36,8 @@ function safeMessage(raw: string | undefined, fallback: string) {
 }
 
 async function requireManager(): Promise<{ ok: true } | { ok: false; message: string }> {
-  const profile = await getCurrentProfile();
-  if (!profile) return { ok: false, message: "Your session has expired. Please sign in again." };
-  if (!MANAGER_ROLES.includes(profile.role)) return { ok: false, message: "Only managers and owners can do this." };
-  return { ok: true };
+  const ctx = await resolveStaffContext("manager");
+  return ctx.ok ? { ok: true } : { ok: false, message: ctx.message };
 }
 
 function revalidateOps() {

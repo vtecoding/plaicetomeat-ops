@@ -1,19 +1,14 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowRight, BookOpen, GraduationCap } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
+import { requireStaffContext } from "@/lib/server/staff-context";
 import { allPlaybookContent } from "@/lib/shop-intelligence/playbook-content";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlaybooksPage() {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
+  await requireStaffContext("manager");
 
   const playbooks = allPlaybookContent();
 

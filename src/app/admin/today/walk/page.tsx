@@ -2,11 +2,9 @@ import { redirect } from "next/navigation";
 
 import { GuidedDay } from "@/components/owner-brain/guided-day";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import { buildDayShape } from "@/lib/owner-brain/brain";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getPublicBranch } from "@/lib/server/catalog";
 import { getOwnerBrain } from "@/lib/server/owner-brain";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +15,7 @@ export const dynamic = "force-dynamic";
  * nothing to walk, so we send them back to the Getting Started steps.
  */
 export default async function WalkPage() {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const brain = await getOwnerBrain(branchId);
 
   if (brain.setupMode) {

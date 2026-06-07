@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
+import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ActionResult = { ok: true; message: string; id?: string } | { ok: false; message: string };
@@ -45,11 +44,12 @@ function safeMessage(raw: string | undefined, fallback: string) {
 }
 
 async function requireManager(): Promise<{ ok: true; branchId: string; profileId: string } | { ok: false; message: string }> {
-  const profile = await getCurrentProfile();
-  if (!profile) return { ok: false, message: "Your session has expired. Please sign in again." };
-  if (!MANAGER_ROLES.includes(profile.role)) return { ok: false, message: "Only managers and owners can do this." };
-  if (!profile.branchId && profile.role !== "owner") return { ok: false, message: "No branch is assigned to this account." };
-  return { ok: true, branchId: profile.branchId ?? "", profileId: profile.id };
+  // Branch-scoped: every staff member operating compliance/inventory must have a
+  // real branch assigned. No owner "empty branch" shortcut, no fallback branch.
+  const ctx = await resolveStaffContext("manager", { branchScoped: true });
+  return ctx.ok
+    ? { ok: true, branchId: ctx.branchId, profileId: ctx.profile.id }
+    : { ok: false, message: ctx.message };
 }
 
 function revalidateOps() {

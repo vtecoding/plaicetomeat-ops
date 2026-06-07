@@ -1,16 +1,21 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { resolvePostLoginPath } from "@/lib/domain/auth";
+import { issueEnvelope } from "@/lib/domain/session-envelope";
 import type { StaffRole } from "@/lib/domain/route-access";
 import { isLoginLocked, recordLoginAttempt } from "@/lib/server/login-attempts";
+import { clientNetworkHash } from "@/lib/server/rate-limit";
+import { signEnvelope, STAFF_SESSION_COOKIE } from "@/lib/server/staff-session";
 import { createSupabaseServerClient, createSupabaseServiceClient, hasSupabasePublicEnv } from "@/lib/supabase/server";
 
-const STAFF_LAST_SEEN_COOKIE = "ptm_staff_last_seen";
-
 export type LoginActionState = {
+  error: string | null;
+};
+
+export type LogoutActionState = {
   error: string | null;
 };
 
@@ -19,18 +24,14 @@ type ProfileRow = {
   is_active: boolean | null;
 };
 
-async function clientIp(): Promise<string | null> {
-  const headerStore = await headers();
-  const forwarded = headerStore.get("x-forwarded-for");
-
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) {
-      return first;
-    }
-  }
-
-  return headerStore.get("x-real-ip");
+async function setStaffSessionCookie(userId: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(STAFF_SESSION_COOKIE, await signEnvelope(issueEnvelope(userId)), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  });
 }
 
 export async function loginAction(_prev: LoginActionState, formData: FormData): Promise<LoginActionState> {
@@ -51,9 +52,10 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
     return { error: "Sign-in is not available yet. Supabase is not configured." };
   }
 
-  const ip = await clientIp();
+  // Hashed, salted network signal — never a raw IP (no PII at rest or in logs).
+  const networkHash = await clientNetworkHash();
 
-  const lock = await isLoginLocked(email);
+  const lock = await isLoginLocked({ email, networkHash });
   if (lock.locked) {
     return {
       error: "Too many failed attempts. Please wait a few minutes and try again.",
@@ -61,19 +63,16 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
   }
 
   let role: StaffRole | null = null;
+  let userId: string | null = null;
 
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.user) {
-      console.error("loginAction signIn failed", {
-        email,
-        message: error?.message ?? null,
-        status: error?.status ?? null,
-        code: error?.code ?? null,
-      });
-      await recordLoginAttempt({ email, success: false, ipAddress: ip });
+      // No PII: log only non-identifying failure metadata.
+      console.error("[auth] sign-in failed", { code: error?.code ?? null, status: error?.status ?? null });
+      await recordLoginAttempt({ email, success: false, networkHash });
       return { error: genericError };
     }
 
@@ -85,48 +84,49 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
       .maybeSingle<ProfileRow>();
 
     if (!profile || profile.is_active !== true || !profile.role) {
-      console.error("loginAction profile missing or inactive", {
-        email,
-        userId: data.user.id,
-        profile,
-      });
+      // No PII: do not log the email or the profile row.
+      console.error("[auth] authenticated account is not active staff");
       // Authenticated but not an active staff member - refuse and clear session.
       await supabase.auth.signOut();
-      await recordLoginAttempt({ email, success: false, ipAddress: ip });
+      await recordLoginAttempt({ email, success: false, networkHash });
       return { error: genericError };
     }
 
     role = profile.role;
-    await recordLoginAttempt({ email, success: true, ipAddress: ip });
+    userId = data.user.id;
+    await recordLoginAttempt({ email, success: true, networkHash });
   } catch {
     return { error: "Sign-in failed. Please try again." };
   }
 
-  // Seed the staff "last seen" cookie the middleware uses for idle timeout.
-  const cookieStore = await cookies();
-  cookieStore.set(STAFF_LAST_SEEN_COOKIE, String(Date.now()), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-  });
+  // Seed the signed, user-bound staff session envelope the middleware enforces.
+  await setStaffSessionCookie(userId);
 
   // redirect() throws NEXT_REDIRECT - must be outside the try/catch above.
   redirect(resolvePostLoginPath(role, returnTo));
 }
 
-export async function logoutAction(): Promise<void> {
+export async function logoutAction(_prev: LogoutActionState, _formData: FormData): Promise<LogoutActionState> {
   if (hasSupabasePublicEnv()) {
+    let supabase;
     try {
-      const supabase = await createSupabaseServerClient();
-      await supabase.auth.signOut();
+      supabase = await createSupabaseServerClient();
     } catch {
-      // ignore - we still clear cookies and redirect below
+      return { error: "Sign-out is unavailable right now. Please try again." };
+    }
+
+    // Do NOT swallow a failed sign-out: if Supabase fails to revoke the session
+    // the user is still signed in, so surface it instead of pretending success.
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("[auth] sign-out failed", { code: error.code ?? null, status: error.status ?? null });
+      return { error: "We couldn't fully sign you out. Please try again." };
     }
   }
 
   const cookieStore = await cookies();
-  cookieStore.delete(STAFF_LAST_SEEN_COOKIE);
+  cookieStore.delete(STAFF_SESSION_COOKIE);
 
+  // redirect() throws NEXT_REDIRECT - only reached on a clean sign-out.
   redirect("/login");
 }

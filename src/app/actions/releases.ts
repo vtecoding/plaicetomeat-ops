@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getCurrentProfile } from "@/lib/server/auth";
+import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ActionResult = { ok: true; message: string; id?: string } | { ok: false; message: string };
@@ -10,10 +10,8 @@ type ActionResult = { ok: true; message: string; id?: string } | { ok: false; me
 // Release/deployment tooling is owner-only (defense-in-depth: the middleware
 // guards page navigation, this guards the action call itself).
 async function requireOwner(): Promise<{ ok: true } | { ok: false; message: string }> {
-  const profile = await getCurrentProfile();
-  if (!profile) return { ok: false, message: "Your session has expired. Please sign in again." };
-  if (profile.role !== "owner") return { ok: false, message: "Only the owner can do this." };
-  return { ok: true };
+  const ctx = await resolveStaffContext("owner");
+  return ctx.ok ? { ok: true } : { ok: false, message: ctx.message };
 }
 
 function safeMessage(raw: string | undefined, fallback: string) {

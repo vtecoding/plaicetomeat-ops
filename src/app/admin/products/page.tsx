@@ -1,24 +1,14 @@
-import { redirect } from "next/navigation";
-
 import { AdminProductsClient } from "@/components/admin-products-client";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getAllCategories, getAllProducts, getPublicBranch } from "@/lib/server/catalog";
+import { getAllCategories, getAllProducts } from "@/lib/server/catalog";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminProductsPage() {
-  const profile = await getCurrentProfile();
-
   // Defence in depth: middleware already blocks staff, but never render admin
-  // controls for a non-manager.
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
+  // controls for a non-manager, and fail closed if no branch is assigned.
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const [products, categories] = await Promise.all([getAllProducts(branchId), getAllCategories(branchId)]);
 
   return (

@@ -11,8 +11,7 @@ import {
   validateIntakeInputs,
   type IntakeMapping,
 } from "@/lib/domain/carcass-intake";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
+import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ConfirmIntakeResult =
@@ -72,11 +71,8 @@ export type ConfirmIntakeInput = {
  * optional product cost/price updates, and the audit record — all or nothing.
  */
 export async function confirmCarcassIntake(input: ConfirmIntakeInput): Promise<ConfirmIntakeResult> {
-  const profile = await getCurrentProfile();
-  if (!profile) return { ok: false, message: "Your session has expired. Please sign in again." };
-  if (!MANAGER_ROLES.includes(profile.role)) {
-    return { ok: false, message: "Only managers and owners can confirm a carcass intake." };
-  }
+  const ctx = await resolveStaffContext("manager", { branchScoped: true });
+  if (!ctx.ok) return { ok: false, message: ctx.message };
 
   const sheet = getCutSheet(input.animalId);
   if (!sheet) return { ok: false, message: "Choose a valid animal before confirming." };

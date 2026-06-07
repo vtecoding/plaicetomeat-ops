@@ -1,9 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
-import { canAccessStaffPath, isStaffFacingPath, isStaffSessionExpired, type StaffRole } from "@/lib/domain/route-access";
-
-const STAFF_LAST_SEEN_COOKIE = "ptm_staff_last_seen";
+import { canAccessStaffPath, isStaffFacingPath, type StaffRole } from "@/lib/domain/route-access";
+import { slideEnvelope } from "@/lib/domain/session-envelope";
+import { evaluateStaffSession, signEnvelope, STAFF_SESSION_COOKIE } from "@/lib/server/staff-session";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -38,23 +38,30 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const lastSeen = request.cookies.get(STAFF_LAST_SEEN_COOKIE)?.value;
-
-  if (isStaffSessionExpired(lastSeen)) {
-    await supabase.auth.signOut();
-
-    const expiredResponse = redirectHome(request);
-    expiredResponse.cookies.delete(STAFF_LAST_SEEN_COOKIE);
-
-    return expiredResponse;
-  }
-
+  // Identity first: a valid Supabase session is required before we trust any
+  // activity envelope. getUser() re-validates the JWT server-side, so a tampered,
+  // expired, or cross-user auth cookie fails closed here.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
     return redirectToLogin(request);
+  }
+
+  // Signed, timestamped, user-bound activity envelope. A MISSING envelope is
+  // treated as EXPIRED (never silently accepted); a tampered/forged or
+  // cross-user envelope is INVALID.
+  const sessionToken = request.cookies.get(STAFF_SESSION_COOKIE)?.value;
+  const session = await evaluateStaffSession(sessionToken, user.id);
+
+  if (session.status !== "valid") {
+    await supabase.auth.signOut();
+    // Timeouts (idle/absolute/missing) send the user back to sign in; a forged or
+    // cross-user envelope is a hard authority failure and lands on /unauthorised.
+    const target = session.status === "expired" ? redirectToLogin(request) : redirectUnauthorised(request);
+    target.cookies.delete(STAFF_SESSION_COOKIE);
+    return target;
   }
 
   const { data: profile } = await supabase
@@ -64,10 +71,13 @@ export async function middleware(request: NextRequest) {
     .maybeSingle<{ role: StaffRole | null; is_active: boolean | null }>();
 
   if (!profile?.is_active || !canAccessStaffPath(profile.role, pathname)) {
-    return redirectHome(request);
+    return redirectUnauthorised(request);
   }
 
-  response.cookies.set(STAFF_LAST_SEEN_COOKIE, String(Date.now()), {
+  // Slide the activity marker forward (idle window) while preserving the original
+  // issue time (absolute window), then re-sign.
+  const next = slideEnvelope(session.envelope);
+  response.cookies.set(STAFF_SESSION_COOKIE, await signEnvelope(next), {
     httpOnly: true,
     sameSite: "lax",
     secure: request.nextUrl.protocol === "https:",
@@ -81,6 +91,10 @@ function redirectHome(request: NextRequest) {
   return NextResponse.redirect(new URL("/", request.url));
 }
 
+function redirectUnauthorised(request: NextRequest) {
+  return NextResponse.redirect(new URL("/unauthorised", request.url));
+}
+
 function redirectToLogin(request: NextRequest) {
   const url = new URL("/login", request.url);
   // pathname is internal by construction (matched staff path); pass it through
@@ -90,5 +104,5 @@ function redirectToLogin(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/counter/:path*", "/admin/:path*", "/compliance/:path*"],
+  matcher: ["/counter/:path*", "/admin/:path*"],
 };

@@ -1,9 +1,6 @@
-import { redirect } from "next/navigation";
-
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import { getRecentAuditEvents } from "@/lib/server/audit-events";
-import { getCurrentProfile } from "@/lib/server/auth";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +12,8 @@ type AuditSearchParams = {
 };
 
 export default async function AdminAuditPage({ searchParams }: { searchParams: Promise<AuditSearchParams> }) {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
+  // Owner-only: re-checked here in the data path, not merely in middleware.
+  await requireStaffContext("owner");
 
   const filters = await searchParams;
   const events = await getRecentAuditEvents(filters);

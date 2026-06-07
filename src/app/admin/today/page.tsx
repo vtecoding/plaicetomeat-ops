@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import {
   ArrowRight,
   BookOpen,
@@ -18,11 +17,9 @@ import {
 } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import { buildDayShape } from "@/lib/owner-brain/brain";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getPublicBranch } from "@/lib/server/catalog";
 import { getOwnerBrain } from "@/lib/server/owner-brain";
+import { requireStaffContext } from "@/lib/server/staff-context";
 import {
   DUE_WINDOW_LABEL,
   SHOP_STATUS_LABEL,
@@ -43,13 +40,7 @@ const STATUS_TONE = {
 } as const;
 
 export default async function TodayPage() {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const brain = await getOwnerBrain(branchId);
   const date = formatDisplayDate(new Date(brain.generatedAt));
 

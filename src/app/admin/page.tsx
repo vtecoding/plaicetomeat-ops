@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
@@ -22,12 +21,10 @@ import {
 
 import { BusinessInsightsSections } from "@/components/admin/business-insights";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getPublicBranch } from "@/lib/server/catalog";
 import { getDashboardMetrics } from "@/lib/server/dashboard";
 import { getOperationsIntelligence } from "@/lib/server/operations-intelligence";
 import { getShopIntelligence } from "@/lib/server/shop-intelligence";
+import { requireStaffContext } from "@/lib/server/staff-context";
 import { formatCurrency, formatDisplayDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -65,14 +62,7 @@ const moreToolLinks: ToolLink[] = [
 ];
 
 export default async function AdminPage() {
-  const profile = await getCurrentProfile();
-
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
+  const { profile, branchId } = await requireStaffContext("manager", { branchScoped: true });
   const [metrics, intelligence, intel] = await Promise.all([
     getDashboardMetrics(branchId),
     getOperationsIntelligence(branchId),

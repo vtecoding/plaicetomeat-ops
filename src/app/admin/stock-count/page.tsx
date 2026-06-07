@@ -1,22 +1,12 @@
-import { redirect } from "next/navigation";
-
 import { StockCount } from "@/components/ops-capture/stock-count";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getPublicBranch } from "@/lib/server/catalog";
 import { getStockCountState } from "@/lib/server/ops-capture";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function StockCountPage() {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const state = await getStockCountState(branchId);
 
   return (

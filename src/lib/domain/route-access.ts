@@ -5,7 +5,42 @@ export type StaffRole = "staff" | "manager" | "owner";
 /** Roles allowed to use the manager/owner admin console. */
 export const MANAGER_ROLES: StaffRole[] = ["manager", "owner"];
 
-const STAFF_ROUTES = ["/counter", "/compliance"] as const;
+/**
+ * Ordered privilege ranking. Higher number = more authority. Used by
+ * `hasMinRole` so the single authority path (`requireStaffContext`) can express
+ * "at least manager" / "owner only" without scattering role-array literals.
+ */
+export const ROLE_RANK: Record<StaffRole, number> = {
+  staff: 1,
+  manager: 2,
+  owner: 3,
+};
+
+/**
+ * True when `role` meets or exceeds `minRole`. Owner-global access is therefore
+ * explicit (owner outranks everything) rather than accidental, and a missing
+ * role always fails closed.
+ */
+export function hasMinRole(role: StaffRole | null | undefined, minRole: StaffRole): boolean {
+  if (!role) return false;
+  return ROLE_RANK[role] >= ROLE_RANK[minRole];
+}
+
+/**
+ * Branch isolation: a non-owner may only act on their own, non-null branch. The
+ * owner is branch-global. A null profile branch (or any mismatch) fails closed,
+ * so branch A can never reach branch B.
+ */
+export function isBranchAuthorised(
+  role: StaffRole,
+  profileBranchId: string | null,
+  targetBranchId: string,
+): boolean {
+  if (role === "owner") return true;
+  return profileBranchId != null && profileBranchId === targetBranchId;
+}
+
+const STAFF_ROUTES = ["/counter"] as const;
 const MANAGER_ROUTES = ["/admin"] as const;
 
 /**
@@ -51,18 +86,4 @@ export function canAccessStaffPath(role: StaffRole | null | undefined, pathname:
   }
 
   return true;
-}
-
-export function isStaffSessionExpired(lastSeen: string | undefined, now = Date.now()) {
-  if (!lastSeen) {
-    return false;
-  }
-
-  const lastSeenTime = Number(lastSeen);
-
-  if (!Number.isFinite(lastSeenTime)) {
-    return true;
-  }
-
-  return now - lastSeenTime > STAFF_SESSION_TIMEOUT_MS;
 }
