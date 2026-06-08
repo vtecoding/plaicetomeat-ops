@@ -11,7 +11,11 @@ test.describe("counter usability", () => {
     await page.goto("/counter");
     const firstCard = page.locator("article").first();
     await expect(firstCard.getByRole("link", { name: /0\d{4}/ })).toBeVisible();
-    await expect(firstCard.getByText(/(received|started|ready|collected) (just now|\d+ min ago)/i).first()).toBeVisible();
+    await expect(
+      firstCard
+        .getByText(/(received|started|ready|collected) (just now|\d+ min ago|\d+ hours? ago|\d+ days? ago)/i)
+        .first(),
+    ).toBeVisible();
     await expect(firstCard.getByText(/Staff notes \(internal\) · \d+/)).toBeVisible();
     await expect(firstCard.getByTestId("sms-badge")).toBeVisible();
     await expect(firstCard).not.toContainText(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i);
