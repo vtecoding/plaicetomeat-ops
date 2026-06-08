@@ -1,4 +1,4 @@
-// V13.2 disaster recovery framework verification.
+// V13.3 disaster recovery framework verification.
 //
 // LOCAL mode proves the framework with local test data and always prints the
 // provenance warning. PRODUCTION mode requires STRICT=1 plus separate source and
@@ -87,7 +87,7 @@ async function main() {
     environment: mode,
     drillType,
     sourceRowCount: sourceRows,
-    notes: mode === "PRODUCTION" ? "V13.2 real production recovery drill" : "V13.2 LOCAL TEST ONLY - not production certification",
+    notes: mode === "PRODUCTION" ? "V13.3 real production recovery drill" : "V13.3 LOCAL TEST ONLY - not production certification",
   });
   check("record_recovery_drill works", !drill.error && !!drill.data, drill.error?.message);
   if (drill.error || !drill.data) {

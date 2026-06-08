@@ -62,6 +62,10 @@ production environment loaded (and `PRODUCTION_READINESS_MODE=strict`).
 - [ ] PITR status known and recorded.
 - [ ] Production secrets recorded in the team password manager.
 - [ ] Restore drill performed this quarter into a throwaway project (`restore.md`).
+- [ ] Latest restore drill PASSED: `RECOVERY_ENVIRONMENT=PRODUCTION STRICT=1
+      node scripts/verify-disaster-recovery.mjs` — verdict `RECOVERY_CERTIFIED`,
+      dated within this quarter. Report at `docs/reports/disaster-recovery-certification.md`
+      (must begin `REAL PRODUCTION RECOVERY DRILL`, not `LOCAL TEST DATA ONLY`).
 
 ## 9. Observability
 

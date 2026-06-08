@@ -1,4 +1,4 @@
-// V13.2 disaster recovery certification report generator.
+// V13.3 disaster recovery certification report generator.
 //
 // The first line is intentionally one of the required provenance headers. Local
 // test output can never visually resemble real launch certification.
@@ -93,7 +93,7 @@ async function main() {
   const lines = [];
   lines.push(header);
   lines.push("");
-  lines.push("# Disaster Recovery Certification - V13.2");
+  lines.push("# Disaster Recovery Certification - V13.3");
   lines.push("");
   lines.push("## Recovery Summary");
   lines.push("");
