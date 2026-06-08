@@ -1,13 +1,14 @@
 "use server";
 
 import { ORDER_STATUSES, type Order, type OrderNote, type OrderStatus } from "@/lib/domain/types";
+import { getCollectionStockMessage } from "@/lib/server/inventory-depletion";
 import { getCounterOrders, getOrderById, getOrderNotes } from "@/lib/server/orders";
 import { buildReadySmsOutcome } from "@/lib/server/sms";
 import { resolveBranchScopedAccess, resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type UpdateOrderStatusResult =
-  | { ok: true; order: Order }
+  | { ok: true; order: Order; stockNote?: string }
   | { ok: false; message: string };
 
 export type AddOrderNoteResult =
@@ -74,6 +75,14 @@ export async function updateOrderStatus(input: {
 
   if (!order) {
     return { ok: false, message: "Order updated, but it could not be reloaded. Please refresh." };
+  }
+
+  // On collection, stock moved (V14.1). Surface a calm, plain-English confirmation
+  // of what happened to stock — including a gentle "count this" nudge if the order
+  // took more than the system believed it had. Never blocks; never technical.
+  if (input.nextStatus === "collected") {
+    const stockNote = await getCollectionStockMessage(supabase, input.orderId);
+    return { ok: true, order, stockNote };
   }
 
   // On transition to "ready", attempt the ready SMS. Business rule: the status

@@ -58,6 +58,7 @@ export function CounterDashboard({
   const [notesByOrderId, setNotesByOrderId] = useState(initialNotes);
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [forcePolling, setForcePolling] = useState(realtimeMode === "polling");
 
   const windowsById = useMemo(() => new Map(pickupWindows.map((window) => [window.id, window])), [pickupWindows]);
@@ -93,6 +94,7 @@ export function CounterDashboard({
   const handleMove = useCallback(
     async (orderId: string, nextStatus: OrderStatus) => {
       setError(null);
+      setNotice(null);
       setPendingFor(orderId, true);
 
       const previousOrders = orders;
@@ -109,6 +111,11 @@ export function CounterDashboard({
       }
 
       setOrders((current) => current.map((order) => (order.id === orderId ? result.order : order)));
+
+      // Collected orders move stock (V14.1). Show the plain-English confirmation.
+      if (result.stockNote) {
+        setNotice(result.stockNote);
+      }
     },
     [orders, setPendingFor],
   );
@@ -158,6 +165,24 @@ export function CounterDashboard({
         <div className="flex gap-3 rounded-lg border border-[#f0a3a3] bg-[#fdeaea] p-4 text-sm text-[#7a1b1b]" role="alert">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
           <span>{error}</span>
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div
+          className="flex items-center gap-3 rounded-lg border border-[#bfe3cf] bg-[#f2fbf5] p-4 text-sm font-semibold text-[#0f5132]"
+          role="status"
+          data-testid="stock-notice"
+        >
+          <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden />
+          <span>{notice}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="ml-auto rounded-full px-2 py-0.5 text-xs font-bold text-[#0f5132] hover:bg-[#def1e6]"
+          >
+            Dismiss
+          </button>
         </div>
       ) : null}
 
