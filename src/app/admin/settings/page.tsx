@@ -1,23 +1,14 @@
-import { redirect } from "next/navigation";
-
 import { AdminSettingsClient } from "@/components/admin-settings-client";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getBranchSettings, getPublicBranch } from "@/lib/server/catalog";
+import { getBranchSettings } from "@/lib/server/catalog";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const settings = await getBranchSettings(branchId);
-  const currentBranch = { ...branch, id: branchId };
+  const currentBranch = { id: branchId, name: "Current branch", slug: "current", address: "", phone: null, timezone: "Europe/London" };
 
   return (
     <PageFrame>

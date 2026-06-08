@@ -78,6 +78,30 @@ describe("buildReceipt", () => {
     expect(receipt.handledCount).toBe(3);
     expect(receipt.completedAtLabel).toBe("today at 8:02am");
   });
+
+  it("keeps legacy receipts readable while carrying new definition metadata", () => {
+    const legacy = buildReceipt(opening, [event("fridge_temp", "done", "2026-06-04T08:00:00Z", { value: 3.5 })], "today");
+    expect(legacy.sessionId).toBeNull();
+    expect(legacy.definitionVersion).toBeNull();
+    expect(legacy.lines[0].detail).toContain("3.5");
+    expect(legacy.lines[0].detail).toContain("C");
+
+    const receipt = buildReceipt(opening, [], "today", {
+      sessionId: "session-1",
+      definitionKey: "opening",
+      definitionVersion: 1,
+      actorId: "actor-1",
+      branchId: "branch-1",
+      completedAt: "2026-06-04T08:00:00Z",
+    });
+
+    expect(receipt.sessionId).toBe("session-1");
+    expect(receipt.definitionKey).toBe("opening");
+    expect(receipt.definitionVersion).toBe(1);
+    expect(receipt.actorId).toBe("actor-1");
+    expect(receipt.branchId).toBe("branch-1");
+    expect(receipt.completedAt).toBe("2026-06-04T08:00:00Z");
+  });
 });
 
 describe("stockVarianceKg", () => {

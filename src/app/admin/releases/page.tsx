@@ -1,18 +1,13 @@
-import { redirect } from "next/navigation";
-
 import { AdminReleasesClient } from "@/components/admin-releases-client";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
 import { getReleaseGovernance } from "@/lib/server/releases";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminReleasesPage() {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
+  // Owner-only: re-checked here in the data path, not merely in middleware.
+  await requireStaffContext("owner");
 
   const governance = await getReleaseGovernance();
 

@@ -5,7 +5,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getCurrentProfile } from "@/lib/server/auth";
-import { getPublicBranch } from "@/lib/server/catalog";
+import { getPublicBranchResult } from "@/lib/server/catalog";
 
 type NavLink = { href: string; label: string; icon: typeof Beef };
 
@@ -28,7 +28,8 @@ const MANAGER_LINKS: NavLink[] = [
 ];
 
 export async function SiteHeader() {
-  const [profile, branch] = await Promise.all([getCurrentProfile(), getPublicBranch()]);
+  const [profile, branchResult] = await Promise.all([getCurrentProfile(), getPublicBranchResult()]);
+  const branchAddress = branchResult.data?.address ?? "Branch configuration required";
 
   const isStaff = profile?.role === "staff" || profile?.role === "manager" || profile?.role === "owner";
   const isManager = profile?.role === "manager" || profile?.role === "owner";
@@ -50,7 +51,7 @@ export async function SiteHeader() {
             <span className="block truncate text-sm font-black uppercase tracking-[0.08em]">
               PlaiceToMeat
             </span>
-            <span className="block truncate text-xs text-[#6c5e52]">{branch.address}</span>
+            <span className="block truncate text-xs text-[#6c5e52]">{branchAddress}</span>
           </span>
         </Link>
 

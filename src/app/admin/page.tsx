@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
@@ -22,12 +21,11 @@ import {
 
 import { BusinessInsightsSections } from "@/components/admin/business-insights";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getPublicBranch } from "@/lib/server/catalog";
-import { getDashboardMetrics } from "@/lib/server/dashboard";
-import { getOperationsIntelligence } from "@/lib/server/operations-intelligence";
-import { getShopIntelligence } from "@/lib/server/shop-intelligence";
+import type { DataState } from "@/lib/domain/data-result";
+import type { DashboardMetrics } from "@/lib/server/dashboard";
+import type { OpsIntelligence } from "@/lib/server/operations-intelligence";
+import { getOperationalSnapshotV1 } from "@/lib/server/operational-snapshot";
+import { requireStaffContext } from "@/lib/server/staff-context";
 import { formatCurrency, formatDisplayDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -65,19 +63,19 @@ const moreToolLinks: ToolLink[] = [
 ];
 
 export default async function AdminPage() {
-  const profile = await getCurrentProfile();
-
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
+  const { profile, branchId } = await requireStaffContext("manager", { branchScoped: true });
+  const snapshot = await getOperationalSnapshotV1(branchId);
+  if (!snapshot.result.data) {
+    return (
+      <PageFrame>
+        <main className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid="owner-dashboard">
+          <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />
+        </main>
+      </PageFrame>
+    );
   }
 
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
-  const [metrics, intelligence, intel] = await Promise.all([
-    getDashboardMetrics(branchId),
-    getOperationsIntelligence(branchId),
-    getShopIntelligence(branchId),
-  ]);
+  const { metrics, intelligence, shopIntelligence: intel } = snapshot.result.data;
 
   const insightPanels = buildInsightPanels(metrics, intelligence);
 
@@ -100,6 +98,8 @@ export default async function AdminPage() {
             Back to Today
           </Link>
         </header>
+
+        {snapshot.result.state !== "HEALTHY" && <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />}
 
         <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Business snapshot">
           <div>
@@ -188,9 +188,27 @@ export default async function AdminPage() {
   );
 }
 
+function TruthStateBanner({ state, message }: { state: DataState; message: string }) {
+  const label: Record<DataState, string> = {
+    HEALTHY: "Live data",
+    NO_DATA: "No data yet",
+    DEGRADED: "Some data unavailable",
+    UNAVAILABLE: "Data unavailable",
+    UNAUTHORISED: "Unauthorised",
+    CONFIGURATION_REQUIRED: "Configuration required",
+  };
+
+  return (
+    <section className="mt-4 rounded-xl border border-[#f0c66e] bg-[#fff8e6] p-4 text-sm text-[#5a3900]" data-testid="truth-state-banner">
+      <p className="font-black">{label[state]}</p>
+      <p className="mt-1 font-semibold">{message}</p>
+    </section>
+  );
+}
+
 function buildInsightPanels(
-  metrics: Awaited<ReturnType<typeof getDashboardMetrics>>,
-  intelligence: Awaited<ReturnType<typeof getOperationsIntelligence>>,
+  metrics: DashboardMetrics,
+  intelligence: OpsIntelligence,
 ): InsightPanel[] {
   return [
     {

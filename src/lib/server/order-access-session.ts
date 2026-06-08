@@ -49,6 +49,20 @@ function decode(token: string | undefined): Grant[] {
   return decodeGrants(token, getSecret());
 }
 
+/**
+ * Preflight: is the order-access signing secret usable in this environment? Lets
+ * the checkout action refuse BEFORE mutating when (in production) the secret is
+ * missing, rather than committing an order it then cannot establish access for.
+ */
+export function isOrderAccessConfigured(): boolean {
+  try {
+    getSecret();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Grant the current browser session access to an order at a specific version. */
 export async function grantOrderAccess(publicAccessId: string, version: number): Promise<void> {
   const store = await cookies();

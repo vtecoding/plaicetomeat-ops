@@ -23,6 +23,32 @@ describe("certificate status", () => {
   });
 });
 
+describe("supplier certificate evidence gaps", () => {
+  const now = new Date("2026-05-31T12:00:00.000Z");
+
+  it("flags missing expiry even when supplier is active", () => {
+    expect(getCertificateState({ certExpiry: null, active: true }, now)).toBe("missing_expiry");
+  });
+
+  it("valid expiry alone does not guarantee document or verification", () => {
+    // getCertificateState only checks expiry, not document or verification.
+    // The compliance page must separately check documentUrl and verifiedAt to
+    // determine if a supplier has full evidence. This test documents the gap.
+    const state = getCertificateState(
+      { certExpiry: "2026-12-31", active: true, verifiedAt: null, documentUrl: null },
+      now,
+    );
+    // Returns "valid" — but no document and no verification. The UI must flag this.
+    expect(state).toBe("valid");
+    // A supplier with valid expiry but no document/verification must be shown as
+    // "Attention Required" by the compliance dashboard, not "Healthy".
+  });
+
+  it("inactive supplier is never shown as a compliance risk", () => {
+    expect(getCertificateState({ certExpiry: "2025-01-01", active: false }, now)).toBe("inactive");
+  });
+});
+
 describe("inventory risk helpers", () => {
   const now = new Date("2026-05-31T12:00:00.000Z");
 

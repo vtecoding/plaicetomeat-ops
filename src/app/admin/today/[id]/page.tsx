@@ -4,23 +4,16 @@ import { ArrowLeft } from "lucide-react";
 
 import { DecisionDetail } from "@/components/owner-brain/decision-detail";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getPublicBranch } from "@/lib/server/catalog";
 import { getOwnerBrain } from "@/lib/server/owner-brain";
+import { requireStaffContext } from "@/lib/server/staff-context";
 import { findDecision } from "@/lib/owner-brain/brain";
 
 export const dynamic = "force-dynamic";
 
 export default async function DecisionPage({ params }: { params: Promise<{ id: string }> }) {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
 
   const { id } = await params;
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
   const brain = await getOwnerBrain(branchId);
   const decision = findDecision(brain, id);
 

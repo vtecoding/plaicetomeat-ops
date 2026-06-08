@@ -2,16 +2,20 @@ import { CountdownBanner } from "@/components/countdown-banner";
 import { PayOnCollectionNote } from "@/components/pay-on-collection-note";
 import { ProductCard } from "@/components/product-card";
 import { PageFrame } from "@/components/site-header";
-import { getActiveCategories, getPublicBranch, getPublicProducts } from "@/lib/server/catalog";
+import { getActiveCategoriesResult, getPublicBranchResult, getPublicProductsResult } from "@/lib/server/catalog";
 
 export const dynamic = "force-dynamic";
 
 export default async function ShopPage() {
-  const branch = await getPublicBranch();
-  const [categories, products] = await Promise.all([
-    getActiveCategories(branch.id),
-    getPublicProducts(branch.id),
+  const branchResult = await getPublicBranchResult();
+  if (!branchResult.data) return <PublicDataUnavailable message={branchResult.message} />;
+  const branch = branchResult.data;
+  const [categoriesResult, productsResult] = await Promise.all([
+    getActiveCategoriesResult(branch.id),
+    getPublicProductsResult(branch.id),
   ]);
+  const categories = categoriesResult.data ?? [];
+  const products = productsResult.data ?? [];
   const categoriesById = new Map(categories.map((category) => [category.id, category]));
   const uncategorised = products.filter((product) => !product.categoryId || !categoriesById.has(product.categoryId));
 
@@ -29,6 +33,12 @@ export default async function ShopPage() {
         <div className="mt-6">
           <CountdownBanner />
         </div>
+
+        {(categoriesResult.state === "UNAVAILABLE" || productsResult.state === "UNAVAILABLE") && (
+          <p className="mt-8 rounded-lg border border-[#f0c66e] bg-[#fff8e6] p-5 text-sm font-semibold text-[#5a3900]" data-testid="public-truth-state">
+            Product data is temporarily unavailable. No demo products are being shown.
+          </p>
+        )}
 
         {products.length === 0 ? (
           <p className="mt-8 rounded-lg border border-[#ded6ca] bg-white p-6 text-sm text-[#6c5e52]">
@@ -78,6 +88,19 @@ export default async function ShopPage() {
             </div>
           </>
         )}
+      </main>
+    </PageFrame>
+  );
+}
+
+function PublicDataUnavailable({ message }: { message: string }) {
+  return (
+    <PageFrame>
+      <main className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+        <section className="rounded-lg border border-[#f0c66e] bg-[#fff8e6] p-6 text-[#5a3900]" data-testid="public-truth-state">
+          <h1 className="text-2xl font-black">Shop data is not ready</h1>
+          <p className="mt-3 text-sm font-semibold">{message}</p>
+        </section>
       </main>
     </PageFrame>
   );

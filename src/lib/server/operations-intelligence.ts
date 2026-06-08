@@ -18,6 +18,7 @@ import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 import { getDemoOrders } from "@/lib/data/demo";
 import { getProductCostMap } from "@/lib/server/catalog";
 import { getInventoryBatches, getSuppliers } from "@/lib/server/compliance-inventory";
+import { allowDemoFallback } from "@/lib/server/runtime-truth";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
 export type OpsIntelligence = Awaited<ReturnType<typeof getOperationsIntelligence>>;
@@ -87,7 +88,7 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
   );
 
   if (!hasSupabaseServiceEnv()) {
-    return buildFallbackIntelligence(branchId, now, expiry, compliance);
+    return buildFallbackIntelligence(branchId, now, expiry, compliance, { useDemoOrders: allowDemoFallback() });
   }
 
   const supabase = createSupabaseServiceClient();
@@ -277,8 +278,11 @@ function buildFallbackIntelligence(
   now: Date,
   expiry: ReturnType<typeof buildExpiryCommandCentre>,
   compliance: ReturnType<typeof buildCertificateForecast>,
+  options: { useDemoOrders: boolean },
 ) {
-  const orders = getDemoOrders(now).filter((order) => order.branchId === branchId && !order.isTest && order.status !== "cancelled");
+  const orders = options.useDemoOrders
+    ? getDemoOrders(now).filter((order) => order.branchId === branchId && !order.isTest && order.status !== "cancelled")
+    : [];
   const items = orders.flatMap((order) =>
     order.items.map((item) => ({
       productId: null,
@@ -350,8 +354,10 @@ function buildFallbackIntelligence(
     }),
     dataState: {
       configured: false,
-      status: "empty" as const,
-      message: "Live intelligence unavailable because Supabase service credentials are not configured.",
+      status: options.useDemoOrders ? ("empty" as const) : ("error" as const),
+      message: options.useDemoOrders
+        ? "Live intelligence unavailable because Supabase service credentials are not configured."
+        : "Live intelligence is unavailable because Supabase service credentials are not configured. No demo orders were used.",
     },
     compliance,
     morning: {

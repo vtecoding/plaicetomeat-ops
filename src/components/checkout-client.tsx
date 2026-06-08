@@ -90,12 +90,18 @@ export function CheckoutClient({
   }, [branchId, cutoffHour]);
 
   useEffect(() => {
-    if (!actionState.ok || !actionState.publicAccessId) {
+    if (!actionState.ok) {
       return;
     }
 
+    // Order placed: clear the basket either way. Only auto-navigate to the status
+    // page when the access cookie was established; otherwise we keep the customer
+    // here and show the recovery panel (the status page would 403 without access).
     window.localStorage.removeItem(getBasketStorageKey(branchId));
-    window.location.assign(`/order/status/${actionState.publicAccessId}`);
+
+    if (actionState.accessEstablished && actionState.publicAccessId) {
+      window.location.assign(`/order/status/${actionState.publicAccessId}`);
+    }
   }, [actionState, branchId]);
 
   return (
@@ -214,6 +220,20 @@ export function CheckoutClient({
             <div className="flex gap-3 rounded-lg border border-[#f0c66e] bg-[#fff6df] p-4 text-sm text-[#5a3900]" role="alert">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
               <span>{actionState.message}</span>
+            </div>
+          )}
+
+          {actionState.ok && actionState.recoveryRequired && (
+            <div className="grid gap-2 rounded-lg border border-[#9ccfb0] bg-[#f2fbf5] p-4 text-sm text-[#0f5132]" role="status">
+              <p className="font-bold">{actionState.message}</p>
+              {actionState.orderRef && (
+                <p>
+                  Your order reference is <span className="font-mono font-black">{actionState.orderRef}</span>.
+                </p>
+              )}
+              <Link href="/order/lookup" className="font-bold underline underline-offset-2">
+                Find my order
+              </Link>
             </div>
           )}
 

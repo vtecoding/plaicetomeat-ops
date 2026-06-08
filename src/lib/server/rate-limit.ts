@@ -3,7 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 
-import { createSupabasePublicClient, hasSupabasePublicEnv } from "@/lib/supabase/server";
+import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
 // V11.1 — bounded rate limiting for public endpoints (spec §8.1.3).
 //
@@ -60,11 +60,11 @@ export async function checkRateLimit(
   const cfg = RATE_LIMITS[config];
   const onFailure = (): RateLimitResult => ({ allowed: options.failClosed ? false : true, degraded: true });
 
-  if (!hasSupabasePublicEnv()) {
+  if (!hasSupabaseServiceEnv()) {
     return onFailure();
   }
   try {
-    const supabase = createSupabasePublicClient();
+    const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase.rpc("check_rate_limit", {
       p_bucket: cfg.bucket,
       p_identity: identity,

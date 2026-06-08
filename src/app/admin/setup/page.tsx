@@ -1,28 +1,18 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Circle, ShieldCheck } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
 import { setupStatusLabel, type SetupItem, type SetupItemStatus } from "@/lib/domain/setup-checklist";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getPublicBranch } from "@/lib/server/catalog";
 import { getDashboardMetrics } from "@/lib/server/dashboard";
 import { getSetupChecklist } from "@/lib/server/setup-checklist";
+import { requireStaffContext } from "@/lib/server/staff-context";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
-  const profile = await getCurrentProfile();
-
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
+  const { profile, branchId } = await requireStaffContext("manager", { branchScoped: true });
   const metrics = await getDashboardMetrics(branchId);
   const { sections, launchSafety, progress } = await getSetupChecklist(branchId, metrics);
   const isOwner = profile.role === "owner";

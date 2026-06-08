@@ -1,9 +1,9 @@
 "use server";
 
 import { ORDER_STATUSES, type Order, type OrderNote, type OrderStatus } from "@/lib/domain/types";
-import { getCurrentProfile } from "@/lib/server/auth";
 import { getCounterOrders, getOrderById, getOrderNotes } from "@/lib/server/orders";
 import { buildReadySmsOutcome } from "@/lib/server/sms";
+import { resolveBranchScopedAccess, resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type UpdateOrderStatusResult =
@@ -38,17 +38,10 @@ function safeMessage(raw: string | undefined, fallback: string): string {
 }
 
 async function requireBranchStaff(branchId: string): Promise<{ ok: true } | { ok: false; message: string }> {
-  const profile = await getCurrentProfile();
-
-  if (!profile) {
-    return { ok: false, message: "Your session has expired. Please sign in again." };
-  }
-
-  if (profile.role !== "owner" && profile.branchId !== branchId) {
-    return { ok: false, message: "Not authorised for this branch." };
-  }
-
-  return { ok: true };
+  // Owner is branch-global; everyone else may only touch their own branch. A null
+  // branch (or any mismatch) fails closed and is audited as a security event.
+  const access = await resolveBranchScopedAccess("staff", branchId);
+  return access.ok ? { ok: true } : { ok: false, message: access.message };
 }
 
 export async function updateOrderStatus(input: {
@@ -56,10 +49,10 @@ export async function updateOrderStatus(input: {
   nextStatus: OrderStatus;
   note?: string;
 }): Promise<UpdateOrderStatusResult> {
-  const profile = await getCurrentProfile();
+  const ctx = await resolveStaffContext("staff");
 
-  if (!profile) {
-    return { ok: false, message: "Your session has expired. Please sign in again." };
+  if (!ctx.ok) {
+    return { ok: false, message: ctx.message };
   }
 
   if (!ORDER_STATUSES.includes(input.nextStatus)) {
@@ -112,10 +105,10 @@ export async function updateOrderStatus(input: {
 }
 
 export async function addOrderNote(input: { orderId: string; note: string }): Promise<AddOrderNoteResult> {
-  const profile = await getCurrentProfile();
+  const ctx = await resolveStaffContext("staff");
 
-  if (!profile) {
-    return { ok: false, message: "Your session has expired. Please sign in again." };
+  if (!ctx.ok) {
+    return { ok: false, message: ctx.message };
   }
 
   const note = input.note.trim();

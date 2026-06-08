@@ -1,25 +1,17 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowLeft, Scissors } from "lucide-react";
 
 import { CarcassCalculator } from "@/components/carcass-calculator";
 import { PageFrame } from "@/components/site-header";
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
-import { getCurrentProfile } from "@/lib/server/auth";
-import { getAllProducts, getProductCostMap, getPublicBranch } from "@/lib/server/catalog";
+import { getAllProducts, getProductCostMap } from "@/lib/server/catalog";
 import { getSuppliers } from "@/lib/server/compliance-inventory";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const metadata = { title: "Cutting & Pricing Guide" };
 export const dynamic = "force-dynamic";
 
 export default async function CuttingGuidePage() {
-  const profile = await getCurrentProfile();
-  if (!profile || !MANAGER_ROLES.includes(profile.role)) {
-    redirect("/");
-  }
-
-  const branch = await getPublicBranch();
-  const branchId = profile.branchId ?? branch.id;
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const [allProducts, costMap, supplierRows] = await Promise.all([
     getAllProducts(branchId),
     getProductCostMap(branchId),
@@ -52,6 +44,18 @@ export default async function CuttingGuidePage() {
               be added after the real weights are confirmed.
             </p>
           </div>
+        </div>
+
+        <div className="mt-6 rounded-md border border-[#f0d8a8] bg-[#fdf6e9] px-4 py-3 text-sm text-[#92510a]" data-testid="yield-estimate-disclaimer">
+          <p className="font-black">Yield estimates — butcher sign-off required</p>
+          <p className="mt-1">
+            All yield percentages on this page are system assumptions, not verified measurements.
+            Until a butcher has reviewed and approved them on the{" "}
+            <a href="/admin/validation/pricing" className="font-bold underline">
+              Butcher pricing sign-off
+            </a>{" "}
+            page, treat all cut pricing as estimates only.
+          </p>
         </div>
 
         <section className="mt-8">

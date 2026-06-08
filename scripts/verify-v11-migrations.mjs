@@ -18,7 +18,7 @@ import { join } from "node:path";
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER ?? "supabase_db_plaicetomeat-ops";
 const MIG_DIR = join(process.cwd(), "supabase", "migrations");
-const V11_VERSIONS = ["202606051200", "202606051300"];
+const FIRST_V11_VERSION = "202606051200";
 
 let failures = 0;
 function check(name, ok, detail = "") {
@@ -104,6 +104,40 @@ function assertV11EndState(db) {
   );
 }
 
+function assertV12AuthoritySeal(db) {
+  const serviceOnly = [
+    "public.create_checkout_order(uuid,text,text,text,date,uuid,text,text,jsonb,boolean)",
+    "public.check_rate_limit(text,text,integer,integer)",
+    "public.establish_public_order_access(text,text)",
+    "public.cancel_public_order(uuid,text,integer)",
+    "public.emit_audit_log(text,text,uuid,uuid,jsonb,text)",
+  ];
+
+  for (const signature of serviceOnly) {
+    check(
+      `${signature} NOT executable by anon`,
+      query(db, `select has_function_privilege('anon','${signature}','EXECUTE');`) === "f",
+    );
+    check(
+      `${signature} NOT executable by authenticated`,
+      query(db, `select has_function_privilege('authenticated','${signature}','EXECUTE');`) === "f",
+    );
+    check(
+      `${signature} executable by service_role`,
+      query(db, `select has_function_privilege('service_role','${signature}','EXECUTE');`) === "t",
+    );
+  }
+
+  check(
+    "legacy 9-arg create_checkout_order removed",
+    query(db, "select to_regprocedure('public.create_checkout_order(uuid,text,text,text,date,uuid,text,text,jsonb)') is null;") === "t",
+  );
+  check(
+    "transition_order_status remains authenticated-callable",
+    query(db, "select has_function_privilege('authenticated','public.transition_order_status(uuid,text,text)','EXECUTE');") === "t",
+  );
+}
+
 function main() {
   const files = migrationFiles();
 
@@ -114,13 +148,14 @@ function main() {
   applyMigrations(cleanDb, files);
   check("all migrations applied on clean DB", true);
   assertV11EndState(cleanDb);
+  assertV12AuthoritySeal(cleanDb);
   psql("postgres", `DROP DATABASE IF EXISTS ${cleanDb} (FORCE);`);
 
-  console.log("\n[2] UPGRADE: pre-V11 DB with a seeded order, then apply V11.1");
+  console.log("\n[2] UPGRADE: pre-V11 DB with a seeded order, then apply V11+");
   const upDb = "ptm_v11_upgrade";
   recreate(upDb);
-  const preV11 = files.filter((f) => !V11_VERSIONS.includes(versionOf(f)));
-  const v11 = files.filter((f) => V11_VERSIONS.includes(versionOf(f)));
+  const preV11 = files.filter((f) => versionOf(f) < FIRST_V11_VERSION);
+  const v11AndLater = files.filter((f) => versionOf(f) >= FIRST_V11_VERSION);
   applyMigrations(upDb, preV11);
 
   // Seed a representative pre-V11 order.
@@ -143,8 +178,8 @@ function main() {
     query(upDb, "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='get_public_order';") === "1",
   );
 
-  // Apply V11.1.
-  applyMigrations(upDb, v11);
+  // Apply V11.1 and later forward-only seals.
+  applyMigrations(upDb, v11AndLater);
 
   // Post-upgrade: existing order backfilled with a unique, non-null access id.
   check(
@@ -160,6 +195,7 @@ function main() {
     query(upDb, "select public_access_version from public.orders where order_ref='PTM-2000-00001';") === "1",
   );
   assertV11EndState(upDb);
+  assertV12AuthoritySeal(upDb);
   psql("postgres", `DROP DATABASE IF EXISTS ${upDb} (FORCE);`);
 
   console.log("");

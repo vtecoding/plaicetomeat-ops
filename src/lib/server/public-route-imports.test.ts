@@ -19,7 +19,6 @@ const PUBLIC_SURFACE = [
   "src/app/actions/establish-order-access.ts",
   "src/lib/server/public-order-access.ts",
   "src/lib/server/order-access-session.ts",
-  "src/lib/server/rate-limit.ts",
 ];
 
 const FORBIDDEN_IMPORTS = ["createSupabaseServiceClient", "getOrderByRef", "ORDER_SELECT", "@/lib/server/orders"];
@@ -38,6 +37,18 @@ describe("public order surface import graph", () => {
     const src = readFileSync(join(ROOT, "src/lib/server/public-order-access.ts"), "utf8");
     expect(src.includes("createSupabasePublicClient")).toBe(true);
     expect(src.includes("createSupabaseServiceClient")).toBe(false);
+  });
+
+  it("rate-limit is service-mediated but only touches the rate-limit RPC", () => {
+    const src = readFileSync(join(ROOT, "src/lib/server/rate-limit.ts"), "utf8");
+    expect(src.includes("createSupabaseServiceClient")).toBe(true);
+    expect(src.includes("check_rate_limit")).toBe(true);
+    expect(src.includes('.from("orders")')).toBe(false);
+    expect(src.includes(".from('orders')")).toBe(false);
+    expect(src.includes("ORDER_SELECT")).toBe(false);
+    expect(src.includes("create_checkout_order")).toBe(false);
+    expect(src.includes("establish_public_order_access")).toBe(false);
+    expect(src.includes("cancel_public_order")).toBe(false);
   });
 
   it("getOrderByRef no longer exists in the orders repository", () => {

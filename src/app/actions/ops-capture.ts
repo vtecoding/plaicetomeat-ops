@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
-import { MANAGER_ROLES } from "@/lib/domain/route-access";
 import type { OpsStepState } from "@/lib/ops-capture/types";
-import { getCurrentProfile } from "@/lib/server/auth";
+import { log } from "@/lib/server/observability/log";
+import { incrementMetric } from "@/lib/server/observability/metrics";
+import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ActionResult = { ok: true; message: string; id?: string } | { ok: false; message: string };
@@ -16,7 +17,16 @@ const SAFE_PATTERNS = [
   "Unknown checklist type",
   "Checklist not found",
   "Checklist step is required",
+  "Unknown checklist step",
   "Invalid checklist step state",
+  "Invalid checklist evidence payload",
+  "Invalid checklist evidence value",
+  "Checklist evidence value is out of range",
+  "Confirmation checklist steps cannot carry evidence values",
+  "Skipped checklist steps cannot carry evidence values",
+  "Checklist cannot be completed without evidence",
+  "Checklist is incomplete",
+  "Checklist definition is not configured",
   "This checklist is already finished",
   "This checklist can no longer be completed",
   "This checklist is not a stock count",
@@ -24,6 +34,7 @@ const SAFE_PATTERNS = [
   "This stock count line is already applied",
   "Stock count line not found",
   "Stock item not found",
+  "STALE_STOCK_COUNT",
   "Counted weight cannot be negative",
   "Stock left cannot exceed the actual weight received",
   "Stock correction did not change the weight",
@@ -37,10 +48,8 @@ function safeMessage(raw: string | undefined, fallback: string) {
 }
 
 async function requireManager(): Promise<{ ok: true } | { ok: false; message: string }> {
-  const profile = await getCurrentProfile();
-  if (!profile) return { ok: false, message: "Your session has expired. Please sign in again." };
-  if (!MANAGER_ROLES.includes(profile.role)) return { ok: false, message: "Only managers and owners can do this." };
-  return { ok: true };
+  const ctx = await resolveStaffContext("manager");
+  return ctx.ok ? { ok: true } : { ok: false, message: ctx.message };
 }
 
 function revalidateOps() {
@@ -99,7 +108,11 @@ export async function completeChecklist(input: { sessionId: string }): Promise<A
     p_session_id: input.sessionId,
     p_source: "checklist",
   });
-  if (error) return { ok: false, message: safeMessage(error.message, "Could not finish this checklist.") };
+  if (error) {
+    incrementMetric("checklist_completion_failure");
+    log("OPS_CAPTURE", "warn", "checklist completion failed", { error: error.message });
+    return { ok: false, message: safeMessage(error.message, "Could not finish this checklist.") };
+  }
   revalidateOps();
   return { ok: true, message: "All done.", id: String(data) };
 }
@@ -136,7 +149,13 @@ export async function applyStockCountLine(input: {
     p_line_id: input.lineId,
     p_reason: input.reason ?? null,
   });
-  if (error) return { ok: false, message: safeMessage(error.message, "Could not apply this count.") };
+  if (error) {
+    if (error.message.includes("STALE_STOCK_COUNT")) {
+      incrementMetric("inventory_stale_rejection");
+      log("INVENTORY", "warn", "stale stock-count apply rejected", { sessionId: input.sessionId });
+    }
+    return { ok: false, message: safeMessage(error.message, "Could not apply this count.") };
+  }
   revalidateOps();
   return { ok: true, message: "Stock updated.", id: String(data) };
 }

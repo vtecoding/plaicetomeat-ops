@@ -38,7 +38,14 @@ export function AdminComplianceClient({ branchId, suppliers }: { branchId: strin
     return days !== null && days > 30 && days <= 90;
   });
   const missing = activeSuppliers.filter((supplier) => !supplier.certExpiry);
-  const health = expired.length + expires7.length > 0 ? "Critical" : expires30.length + missing.length > 0 ? "Attention Required" : "Healthy";
+  const noDocument = activeSuppliers.filter((supplier) => !supplier.documentUrl);
+  const notVerified = activeSuppliers.filter((supplier) => !supplier.verifiedAt);
+  const health =
+    expired.length + expires7.length > 0
+      ? "Critical"
+      : expires30.length + missing.length + noDocument.length + notVerified.length > 0
+        ? "Attention Required"
+        : "Healthy";
 
   return (
     <div>
@@ -76,7 +83,22 @@ export function AdminComplianceClient({ branchId, suppliers }: { branchId: strin
           <ComplianceMetric label="Expires in 7 days" value={expires7.length} />
           <ComplianceMetric label="Expired" value={expired.length} />
         </dl>
-        {missing.length > 0 && <p className="mt-3 text-sm font-semibold text-[#5a3900]">{missing.length} active supplier certificate expiry missing.</p>}
+        <dl className="mt-3 grid gap-3 sm:grid-cols-3" data-testid="compliance-gaps">
+          <ComplianceMetric label="No expiry date" value={missing.length} />
+          <ComplianceMetric label="No certificate document" value={noDocument.length} />
+          <ComplianceMetric label="Not verified" value={notVerified.length} />
+        </dl>
+        {(missing.length > 0 || noDocument.length > 0 || notVerified.length > 0) && (
+          <p className="mt-3 rounded-md border border-[#f0d8a8] bg-[#fdf6e9] px-3 py-2 text-sm font-semibold text-[#92510a]" data-testid="compliance-gap-warning">
+            {[
+              missing.length > 0 && `${missing.length} supplier(s) have no expiry date`,
+              noDocument.length > 0 && `${noDocument.length} supplier(s) have no certificate document`,
+              notVerified.length > 0 && `${notVerified.length} supplier(s) have not been verified`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}. Compliance cannot be considered healthy until all are resolved.
+          </p>
+        )}
       </section>
 
       <SupplierForm branchId={branchId} onResult={announce} />

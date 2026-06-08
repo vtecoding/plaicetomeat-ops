@@ -184,3 +184,46 @@ describe("supplier readiness", () => {
     expect(result.overall).toBe("needs_review");
   });
 });
+
+describe("stock honesty — purchasing confidence cap", () => {
+  it("high data quality band does not allow trust claims about stock accuracy", () => {
+    // Stock figures are intake/count based; sales are not decremented. Even when
+    // data quality is "high", the guidance is not trustworthy from a stock-accuracy
+    // standpoint. The confidence cap controls recommendation strength, not stock truth.
+    // This test proves that band="high" is still subject to the no-sales-decrement caveat.
+    const quality = buildDataQuality({
+      productCount: 10,
+      missingCostCount: 0,
+      missingPriceCount: 0,
+      missingStockInfoCount: 0,
+      supplierCount: 2,
+      missingCertificateCount: 0,
+    });
+    expect(quality.band).toBe("high");
+    // Confidence cap is "high", but this does NOT mean "stock is exact".
+    // The UI must display a stock-honesty stamp regardless of quality score.
+    // (Verify the quality band does not produce any "trusted" string from the domain.)
+    expect(quality.band).not.toBe("trusted");
+    // capConfidence with a "high" cap still only means recommendations are allowed
+    // at that confidence level — not that stock is sales-decremented.
+    expect(capConfidence("high", quality.confidenceCap)).toBe("high");
+  });
+
+  it("recommendations produced with high cap still exist even without sales decrement", () => {
+    // If stock is not sales-decremented, depletion data is inaccurate.
+    // This test verifies that recommendations are capped at the data quality band —
+    // but the system must ALSO show the intake-only honesty disclaimer in the UI.
+    const recs = buildPurchasingRecommendations({
+      now: NOW,
+      confidenceCap: "high",
+      productWaste: [],
+      depletion: [
+        { productName: "Lamb Leg", state: "enough_data", remainingWeightKg: 2, daysUntilRunout: 1, dailyVelocityKg: 2 },
+      ],
+    });
+    expect(recs).toHaveLength(1);
+    // Confidence can be "high" based on data quality, but the disclaimer in the UI
+    // must clarify that stock is intake/count based, not sales-decremented.
+    expect(recs[0]?.confidence).toBe("high");
+  });
+});

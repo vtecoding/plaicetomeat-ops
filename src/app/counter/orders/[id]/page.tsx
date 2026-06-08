@@ -5,9 +5,8 @@ import { ArrowLeft } from "lucide-react";
 import { PageFrame } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { demoPickupWindows } from "@/lib/data/demo";
 import { getOrderById } from "@/lib/server/orders";
-import { formatCurrency, formatDisplayDate, formatTimeRange } from "@/lib/utils";
+import { formatCurrency, formatDisplayDate } from "@/lib/utils";
 
 export default async function CounterOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -16,8 +15,6 @@ export default async function CounterOrderDetailPage({ params }: { params: Promi
   if (!order) {
     notFound();
   }
-
-  const pickupWindow = demoPickupWindows.find((item) => item.id === order.pickupWindowId);
 
   return (
     <PageFrame>
@@ -33,8 +30,7 @@ export default async function CounterOrderDetailPage({ params }: { params: Promi
           <Badge tone="blue">{order.status}</Badge>
           <h1 className="mt-4 text-4xl font-black">{order.orderRef}</h1>
           <p className="mt-2 text-[#6c5e52]">
-            {order.customerName} - {formatDisplayDate(order.pickupDate)} -{" "}
-            {pickupWindow ? formatTimeRange(pickupWindow.startTime, pickupWindow.endTime) : "Pickup window"}
+            {order.customerName} - {formatDisplayDate(order.pickupDate)} - Pickup window
           </p>
 
           <div className="mt-6 divide-y divide-[#eee5d8] rounded-lg border border-[#eee5d8]">

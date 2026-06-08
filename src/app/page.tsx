@@ -6,7 +6,7 @@ import { CountdownBanner } from "@/components/countdown-banner";
 import { PayOnCollectionNote } from "@/components/pay-on-collection-note";
 import { PageFrame } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
-import { getPublicBranch, getPublicProducts } from "@/lib/server/catalog";
+import { getPublicBranchResult, getPublicProductsResult } from "@/lib/server/catalog";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -19,8 +19,11 @@ function priceLabel(price: number, unitType: string) {
 }
 
 export default async function Home() {
-  const branch = await getPublicBranch();
-  const products = await getPublicProducts(branch.id);
+  const branchResult = await getPublicBranchResult();
+  if (!branchResult.data) return <PublicDataUnavailable message={branchResult.message} />;
+  const branch = branchResult.data;
+  const productsResult = await getPublicProductsResult(branch.id);
+  const products = productsResult.data ?? [];
   const featuredProducts = products.slice(0, 3);
 
   return (
@@ -124,6 +127,19 @@ export default async function Home() {
               </div>
             )}
           </div>
+        </section>
+      </main>
+    </PageFrame>
+  );
+}
+
+function PublicDataUnavailable({ message }: { message: string }) {
+  return (
+    <PageFrame>
+      <main className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+        <section className="rounded-lg border border-[#f0c66e] bg-[#fff8e6] p-6 text-[#5a3900]" data-testid="public-truth-state">
+          <h1 className="text-2xl font-black">Shop data is not ready</h1>
+          <p className="mt-3 text-sm font-semibold">{message}</p>
         </section>
       </main>
     </PageFrame>

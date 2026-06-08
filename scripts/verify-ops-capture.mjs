@@ -130,7 +130,7 @@ async function main() {
       p_session_id: openingId,
       p_step_key: "fridge_temp",
       p_state: "done",
-      p_payload: { temp_c: 3.5 },
+      p_payload: { value: 3.5 },
       p_idempotency_key: "k-fridge",
     });
     check("step recorded", !r1.error && !!r1.data, r1.error?.message);
@@ -139,7 +139,7 @@ async function main() {
       p_session_id: openingId,
       p_step_key: "fridge_temp",
       p_state: "done",
-      p_payload: { temp_c: 3.5 },
+      p_payload: { value: 3.5 },
       p_idempotency_key: "k-fridge",
     });
     check("step idempotent on key (same event id)", r2.data === r1.data, `r1=${r1.data} r2=${r2.data}`);
@@ -166,6 +166,21 @@ async function main() {
 
   // 5. Complete is idempotent, and steps can't be recorded afterwards.
   {
+    for (const [stepKey, payload] of [
+      ["certs_visible", {}],
+      ["float_ready", { value: 120 }],
+      ["open_sign", {}],
+    ]) {
+      const r = await manager.rpc("ops_record_step", {
+        p_session_id: openingId,
+        p_step_key: stepKey,
+        p_state: "done",
+        p_payload: payload,
+        p_idempotency_key: `k-${stepKey}`,
+      });
+      check(`required step recorded before completion: ${stepKey}`, !r.error && !!r.data, r.error?.message);
+    }
+
     const c1 = await manager.rpc("ops_complete_session", { p_session_id: openingId });
     check("complete succeeds", !c1.error && c1.data === openingId, c1.error?.message);
     const c2 = await manager.rpc("ops_complete_session", { p_session_id: openingId });

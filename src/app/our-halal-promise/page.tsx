@@ -2,13 +2,15 @@ import { ShieldCheck } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
 import { certificateStateLabel } from "@/lib/domain/compliance-inventory";
-import { getPublicBranch } from "@/lib/server/catalog";
+import { getPublicBranchResult } from "@/lib/server/catalog";
 import { getSuppliers } from "@/lib/server/compliance-inventory";
 
 export const dynamic = "force-dynamic";
 
 export default async function HalalPromisePage() {
-  const branch = await getPublicBranch();
+  const branchResult = await getPublicBranchResult();
+  if (!branchResult.data) return <PublicDataUnavailable message={branchResult.message} />;
+  const branch = branchResult.data;
   const suppliers = await getSuppliers(branch.id, { publicOnly: true });
   const lastUpdated = suppliers
     .map((supplier) => new Date(supplier.updatedAt).getTime())
@@ -80,6 +82,19 @@ export default async function HalalPromisePage() {
               </article>
             ))
           )}
+        </section>
+      </main>
+    </PageFrame>
+  );
+}
+
+function PublicDataUnavailable({ message }: { message: string }) {
+  return (
+    <PageFrame>
+      <main className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+        <section className="rounded-lg border border-[#f0c66e] bg-[#fff8e6] p-6 text-[#5a3900]" data-testid="public-truth-state">
+          <h1 className="text-2xl font-black">Supplier evidence is not ready</h1>
+          <p className="mt-3 text-sm font-semibold">{message}</p>
         </section>
       </main>
     </PageFrame>

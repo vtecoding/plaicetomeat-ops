@@ -1,0 +1,29 @@
+name: Migration Upgrade
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  migration-upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: npx supabase start
+      - run: node scripts/seed-dev.mjs
+      - run: node scripts/verify-v11-migrations.mjs
+      - run: pnpm release:report
+        env:
+          RELEASE_REPORT_MODE: local
+          MIGRATION_DRIFT_CHECK_MODE: local
