@@ -58,14 +58,24 @@ production environment loaded (and `PRODUCTION_READINESS_MODE=strict`).
 
 ## 8. Backups
 
-- [ ] Supabase automated backups enabled; latest backup < 24h old (`backup.md`).
-- [ ] PITR status known and recorded.
+> **BLOCKER (2026-06-08):** Supabase Free Plan has no automated backups.
+> Current drill verdict: RECOVERY_BLOCKED. Must be resolved before launch.
+> See `docs/reports/disaster-recovery-certification.md` for full findings.
+> Options: (A) upgrade to Supabase Pro, or (B) implement pg_dump backup pipeline.
+
+- [ ] **BLOCKER** Supabase automated backups enabled (Pro plan or pg_dump pipeline).
+      Free Plan confirmed NOT sufficient — no backup = no recovery.
+- [ ] Latest backup confirmed < 24h old (`backup.md`).
+- [ ] PITR status known and recorded (Pro plan only).
 - [ ] Production secrets recorded in the team password manager.
+- [ ] All repository migrations applied to the production project
+      (`supabase db push` — `pricing_validations` and other V13 tables confirmed absent
+      from cloud project as of 2026-06-08).
 - [ ] Restore drill performed this quarter into a throwaway project (`restore.md`).
 - [ ] Latest restore drill PASSED: `RECOVERY_ENVIRONMENT=PRODUCTION STRICT=1
       node scripts/verify-disaster-recovery.mjs` — verdict `RECOVERY_CERTIFIED`,
       dated within this quarter. Report at `docs/reports/disaster-recovery-certification.md`
-      (must begin `REAL PRODUCTION RECOVERY DRILL`, not `LOCAL TEST DATA ONLY`).
+      (must begin `REAL PRODUCTION RECOVERY DRILL`, not `RECOVERY DRILL BLOCKED`).
 
 ## 9. Observability
 
