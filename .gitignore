@@ -57,3 +57,7 @@ audit-results/_*
 /screenshots-v11/
 /screenshots-v11.zip
 /plaicetomeat-v11-source.zip
+
+# backup archives — encrypted .backup.enc files are stored as GitHub Actions artifacts.
+# Raw dumps are deleted after encryption and must never be committed.
+/backups/

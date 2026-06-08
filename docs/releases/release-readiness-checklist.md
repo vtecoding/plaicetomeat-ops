@@ -1,6 +1,6 @@
 # Release Readiness Checklist
 
-Last reviewed: 2026-06-07 (V12.9)
+Last reviewed: 2026-06-08 (V13.4)
 Purpose: the gate to clear before promoting PlaiceToMeat to production. Run top to
 bottom; every item must be checked or have a recorded, accepted exception.
 
@@ -16,8 +16,9 @@ production environment loaded (and `PRODUCTION_READINESS_MODE=strict`).
 
 ## 2. Migrations
 
-- [ ] All repository migrations applied to the production DB
-      (`supabase db push` completed for any new V12.x migrations).
+- [ ] All repository migrations applied to the production DB.
+      V13.3 drill found `pricing_validations` (V13.1) and other V13 tables absent.
+      Apply with: `supabase db push --project-ref <ref>` or via Supabase management API.
 - [ ] `node scripts/check-migrations.mjs` (release mode) — PASS, no drift.
 - [ ] `verify-production-readiness.mjs` migration parity — PASS (strict/prod).
 
@@ -56,25 +57,27 @@ production environment loaded (and `PRODUCTION_READINESS_MODE=strict`).
 - [ ] Audit rows are written and non-forgeable (covered by §4 scripts).
 - [ ] `security_event` emission observed for a failed login attempt.
 
-## 8. Backups
+## 8. Backups (V13.4 free-tier system)
 
-> **BLOCKER (2026-06-08):** Supabase Free Plan has no automated backups.
-> Current drill verdict: RECOVERY_BLOCKED. Must be resolved before launch.
-> See `docs/reports/disaster-recovery-certification.md` for full findings.
-> Options: (A) upgrade to Supabase Pro, or (B) implement pg_dump backup pipeline.
+> V13.3 drill (2026-06-08) found: Supabase Free Plan has no automated backups.
+> V13.4 builds a free-tier backup system via GitHub Actions.
+> See `docs/runbooks/free-tier-backups.md`.
 
-- [ ] **BLOCKER** Supabase automated backups enabled (Pro plan or pg_dump pipeline).
-      Free Plan confirmed NOT sufficient — no backup = no recovery.
-- [ ] Latest backup confirmed < 24h old (`backup.md`).
-- [ ] PITR status known and recorded (Pro plan only).
-- [ ] Production secrets recorded in the team password manager.
-- [ ] All repository migrations applied to the production project
-      (`supabase db push` — `pricing_validations` and other V13 tables confirmed absent
-      from cloud project as of 2026-06-08).
-- [ ] Restore drill performed this quarter into a throwaway project (`restore.md`).
-- [ ] Latest restore drill PASSED: `RECOVERY_ENVIRONMENT=PRODUCTION STRICT=1
-      node scripts/verify-disaster-recovery.mjs` — verdict `RECOVERY_CERTIFIED`,
-      dated within this quarter. Report at `docs/reports/disaster-recovery-certification.md`
+- [ ] GitHub Actions secrets set: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+      `BACKUP_ENCRYPTION_KEY`, `CANONICAL_BRANCH_ID`
+      (repo → Settings → Secrets and variables → Actions).
+- [ ] `.github/workflows/production-backup.yml` enabled and at least one successful
+      daily run confirmed (Actions tab → Production Backup → green tick).
+- [ ] `BACKUP_ENCRYPTION_KEY` saved in team password manager (without it, no restore is possible).
+- [ ] Latest backup verified: `BACKUP_ENVIRONMENT=PRODUCTION STRICT=1 BACKUP_ENCRYPTION_KEY=<key>
+      node scripts/verify-latest-backup.mjs` — `BACKUP_CERTIFIED`.
+- [ ] Production secrets recorded in the team password manager
+      (`SUPABASE_SERVICE_ROLE_KEY`, `ORDER_ACCESS_SECRET`, `STAFF_SESSION_SECRET`,
+      `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `CANONICAL_BRANCH_ID`).
+- [ ] Quarterly restore drill PASSED:
+      `node scripts/restore-backup-local.mjs` → `node scripts/verify-disaster-recovery.mjs`
+      — verdict `RECOVERY_CERTIFIED`, dated within this quarter.
+      Report at `docs/reports/disaster-recovery-certification.md`
       (must begin `REAL PRODUCTION RECOVERY DRILL`, not `RECOVERY DRILL BLOCKED`).
 
 ## 9. Observability
