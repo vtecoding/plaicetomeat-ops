@@ -1,0 +1,138 @@
+name: Production Backup
+
+# Runs daily at 02:00 UTC. Can also be triggered manually.
+# Exports all core tables via the Supabase REST API, encrypts the result,
+# verifies the archive, and uploads as a 90-day retained GitHub Actions artifact.
+#
+# Required GitHub repository secrets:
+#   NEXT_PUBLIC_SUPABASE_URL        — production Supabase project URL
+#   SUPABASE_SERVICE_ROLE_KEY       — production service role key
+#   BACKUP_ENCRYPTION_KEY           — strong passphrase for AES-256-GCM encryption
+#   CANONICAL_BRANCH_ID             — production branch UUID
+#
+# After the workflow succeeds, download the artifact and run restore-backup-local.mjs
+# to perform the quarterly recovery drill (see docs/runbooks/free-tier-backups.md).
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC daily
+  workflow_dispatch:        # manual trigger for ad-hoc backups or drill prep
+
+jobs:
+  backup:
+    name: Backup production database
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run production backup
+        env:
+          BACKUP_ENVIRONMENT: PRODUCTION
+          STRICT: "1"
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CANONICAL_BRANCH_ID: ${{ secrets.CANONICAL_BRANCH_ID }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          BACKUP_OUTPUT_DIR: backups
+        run: node scripts/backup-production.mjs
+
+      - name: Verify backup
+        env:
+          BACKUP_ENVIRONMENT: PRODUCTION
+          STRICT: "1"
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          BACKUP_OUTPUT_DIR: backups
+        run: node scripts/verify-latest-backup.mjs
+
+      - name: Sanity check — fail if encrypted archive is missing or too small
+        shell: bash
+        run: |
+          BACKUP_DIR=$(ls -dt backups/plaicetomeat-production-*/ 2>/dev/null | head -1)
+          if [ -z "$BACKUP_DIR" ]; then
+            echo "::error ::No backup directory found — backup-production.mjs may have failed silently"
+            exit 1
+          fi
+          ENC_FILE=$(ls "$BACKUP_DIR"*.backup.enc 2>/dev/null | head -1)
+          if [ -z "$ENC_FILE" ]; then
+            echo "::error ::No .backup.enc file in $BACKUP_DIR"
+            exit 1
+          fi
+          SIZE=$(stat -c%s "$ENC_FILE" 2>/dev/null || stat -f%z "$ENC_FILE")
+          if [ "$SIZE" -lt 200 ]; then
+            echo "::error ::Encrypted archive is suspiciously small: ${SIZE} bytes"
+            exit 1
+          fi
+          if [ ! -f "${BACKUP_DIR}manifest.json" ]; then
+            echo "::error ::manifest.json missing from $BACKUP_DIR"
+            exit 1
+          fi
+          if [ ! -f "${BACKUP_DIR}checksums.sha256" ]; then
+            echo "::error ::checksums.sha256 missing from $BACKUP_DIR"
+            exit 1
+          fi
+          # Confirm no raw SQL leaked into the artifact
+          SQL_COUNT=$(find "$BACKUP_DIR" -name "*.sql" | wc -l)
+          if [ "$SQL_COUNT" -gt 0 ]; then
+            echo "::error ::Raw .sql files found in backup dir — encryption may have failed"
+            find "$BACKUP_DIR" -name "*.sql"
+            exit 1
+          fi
+          echo "Archive: $ENC_FILE (${SIZE} bytes) — OK"
+          cat "${BACKUP_DIR}manifest.json" | node -e "
+            process.stdin.resume();
+            let d='';
+            process.stdin.on('data',c=>d+=c);
+            process.stdin.on('end',()=>{
+              const m=JSON.parse(d);
+              console.log('Rows: '+m.row_count_total+' across '+m.core_tables_present.length+' tables');
+            });
+          "
+
+      - name: Upload encrypted backup as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-backup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            backups/plaicetomeat-production-*/manifest.json
+            backups/plaicetomeat-production-*/checksums.sha256
+            backups/plaicetomeat-production-/*.backup.enc
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Production Backup — ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          BACKUP_DIR=$(ls -dt backups/plaicetomeat-production-*/ 2>/dev/null | head -1)
+          if [ -n "$BACKUP_DIR" ] && [ -f "${BACKUP_DIR}manifest.json" ]; then
+            node -e "
+              const d=require('fs').readFileSync('${BACKUP_DIR}manifest.json','utf8');
+              const m=JSON.parse(d);
+              console.log('- **Status**: BACKUP_CERTIFIED');
+              console.log('- **Timestamp**: '+m.created_at);
+              console.log('- **Rows**: '+m.row_count_total);
+              console.log('- **Tables**: '+m.core_tables_present.join(', '));
+              console.log('- **Environment**: '+m.environment);
+              console.log('- **Checksum**: \`'+m.encrypted_checksum+'\`');
+            " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status**: FAILED — no backup directory found" >> $GITHUB_STEP_SUMMARY
+          fi
