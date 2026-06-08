@@ -1,14 +1,61 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   STAFF_SESSION_ABSOLUTE_TIMEOUT_MS,
   STAFF_SESSION_IDLE_TIMEOUT_MS,
   issueEnvelope,
 } from "@/lib/domain/session-envelope";
-import { evaluateStaffSession, signEnvelope, verifyEnvelope } from "@/lib/server/staff-session";
+import {
+  evaluateStaffSession,
+  hasStaffSessionSecret,
+  signEnvelope,
+  verifyEnvelope,
+} from "@/lib/server/staff-session";
 
 const SECRET = "test-secret-".padEnd(40, "x");
 const OTHER_SECRET = "different-secret-".padEnd(40, "y");
+
+describe("hasStaffSessionSecret (graceful config guard)", () => {
+  const original = {
+    staff: process.env.STAFF_SESSION_SECRET,
+    order: process.env.ORDER_ACCESS_SECRET,
+  };
+
+  afterEach(() => {
+    process.env.STAFF_SESSION_SECRET = original.staff;
+    process.env.ORDER_ACCESS_SECRET = original.order;
+  });
+
+  it("is false when neither secret is set (the outage condition)", () => {
+    delete process.env.STAFF_SESSION_SECRET;
+    delete process.env.ORDER_ACCESS_SECRET;
+    expect(hasStaffSessionSecret()).toBe(false);
+  });
+
+  it("is false when the configured secret is too short", () => {
+    delete process.env.ORDER_ACCESS_SECRET;
+    process.env.STAFF_SESSION_SECRET = "too-short";
+    expect(hasStaffSessionSecret()).toBe(false);
+  });
+
+  it("is true with a sufficiently long STAFF_SESSION_SECRET", () => {
+    delete process.env.ORDER_ACCESS_SECRET;
+    process.env.STAFF_SESSION_SECRET = "x".repeat(32);
+    expect(hasStaffSessionSecret()).toBe(true);
+  });
+
+  it("falls back to ORDER_ACCESS_SECRET when STAFF_SESSION_SECRET is unset", () => {
+    delete process.env.STAFF_SESSION_SECRET;
+    process.env.ORDER_ACCESS_SECRET = "y".repeat(40);
+    expect(hasStaffSessionSecret()).toBe(true);
+  });
+
+  it("never throws regardless of configuration", () => {
+    delete process.env.STAFF_SESSION_SECRET;
+    delete process.env.ORDER_ACCESS_SECRET;
+    expect(() => hasStaffSessionSecret()).not.toThrow();
+  });
+});
 
 describe("staff session signing", () => {
   it("round-trips a signed envelope", async () => {

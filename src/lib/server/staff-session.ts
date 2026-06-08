@@ -47,6 +47,19 @@ function getSecret(): string {
   return DEV_FALLBACK_SECRET;
 }
 
+/**
+ * Non-throwing check that a usable signing secret is configured. Callers (the
+ * Edge middleware in particular) use this to fail *closed but gracefully* when
+ * the secret is absent, instead of calling getSecret() and letting it throw — an
+ * unhandled throw inside middleware surfaces as MIDDLEWARE_INVOCATION_FAILED (a
+ * 500 on every matched route). getSecret() keeps throwing on purpose so any path
+ * that genuinely needs to sign/verify still fails loudly in production.
+ */
+export function hasStaffSessionSecret(): boolean {
+  const secret = process.env.STAFF_SESSION_SECRET || process.env.ORDER_ACCESS_SECRET;
+  return Boolean(secret && secret.length >= MIN_SECRET_LENGTH);
+}
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
