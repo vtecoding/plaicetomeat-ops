@@ -1,44 +1,18 @@
 import Link from "next/link";
-import { Beef, ClipboardCheck, LayoutDashboard, ListChecks, LogIn, ShieldCheck, ShoppingBasket, TrendingUp } from "lucide-react";
+import { LogIn } from "lucide-react";
 
 import { LogoutButton } from "@/components/logout-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { resolveNav } from "@/lib/domain/site-nav";
 import { getCurrentProfile } from "@/lib/server/auth";
 import { getPublicBranchResult } from "@/lib/server/catalog";
-
-type NavLink = { href: string; label: string; icon: typeof Beef };
-
-const PUBLIC_LINKS: NavLink[] = [
-  { href: "/shop", label: "Shop", icon: Beef },
-  { href: "/our-halal-promise", label: "Halal Promise", icon: ClipboardCheck },
-  { href: "/basket", label: "Basket", icon: ShoppingBasket },
-];
-
-const STAFF_LINKS: NavLink[] = [
-  { href: "/counter", label: "Counter", icon: LayoutDashboard },
-  { href: "/counter/compliance", label: "Food safety", icon: ShieldCheck },
-];
-
-// One door per job: Today is the only operational home; Business Insights is the
-// single analysis destination. (Briefing was retired — it redirects to Today.)
-const MANAGER_LINKS: NavLink[] = [
-  { href: "/admin/today", label: "Today", icon: ListChecks },
-  { href: "/admin", label: "Business Insights", icon: TrendingUp },
-];
 
 export async function SiteHeader() {
   const [profile, branchResult] = await Promise.all([getCurrentProfile(), getPublicBranchResult()]);
   const branchAddress = branchResult.data?.address ?? "Branch configuration required";
 
-  const isStaff = profile?.role === "staff" || profile?.role === "manager" || profile?.role === "owner";
-  const isManager = profile?.role === "manager" || profile?.role === "owner";
-
-  const links: NavLink[] = [
-    ...PUBLIC_LINKS,
-    ...(isStaff ? STAFF_LINKS : []),
-    ...(isManager ? MANAGER_LINKS : []),
-  ];
+  const { primary, shopView } = resolveNav(profile?.role);
 
   return (
     <header className="sticky top-0 z-30 border-b border-[#e2d9cc] bg-[#fbfaf7]/95 backdrop-blur">
@@ -55,8 +29,8 @@ export async function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
-          {links.map((link) => (
+        <nav className="hidden items-center gap-1 md:flex" aria-label={shopView ? "Staff tools" : "Shop"}>
+          {primary.map((link) => (
             <Button key={link.href} asChild variant="ghost" size="sm">
               <Link href={link.href}>
                 <link.icon className="h-4 w-4" aria-hidden />
@@ -64,6 +38,17 @@ export async function SiteHeader() {
               </Link>
             </Button>
           ))}
+          {shopView && (
+            <>
+              <span aria-hidden className="mx-1 h-5 w-px bg-[#e2d9cc]" />
+              <Button asChild variant="ghost" size="sm">
+                <Link href={shopView.href} className="text-[#6c5e52]" data-testid="nav-shop-view">
+                  <shopView.icon className="h-4 w-4" aria-hidden />
+                  Shop view
+                </Link>
+              </Button>
+            </>
+          )}
         </nav>
 
         <div className="flex items-center gap-2">
