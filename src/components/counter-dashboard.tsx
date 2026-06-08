@@ -23,7 +23,7 @@ import { getNextOrderActions } from "@/lib/domain/order-state";
 import { getSmsBadgeState, SMS_BADGE_LABELS, type SmsStatus } from "@/lib/domain/sms";
 import type { Order, OrderNote, OrderStatus, PickupWindow } from "@/lib/domain/types";
 import { getOrderUrgency } from "@/lib/domain/urgency";
-import { cn, formatCurrency, formatTimeRange } from "@/lib/utils";
+import { cn, formatCurrency, formatRelativeTime, formatTimeRange } from "@/lib/utils";
 
 const columns: { status: OrderStatus; label: string }[] = [
   { status: "incoming", label: "Incoming" },
@@ -390,9 +390,8 @@ const STATUS_VERB: Record<OrderStatus, string> = {
 };
 
 function statusAge(order: Order) {
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60_000));
   const verb = STATUS_VERB[order.status] ?? "Updated";
-  return `${verb} ${minutes < 1 ? "just now" : `${minutes} min ago`}`;
+  return `${verb} ${formatRelativeTime(order.createdAt)}`;
 }
 
 function urgencyLabel(order: Order, pickupWindow: PickupWindow | undefined) {
