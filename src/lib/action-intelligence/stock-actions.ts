@@ -16,7 +16,7 @@ export function buildStockActions(input: ActionEngineInput): OwnerAction[] {
       explanation:
         item.daysToExpiry < 0
           ? `${item.productName} is past expiry with value still at risk.`
-          : `${item.productName} has ${item.remainingWeightKg.toFixed(3)}kg expiring within ${item.daysToExpiry} days.`,
+          : `${item.productName} has ${item.remainingWeightKg.toFixed(3)}kg ${expiryPhrase(item.daysToExpiry)}.`,
       estimatedImpact: `${formatMoney(item.valueAtRisk)} stock value at risk.`,
       recommendedAction:
         item.daysToExpiry < 0
@@ -31,6 +31,17 @@ export function buildStockActions(input: ActionEngineInput): OwnerAction[] {
       createdAt: input.createdAt,
       confidence: "high",
     }));
+}
+
+/**
+ * Plain-English expiry wording for decision cards. "within 0 days" is robot-speak — a
+ * batch dated today should read "expiring today", tomorrow's "expiring tomorrow", and
+ * only beyond that do we fall back to a day count.
+ */
+function expiryPhrase(daysToExpiry: number) {
+  if (daysToExpiry <= 0) return "expiring today";
+  if (daysToExpiry === 1) return "expiring tomorrow";
+  return `expiring within ${daysToExpiry} days`;
 }
 
 function slug(value: string) {
