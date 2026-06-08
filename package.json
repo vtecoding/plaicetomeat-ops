@@ -28,7 +28,10 @@
     "audit:bundle": "node scripts/audit-bundle.mjs",
     "verify:pricing-validation-integrity": "node scripts/verify-pricing-validation-integrity.mjs",
     "verify:pricing-validation": "pnpm verify:pricing-validation-integrity",
-    "report:butcher-signoff": "node scripts/butcher-signoff-report.mjs"
+    "report:butcher-signoff": "node scripts/butcher-signoff-report.mjs",
+    "verify:disaster-recovery": "node scripts/verify-disaster-recovery.mjs",
+    "verify:disaster-recovery-integrity": "node scripts/verify-disaster-recovery-integrity.mjs",
+    "report:disaster-recovery": "node scripts/disaster-recovery-certification.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
