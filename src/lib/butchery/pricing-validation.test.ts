@@ -141,3 +141,34 @@ describe("summariseOverallSignoff", () => {
     expect(overall.approvedCount).toBe(overall.totalExpected);
   });
 });
+
+describe("yield sign-off — unsigned yields must be treated as estimates", () => {
+  it("INCOMPLETE verdict when no records exist (zero cuts reviewed)", () => {
+    const overall = summariseOverallSignoff([]);
+    expect(overall.verdict).toBe("INCOMPLETE");
+    expect(overall.approvedCount).toBe(0);
+    // If overall verdict is INCOMPLETE, cut pricing must be labelled as estimates.
+  });
+
+  it("INCOMPLETE verdict when only some cuts are reviewed", () => {
+    const [firstSpecies] = SPECIES_IDS;
+    const [firstCut] = firstSpecies ? expectedCutIds(firstSpecies) : [];
+    if (!firstSpecies || !firstCut) return;
+    const overall = summariseOverallSignoff([record({ species: firstSpecies, cutId: firstCut, decision: "approved" })]);
+    expect(overall.verdict).toBe("INCOMPLETE");
+    // With an INCOMPLETE verdict, all carcass/cut pricing is estimate-only.
+  });
+
+  it("CHANGES_REQUIRED when any cut is rejected by the butcher", () => {
+    const [firstSpecies] = SPECIES_IDS;
+    const [firstCut] = firstSpecies ? expectedCutIds(firstSpecies) : [];
+    if (!firstSpecies || !firstCut) return;
+    const allApproved: PricingValidationRecord[] = [];
+    for (const species of SPECIES_IDS) {
+      for (const cutId of expectedCutIds(species)) {
+        allApproved.push(record({ species, cutId, decision: species === firstSpecies && cutId === firstCut ? "changes_required" : "approved" }));
+      }
+    }
+    expect(summariseOverallSignoff(allApproved).verdict).toBe("CHANGES_REQUIRED");
+  });
+});

@@ -46,6 +46,18 @@ export default async function CuttingGuidePage() {
           </div>
         </div>
 
+        <div className="mt-6 rounded-md border border-[#f0d8a8] bg-[#fdf6e9] px-4 py-3 text-sm text-[#92510a]" data-testid="yield-estimate-disclaimer">
+          <p className="font-black">Yield estimates — butcher sign-off required</p>
+          <p className="mt-1">
+            All yield percentages on this page are system assumptions, not verified measurements.
+            Until a butcher has reviewed and approved them on the{" "}
+            <a href="/admin/validation/pricing" className="font-bold underline">
+              Butcher pricing sign-off
+            </a>{" "}
+            page, treat all cut pricing as estimates only.
+          </p>
+        </div>
+
         <section className="mt-8">
           <CarcassCalculator products={products} branchId={branchId} suppliers={suppliers} />
         </section>

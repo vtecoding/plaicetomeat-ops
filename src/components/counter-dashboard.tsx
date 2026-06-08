@@ -271,6 +271,15 @@ function CounterOrderCard({
 
       <StaffNotes notes={notes} orderId={order.id} onAddNote={onAddNote} />
 
+      {order.status === "ready" && smsState !== "sent" && (
+        <div
+          className="mt-4 rounded-md border border-[#f0d8a8] bg-[#fdf6e9] px-3 py-2 text-sm font-bold text-[#92510a]"
+          data-testid="sms-call-customer-cue"
+        >
+          Call the customer — no real text was sent.
+        </div>
+      )}
+
       {nextActions.length > 0 && (
         <div className="mt-4 grid gap-2">
           {nextActions.map((action) => (

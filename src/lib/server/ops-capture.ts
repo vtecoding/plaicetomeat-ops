@@ -206,6 +206,25 @@ export async function getStockCountState(branchId: string, now = new Date()): Pr
   return { sessionId: sessionRow ? String(sessionRow.id) : null, batches, lines };
 }
 
+/**
+ * Returns the business_date of the most recently completed stock count for a branch,
+ * or null if no stock count has ever been completed. Used to show the honesty stamp
+ * ("Last stock count: X days ago") on stock-related pages.
+ */
+export async function getLastStockCountDate(branchId: string): Promise<string | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("ops_checklist_sessions")
+    .select("business_date")
+    .eq("branch_id", branchId)
+    .eq("kind", "stock_count")
+    .eq("status", "completed")
+    .order("business_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? String(data.business_date) : null;
+}
+
 /** A persisted completion receipt for a finished opening/closing ritual. */
 export async function getChecklistReceipt(sessionId: string): Promise<ChecklistReceipt | null> {
   const supabase = await createSupabaseServerClient();

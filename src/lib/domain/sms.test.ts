@@ -6,6 +6,8 @@ import {
   renderReadySmsTemplate,
   resolveSmsMode,
   shouldSendReadySms,
+  SMS_BADGE_LABELS,
+  type SmsStatus,
   validateReadySmsTemplate,
 } from "./sms";
 
@@ -70,5 +72,28 @@ describe("getSmsBadgeState", () => {
     expect(getSmsBadgeState("2026-05-29T12:00:00Z", null, null)).toBe("sent");
     expect(getSmsBadgeState(null, "boom", null)).toBe("failed");
     expect(getSmsBadgeState(null, null, null)).toBe("not_required");
+  });
+});
+
+describe("SMS_BADGE_LABELS — no false promises", () => {
+  it("disabled label does not promise a text was sent", () => {
+    expect(SMS_BADGE_LABELS.disabled).not.toContain("sent");
+    expect(SMS_BADGE_LABELS.disabled).not.toContain("Text sent");
+  });
+
+  it("dry_run label does not claim a real text was sent", () => {
+    expect(SMS_BADGE_LABELS.dry_run).not.toBe(SMS_BADGE_LABELS.sent);
+    expect(SMS_BADGE_LABELS.dry_run.toLowerCase()).not.toContain("real text sent");
+  });
+
+  it("failed label directs staff to call the customer", () => {
+    expect(SMS_BADGE_LABELS.failed.toLowerCase()).toMatch(/call/);
+  });
+
+  it("only the sent status produces the sent label", () => {
+    const nonSentStatuses: SmsStatus[] = ["disabled", "not_required", "queued", "dry_run", "failed"];
+    for (const status of nonSentStatuses) {
+      expect(SMS_BADGE_LABELS[status]).not.toBe(SMS_BADGE_LABELS.sent);
+    }
   });
 });

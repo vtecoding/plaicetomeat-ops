@@ -168,6 +168,9 @@ export async function getCounterOrdersResult(branchId: string, now = new Date())
 export async function getCounterOrders(branchId: string, now = new Date()): Promise<Order[]> {
   const result = await getCounterOrdersResult(branchId, now);
   if (result.data) return result.data;
+  // If real credentials are configured but the query failed, do NOT silently return
+  // demo orders — that would hide a production database failure behind fake data.
+  if (hasSupabaseServiceEnv()) return [];
   return allowDemoFallback() ? getDemoOrders(now) : [];
 }
 

@@ -39,6 +39,9 @@ export default async function PurchasingPage() {
           Guidance only — you always decide. Every suggestion shows why, the figures behind it, and how confident it is.
           Generated {plan.generatedDate}.
         </p>
+        <p className="mt-2 rounded-md border border-[#f0d8a8] bg-[#fdf6e9] px-3 py-2 text-xs font-semibold text-[#92510a]" data-testid="stock-honesty-stamp">
+          Stock figures are intake/count based — sales are not deducted automatically yet. Treat all stock and depletion numbers as estimates.
+        </p>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[320px_1fr]">
           <DataQualityCard plan={plan} />
@@ -156,12 +159,8 @@ function DataQualityCard({ plan }: { plan: PurchasingPlan }) {
       <p className="mt-2 text-4xl font-black" style={{ color: tone.text }}>
         {dataQuality.score}%
       </p>
-      <p className="text-xs text-[#6c5e52]">
-        {dataQuality.band === "high"
-          ? "Recommendations can be trusted."
-          : dataQuality.band === "medium"
-            ? "Suggestions shown with reduced confidence."
-            : "Too much missing data — fill the gaps below to trust the guidance."}
+      <p className="text-xs text-[#6c5e52]" data-testid="data-quality-note">
+        {"Guidance only — stock is intake/count based until sales-linked stock movement is built."}
       </p>
       <dl className="mt-3 space-y-1">
         {dataQuality.breakdown.map((row) => (

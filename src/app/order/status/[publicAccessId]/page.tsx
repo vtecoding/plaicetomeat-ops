@@ -59,8 +59,8 @@ export default async function OrderStatusPage({ params }: { params: Promise<{ pu
 
             {order.status !== "ready" && order.status !== "collected" && order.status !== "cancelled" && (
               <p className="mt-4 rounded-md bg-[#fbfaf7] p-4 text-sm leading-6 text-[#5c5148]">
-                Thanks — your order is in. The shop is preparing it for your chosen collection time. You&apos;ll pay at the
-                counter when you collect. Keep this page to check your live status.
+                Thanks — your order is in. The shop is preparing it for your chosen collection time. The shop will contact
+                you when your order is ready. You&apos;ll pay at the counter when you collect. Keep this page to check your live status.
               </p>
             )}
 
