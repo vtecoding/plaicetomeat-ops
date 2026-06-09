@@ -86,6 +86,7 @@ export function makeSnapshot(over: Partial<ShopSnapshot> = {}): ShopSnapshot {
       ],
       supplierReadiness: "ready",
     },
+    inventoryTruth: [],
     system: { failedSmsToday: 0, realtimeHealthy: true },
     ownerActions: [makeAction()],
     ...over,

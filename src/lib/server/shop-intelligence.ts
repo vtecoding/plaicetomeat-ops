@@ -1,6 +1,7 @@
 import "server-only";
 
 import { buildWeightedBatchCostMap } from "@/lib/domain/cost-sources";
+import type { InventoryOperatorSignal, InventoryTruthGuidanceInput } from "@/lib/domain/operator-guidance";
 import { buildShopIntelligence } from "@/lib/shop-intelligence/engine";
 import type { ShopSnapshot, SnapshotBatch } from "@/lib/shop-intelligence/snapshot";
 import type { ShopIntelligence } from "@/lib/shop-intelligence/types";
@@ -15,6 +16,13 @@ import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 export type { ShopIntelligence } from "@/lib/shop-intelligence/types";
 
 const DAY_MS = 86_400_000;
+
+type InventoryConfidenceMonitorRow = {
+  product_id: string;
+  product_name: string | null;
+  operator_signal: string;
+  internal_reasons: string[] | null;
+};
 
 function toSnapshotBatch(batch: InventoryBatch): SnapshotBatch {
   return {
@@ -71,12 +79,47 @@ async function getWeekToDateRevenue(branchId: string, now: Date): Promise<number
   }
 }
 
+async function getInventoryTruthGuidance(branchId: string): Promise<InventoryTruthGuidanceInput[]> {
+  if (!hasSupabaseServiceEnv()) return [];
+
+  try {
+    const supabase = createSupabaseServiceClient();
+    const { data, error } = await supabase
+      .from("inventory_confidence_monitor")
+      .select("product_id, product_name, operator_signal, internal_reasons")
+      .eq("branch_id", branchId);
+
+    if (error || !data) return [];
+
+    return (data as InventoryConfidenceMonitorRow[])
+      .map((row): InventoryTruthGuidanceInput | null => {
+        const signal = toInventoryOperatorSignal(row.operator_signal);
+        if (!signal) return null;
+        return {
+          productId: row.product_id,
+          productName: row.product_name ?? "this item",
+          operatorSignal: signal,
+          internalReasons: row.internal_reasons ?? [],
+        };
+      })
+      .filter((row): row is InventoryTruthGuidanceInput => row !== null);
+  } catch (error) {
+    console.error("[shop-intelligence] inventory truth guidance query failed", { branchId, error });
+    return [];
+  }
+}
+
+function toInventoryOperatorSignal(value: string): InventoryOperatorSignal | null {
+  if (value === "trusted" || value === "count_soon" || value === "count_today") return value;
+  return null;
+}
+
 /**
  * Assemble the V8 `ShopSnapshot` from the platform's existing reads and run the
  * pure intelligence engine over it. Adds no new tables and mutates nothing.
  */
 export async function getShopIntelligence(branchId: string, now = new Date()): Promise<ShopIntelligence> {
-  const [metrics, intelligence, batches, purchasing, products, productCostMap, weekToDate] = await Promise.all([
+  const [metrics, intelligence, batches, purchasing, products, productCostMap, weekToDate, inventoryTruth] = await Promise.all([
     getDashboardMetrics(branchId, now),
     getOperationsIntelligence(branchId, now),
     getInventoryBatches(branchId),
@@ -84,6 +127,7 @@ export async function getShopIntelligence(branchId: string, now = new Date()): P
     getAllProducts(branchId),
     getProductCostMap(branchId),
     getWeekToDateRevenue(branchId, now),
+    getInventoryTruthGuidance(branchId),
   ]);
 
   // Cost coverage: a product is "costed" if it has a direct cost or a batch cost.
@@ -191,6 +235,7 @@ export async function getShopIntelligence(branchId: string, now = new Date()): P
       })),
       supplierReadiness: purchasing.supplierReadiness.overall,
     },
+    inventoryTruth,
     system: { failedSmsToday: metrics.failedSmsCount, realtimeHealthy: metrics.realtimeMode === "websocket" },
     ownerActions: intelligence.actions,
   };

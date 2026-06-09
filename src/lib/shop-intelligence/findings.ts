@@ -8,6 +8,7 @@
  * confidence is derived from real data volume; nothing here mutates anything.
  */
 import type { OwnerAction } from "@/lib/action-intelligence/action-types";
+import { buildOperatorGuidanceCards, type OperatorGuidanceCard } from "@/lib/domain/operator-guidance";
 import { buildBasis } from "./confidence";
 import { playbookForArea } from "./playbooks";
 import type { ShopSnapshot, SnapshotBatch } from "./snapshot";
@@ -29,6 +30,10 @@ function slug(value: string): string {
 
 function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
+}
+
+function money(value: number): string {
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value);
 }
 
 // --- 1. normalise existing OwnerActions (reuse the proven engine) ----------
@@ -329,6 +334,36 @@ export function buildCoachNudges(snapshot: ShopSnapshot): Finding[] {
   }
 
   return findings;
+}
+
+// --- 5. V14.2 Operator Guidance -------------------------------------------
+
+export function buildOperatorGuidanceFindings(snapshot: ShopSnapshot): Finding[] {
+  return buildOperatorGuidanceCards({
+    inventoryTruth: snapshot.inventoryTruth,
+    purchasing: snapshot.purchasing.topRecommendations.map((rec) => ({
+      kind: rec.kind,
+      productName: rec.productName,
+      confidence: rec.confidence,
+    })),
+  }).map(findingFromGuidanceCard);
+}
+
+function findingFromGuidanceCard(card: OperatorGuidanceCard): Finding {
+  return {
+    id: card.id,
+    area: card.source === "expiry" ? "expiry" : "stock",
+    finding: card.title,
+    severity: card.severity,
+    explanation: card.whatHappened,
+    consequence: card.whyItMatters,
+    recommendedAction: card.recommendedAction,
+    confidence: card.confidence,
+    basis: { confidence: card.confidence, summary: card.health, points: [] },
+    playbook: playbookForArea(card.source === "expiry" ? "expiry" : "stock"),
+    metrics: card.valueAtRisk ? [{ label: "Potential value at risk", value: money(card.valueAtRisk) }] : [],
+    source: "engine",
+  };
 }
 
 // --- ranking ---------------------------------------------------------------

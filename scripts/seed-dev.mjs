@@ -157,14 +157,41 @@ async function clearOpsSessions() {
 }
 
 async function restoreSeedBatch() {
-  // Stock-count tests apply corrections to the seeded batch; restore it (and drop the
-  // adjustment movements those corrections create) so each run starts from known weights.
-  await supabase.from("inventory_movements").delete().eq("batch_id", SEED_BATCH_A).eq("movement_type", "ADJUSTMENT");
+  // Stock-count tests apply corrections to the seeded batch. The movements ledger is
+  // append-only, so a dev reset restores the cache by appending a new correction row
+  // instead of deleting historical adjustments.
+  const { data: batch, error: readError } = await supabase
+    .from("inventory_batches")
+    .select("branch_id, remaining_weight_kg")
+    .eq("id", SEED_BATCH_A)
+    .single();
+  if (readError) throw readError;
+
+  const beforeKg = Number(batch.remaining_weight_kg);
+  const targetKg = 18.5;
+
   const { error } = await supabase
     .from("inventory_batches")
-    .update({ remaining_weight_kg: 18.5, status: "active", manual_adjustment_reason: null })
+    .update({ remaining_weight_kg: targetKg, status: "active", manual_adjustment_reason: "Dev seed reset" })
     .eq("id", SEED_BATCH_A);
   if (error) throw error;
+
+  const deltaKg = Number((targetKg - beforeKg).toFixed(3));
+  if (deltaKg !== 0) {
+    const { error: movementError } = await supabase.from("inventory_movements").insert({
+      batch_id: SEED_BATCH_A,
+      branch_id: batch.branch_id,
+      movement_type: "ADJUSTMENT",
+      quantity_kg: Math.abs(deltaKg),
+      delta_kg: deltaKg,
+      balance_before_kg: beforeKg,
+      balance_after_kg: targetKg,
+      source_event: "DEV_SEED_RESET",
+      reason: "Dev seed reset",
+      idempotency_key: `dev-seed-reset:${SEED_BATCH_A}:${Date.now()}`,
+    });
+    if (movementError) throw movementError;
+  }
   console.log("  seed inventory batch restored");
 }
 

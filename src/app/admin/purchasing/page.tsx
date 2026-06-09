@@ -3,8 +3,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
-  Gauge,
-  PoundSterling,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
@@ -13,15 +11,8 @@ import { PageFrame } from "@/components/site-header";
 import type { PurchasingRecommendation, SupplierReadiness } from "@/lib/domain/purchasing-intelligence";
 import { getPurchasingPlan, type PurchasingPlan } from "@/lib/server/purchasing-intelligence";
 import { requireStaffContext } from "@/lib/server/staff-context";
-import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-const CONFIDENCE_LABEL: Record<PurchasingRecommendation["confidence"], string> = {
-  high: "High confidence",
-  medium: "Medium confidence",
-  low: "Low confidence",
-};
 
 export default async function PurchasingPage() {
   const { branchId } = await requireStaffContext("manager", { branchScoped: true });
@@ -36,21 +27,20 @@ export default async function PurchasingPage() {
         <p className="mt-4 text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Purchasing &amp; Stock Planning</p>
         <h1 className="mt-2 text-3xl font-black">What should I order?</h1>
         <p className="mt-1 text-sm text-[#6c5e52]">
-          Guidance only — you always decide. Every suggestion shows why, the figures behind it, and how confident it is.
-          Generated {plan.generatedDate}.
+          Only items that need a decision are shown here. Generated {plan.generatedDate}.
         </p>
-        <p className="mt-2 rounded-md border border-[#f0d8a8] bg-[#fdf6e9] px-3 py-2 text-xs font-semibold text-[#92510a]" data-testid="stock-honesty-stamp">
-          Stock figures are intake/count based — sales are not deducted automatically yet. Treat all stock and depletion numbers as estimates.
+        <p className="mt-2 rounded-md border border-[#bfe3cf] bg-[#f2fbf5] px-3 py-2 text-xs font-semibold text-[#0f5132]" data-testid="stock-honesty-stamp">
+          Collected orders are already taken off stock.
         </p>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[320px_1fr]">
-          <DataQualityCard plan={plan} />
+          <OrderReadinessCard plan={plan} />
           <SupplierReadinessBanner readiness={plan.supplierReadiness} />
         </div>
 
-        <Section title="Buy more / buy less" subtitle="Backed by your sales speed and recorded waste. Waste savings come first.">
+        <Section title="Order guidance" subtitle="Do these before you call your supplier.">
           {plan.recommendations.length === 0 ? (
-            <EmptyNote text="No buying suggestions right now. Once there's enough sales and stock history, order-more and order-less guidance appears here." />
+            <EmptyNote text="No need to order yet." />
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {plan.recommendations.map((rec) => (
@@ -88,7 +78,7 @@ export default async function PurchasingPage() {
           </Section>
         )}
 
-        <Section title="Products needing attention" subtitle="Missing data is a bigger risk than any clever analytic. Fix these first.">
+        <Section title="Check these before ordering" subtitle="Quick fixes that make the order advice cleaner.">
           {plan.productsNeedingAttention.length === 0 ? (
             <EmptyNote text="Every product has a price, a cost and stock information. Nothing needs attention." />
           ) : (
@@ -113,63 +103,37 @@ export default async function PurchasingPage() {
           </Link>
         </Section>
 
-        <Section
-          title="What makes me money?"
-          subtitle="Uses the product's current cost first, then the average cost of stock on hand when the product has no cost yet."
-        >
-          <p className="text-sm text-[#6c5e52]">
-            Current Cost is the number the shop uses for margin. Open the product when you want to see how that number was calculated.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <MarginTile icon={TrendingUp} label="Most profitable" name={plan.margin.best?.productName} value={plan.margin.best?.grossProfit} />
-            <MarginTile icon={TrendingDown} label="Least profitable" name={plan.margin.worst?.productName} value={plan.margin.worst?.grossProfit} />
-            <MarginTile icon={PoundSterling} label="Highest revenue" name={plan.margin.highestRevenue?.productName} value={plan.margin.highestRevenue?.revenue} />
-            <MarginTile
-              icon={AlertTriangle}
-              label="Most waste"
-              name={plan.margin.highestWaste?.productName}
-              value={plan.margin.highestWaste?.wasteCost}
-              negative
-            />
-          </div>
-          <Link href="/admin/cutting-guide" className="mt-4 inline-flex text-sm font-bold text-[#0f5132]">
-            Work out what each cut is worth → Cutting &amp; Pricing guide
-          </Link>
-        </Section>
       </main>
     </PageFrame>
   );
 }
 
-function DataQualityCard({ plan }: { plan: PurchasingPlan }) {
-  const { dataQuality } = plan;
+function OrderReadinessCard({ plan }: { plan: PurchasingPlan }) {
+  const hasAttention = plan.productsNeedingAttention.length > 0 || plan.supplierReadiness.overall === "needs_review";
+  const hasOrders = plan.recommendations.length > 0;
+  const status = hasAttention ? "Needs Attention" : hasOrders ? "Check Soon" : "Healthy";
   const tone =
-    dataQuality.band === "high"
+    status === "Healthy"
       ? { text: "#0f5132", bg: "#f2fbf5", border: "#bfe3cf" }
-      : dataQuality.band === "medium"
+      : status === "Check Soon"
         ? { text: "#92510a", bg: "#fdf6e9", border: "#f0d8a8" }
         : { text: "#b42318", bg: "#fff3f0", border: "#f0c0b8" };
 
   return (
     <div className="rounded-lg border p-5" style={{ borderColor: tone.border, backgroundColor: tone.bg }}>
-      <div className="flex items-center gap-2">
-        <Gauge className="h-5 w-5" style={{ color: tone.text }} aria-hidden />
-        <h2 className="font-black">Data quality</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-black">Before you order</h2>
+        <span className="rounded-full border bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.06em]" style={{ color: tone.text, borderColor: tone.border }}>
+          {status}
+        </span>
       </div>
-      <p className="mt-2 text-4xl font-black" style={{ color: tone.text }}>
-        {dataQuality.score}%
+      <p className="mt-3 text-sm font-semibold text-[#5c5148]" data-testid="order-readiness-note">
+        {status === "Healthy"
+          ? "No need to order yet."
+          : status === "Check Soon"
+            ? "A few items need a buying decision."
+            : "Check the highlighted items before ordering."}
       </p>
-      <p className="text-xs text-[#6c5e52]" data-testid="data-quality-note">
-        {"Guidance only — stock is intake/count based until sales-linked stock movement is built."}
-      </p>
-      <dl className="mt-3 space-y-1">
-        {dataQuality.breakdown.map((row) => (
-          <div key={row.label} className="flex justify-between text-xs">
-            <dt className="text-[#6c5e52]">{row.label}</dt>
-            <dd className="font-bold">{row.value}</dd>
-          </div>
-        ))}
-      </dl>
     </div>
   );
 }
@@ -216,47 +180,14 @@ function RecommendationCard({ rec }: { rec: PurchasingRecommendation }) {
           <Icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
           <h3 className="font-black">{rec.title}</h3>
         </div>
-        <span className="rounded-full bg-[#f7f3ed] px-2 py-0.5 text-[11px] font-bold text-[#6c5e52]">
-          {CONFIDENCE_LABEL[rec.confidence]}
+        <span className="rounded-full bg-[#f2fbf5] px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.06em] text-[#0f5132]">
+          {rec.operatorActionLabel}
         </span>
       </div>
       <p className="mt-2 text-sm leading-6 text-[#5c5148]">{rec.reason}</p>
-      <dl className="mt-3 grid grid-cols-3 gap-2">
-        {rec.metrics.map((metric) => (
-          <div key={metric.label} className="rounded-md bg-[#f7f3ed] p-2">
-            <dt className="text-[10px] font-bold uppercase tracking-[0.06em] text-[#8a7d70]">{metric.label}</dt>
-            <dd className="text-sm font-black">{metric.value}</dd>
-          </div>
-        ))}
-      </dl>
+      {rec.operatorDetail && <p className="mt-2 text-sm font-semibold text-[#6c5e52]">{rec.operatorDetail}</p>}
       <p className="mt-3 text-sm font-bold text-[#0f5132]">{rec.suggestedAction}</p>
-      <p className="mt-2 text-[11px] text-[#8a7d70]">Generated {rec.generatedDate}</p>
     </article>
-  );
-}
-
-function MarginTile({
-  icon: Icon,
-  label,
-  name,
-  value,
-  negative = false,
-}: {
-  icon: typeof TrendingUp;
-  label: string;
-  name: string | undefined;
-  value: number | null | undefined;
-  negative?: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-[#ded6ca] bg-white p-4">
-      <Icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
-      <p className="mt-2 text-xs font-bold uppercase tracking-[0.06em] text-[#6c5e52]">{label}</p>
-      <p className="mt-1 font-black">{name ?? "Not enough data"}</p>
-      <p className={negative ? "text-sm font-bold text-[#b42318]" : "text-sm font-bold text-[#0f5132]"}>
-        {value === null || value === undefined ? "Add a cost before trusting this margin" : formatCurrency(value)}
-      </p>
-    </div>
   );
 }
 

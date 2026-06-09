@@ -11,17 +11,17 @@ export function buildStockActions(input: ActionEngineInput): OwnerAction[] {
       severity: item.daysToExpiry < 0 ? "urgent" : "warning",
       title:
         item.daysToExpiry < 0
-          ? `${item.productName} is expired stock`
-          : `${item.productName} has stock expiring soon`,
+          ? `Check ${item.productName} now`
+          : `Sell ${item.productName} first`,
       explanation:
         item.daysToExpiry < 0
-          ? `${item.productName} is past expiry with value still at risk.`
-          : `${item.productName} has ${item.remainingWeightKg.toFixed(3)}kg ${expiryPhrase(item.daysToExpiry)}.`,
-      estimatedImpact: `${formatMoney(item.valueAtRisk)} stock value at risk.`,
+          ? "This stock may no longer be sellable."
+          : `${item.productName} is ${expiryPhrase(item.daysToExpiry)}.`,
+      estimatedImpact: `Potential value at risk: ${formatMoney(item.valueAtRisk)}.`,
       recommendedAction:
         item.daysToExpiry < 0
-          ? "Record disposal as waste and remove it from available prep immediately."
-          : `Create a short-dated offer, add ${item.productName} to a bundle, or prioritise prep today.`,
+          ? `Check ${item.productName} now and record waste if needed.`
+          : "Sell this first.",
       sourceMetrics: {
         productName: item.productName,
         remainingWeightKg: item.remainingWeightKg,
@@ -39,9 +39,9 @@ export function buildStockActions(input: ActionEngineInput): OwnerAction[] {
  * only beyond that do we fall back to a day count.
  */
 function expiryPhrase(daysToExpiry: number) {
-  if (daysToExpiry <= 0) return "expiring today";
-  if (daysToExpiry === 1) return "expiring tomorrow";
-  return `expiring within ${daysToExpiry} days`;
+  if (daysToExpiry <= 0) return "short-dated today";
+  if (daysToExpiry === 1) return "short-dated tomorrow";
+  return "short-dated";
 }
 
 function slug(value: string) {

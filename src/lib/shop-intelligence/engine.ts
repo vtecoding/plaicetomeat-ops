@@ -15,6 +15,7 @@ import { buildGettingStarted } from "./getting-started";
 import {
   buildCoachNudges,
   buildConsistencyChecks,
+  buildOperatorGuidanceFindings,
   buildYieldReality,
   findingsFromOwnerActions,
   rankFindings,
@@ -30,6 +31,7 @@ export function buildFindings(snapshot: ShopSnapshot): Finding[] {
     ...buildYieldReality(snapshot.batches),
     ...buildConsistencyChecks(snapshot),
     ...buildCoachNudges(snapshot),
+    ...buildOperatorGuidanceFindings(snapshot),
   ];
   return rankFindings(all);
 }
@@ -71,6 +73,7 @@ export {
   buildYieldReality,
   buildConsistencyChecks,
   buildCoachNudges,
+  buildOperatorGuidanceFindings,
   findingsFromOwnerActions,
   rankFindings,
 } from "./findings";

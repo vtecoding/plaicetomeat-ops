@@ -46,6 +46,26 @@ describe("buildShopIntelligence (V8 engine)", () => {
     }
   });
 
+  it("adds V14.2 count guidance from inventory truth without exposing internals", () => {
+    const findings = buildFindings(
+      makeSnapshot({
+        inventoryTruth: [
+          {
+            productId: "chicken",
+            productName: "Chicken Breast",
+            operatorSignal: "count_today",
+            internalReasons: ["cache_mismatch"],
+          },
+        ],
+      }),
+    );
+
+    const count = findings.find((finding) => finding.id === "operator-count-chicken-breast");
+    expect(count?.finding).toBe("Please count Chicken Breast today");
+    expect(count?.explanation).toBe("Stock keeps changing unexpectedly.");
+    expect(JSON.stringify(count)).not.toContain("cache_mismatch");
+  });
+
   it("does not mutate the snapshot it is given (Golden Rule, V8.13)", () => {
     const snapshot = makeSnapshot();
     const before = JSON.stringify(snapshot);

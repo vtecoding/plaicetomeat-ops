@@ -84,7 +84,6 @@ async function createBatch(manager, label, { branchId = BRANCH_A, received = 10,
 
   const supplierId = await ensureSupplier(manager, branchId);
   const intakeKey = `verify-v12-5-${RUN}-${label}`;
-  await service.from("inventory_batches").delete().eq("intake_idempotency_key", intakeKey);
 
   const { data: batchId, error } = await manager.rpc("admin_create_inventory_batch", {
     p_branch_id: branchId,
@@ -159,11 +158,8 @@ async function cleanupRows() {
   for (const sessionId of cleanup.sessionIds) {
     await service.from("ops_checklist_sessions").delete().eq("id", sessionId);
   }
-  for (const batchId of cleanup.batchIds) {
-    await service.from("inventory_movements").delete().eq("batch_id", batchId);
-    await service.from("inventory_waste_events").delete().eq("batch_id", batchId);
-    await service.from("inventory_batches").delete().eq("id", batchId);
-  }
+  // Inventory movements are append-only. Probe batches remain as historical test
+  // evidence rather than being deleted and cascading through the ledger.
 }
 
 async function staleAfterWaste(manager) {

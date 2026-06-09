@@ -50,6 +50,12 @@ export const AUDIT_EVENT_TYPES = [
   "certificate_verified",
   "compliance_reading_recorded",
   "compliance_log_completed",
+  "inventory_depleted_for_order",
+  "inventory_depletion_shortfall",
+  "inventory_reversed_for_order",
+  "inventory_reconciliation_issue",
+  "inventory_confidence_degraded",
+  "inventory_failure_trend_detected",
   "security_event",
 ] as const;
 

@@ -19,20 +19,22 @@ function inputWithExpiring(daysToExpiry: number): ActionEngineInput {
 }
 
 describe("buildStockActions expiry wording", () => {
-  it("says 'expiring today' for stock dated today (never 'within 0 days')", () => {
+  it("says sell-first for stock dated today without making the operator interpret weight", () => {
     const [action] = buildStockActions(inputWithExpiring(0));
-    expect(action?.explanation).toBe("Chicken Breast Fillets has 18.500kg expiring today.");
-    expect(action?.explanation).not.toContain("within 0 days");
+    expect(action?.title).toBe("Sell Chicken Breast Fillets first");
+    expect(action?.explanation).toBe("Chicken Breast Fillets is short-dated today.");
+    expect(action?.recommendedAction).toBe("Sell this first.");
+    expect(action?.explanation).not.toContain("18.500kg");
   });
 
-  it("says 'expiring tomorrow' for stock dated tomorrow", () => {
+  it("says short-dated tomorrow for stock dated tomorrow", () => {
     const [action] = buildStockActions(inputWithExpiring(1));
-    expect(action?.explanation).toBe("Chicken Breast Fillets has 18.500kg expiring tomorrow.");
+    expect(action?.explanation).toBe("Chicken Breast Fillets is short-dated tomorrow.");
     expect(action?.explanation).not.toContain("within 1 day");
   });
 
-  it("falls back to a day count beyond tomorrow", () => {
+  it("keeps later expiry wording simple", () => {
     const [action] = buildStockActions(inputWithExpiring(3));
-    expect(action?.explanation).toBe("Chicken Breast Fillets has 18.500kg expiring within 3 days.");
+    expect(action?.explanation).toBe("Chicken Breast Fillets is short-dated.");
   });
 });

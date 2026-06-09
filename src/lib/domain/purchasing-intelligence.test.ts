@@ -21,8 +21,10 @@ describe("purchasing recommendations", () => {
     });
     expect(recs).toHaveLength(1);
     expect(recs[0]).toMatchObject({ kind: "order_more", productName: "Chicken Breast", confidence: "high" });
-    expect(recs[0]?.metrics.find((m) => m.label === "Avg weekly sales")?.value).toBe("17.5kg");
-    expect(recs[0]?.reason).toContain("Chicken Breast");
+    expect(recs[0]?.title).toBe("Order Chicken Breast tomorrow");
+    expect(recs[0]?.reason).toBe("Chicken Breast is running low.");
+    expect(recs[0]?.operatorActionLabel).toBe("Order tomorrow");
+    expect(recs[0]?.operatorDetail).toBe("About 2 days of stock left.");
   });
 
   it("does not recommend ordering more when there is plenty of cover", () => {
@@ -55,7 +57,9 @@ describe("purchasing recommendations", () => {
     });
     expect(recs).toHaveLength(1);
     expect(recs[0]).toMatchObject({ kind: "order_less", productName: "Beef Diced" });
-    expect(recs[0]?.reason).toContain("£10.00");
+    expect(recs[0]?.title).toBe("Order less Beef Diced next time");
+    expect(recs[0]?.reason).toBe("Beef Diced is not moving cleanly enough.");
+    expect(recs[0]?.operatorDetail).toBe("Potential value at risk: £10.00.");
   });
 
   it("ranks waste (order less) ahead of stock (order more)", () => {
@@ -139,8 +143,8 @@ describe("products needing attention", () => {
       { productName: "No Cost", isActive: true, pricePerUnit: 8, hasCost: false, unitsSold: 4, hasStockInfo: true },
     ]);
     expect(result.map((p) => p.productName)).toEqual(["Broken Product", "No Cost"]);
-    expect(result[0]?.issues).toContain("No sale price set");
-    expect(result[0]?.issues).toContain("No cost price — margin can't be calculated");
+    expect(result[0]?.issues).toContain("Add a sale price");
+    expect(result[0]?.issues).toContain("Add a cost price");
   });
 });
 

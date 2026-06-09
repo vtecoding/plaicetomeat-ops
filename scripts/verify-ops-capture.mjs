@@ -16,6 +16,7 @@ const SERVICE =
 
 const BRANCH_A = "00000000-0000-4000-8000-000000000001";
 const PASSWORD = "PlaiceTest123!";
+const RUN = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 const service = createClient(URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
 
@@ -70,8 +71,9 @@ async function ensureTestBatch(manager) {
     supplier = { id: String(created.data) };
   }
 
-  // Fresh batch every run: clear the prior throwaway, then create 10kg received / 10kg remaining.
-  await service.from("inventory_batches").delete().eq("intake_idempotency_key", "verify-capture-batch");
+  // Fresh batch every run. Inventory movements are append-only, so old throwaway
+  // batches remain as historical verification evidence instead of being deleted.
+  const intakeKey = `verify-capture-batch-${RUN}-${Math.random().toString(36).slice(2, 8)}`;
   const { data: batchId, error } = await manager.rpc("admin_create_inventory_batch", {
     p_branch_id: BRANCH_A,
     p_product_id: product.id,
@@ -86,7 +88,7 @@ async function ensureTestBatch(manager) {
     p_slaughter_date: null,
     p_storage_location: null,
     p_batch_number: null,
-    p_intake_idempotency_key: "verify-capture-batch",
+    p_intake_idempotency_key: intakeKey,
     p_expected_weight_kg: null,
     p_actual_review_note: null,
   });
@@ -250,10 +252,8 @@ async function main() {
     const reEdit = await manager.rpc("ops_record_stock_count_line", { p_session_id: countSession, p_batch_id: batchId, p_counted_weight_kg: 5 });
     check("applied line is immutable", !!reEdit.error && /already applied/i.test(reEdit.error.message), reEdit.error?.message);
 
-    // Cleanup throwaway count session + batch (cascades lines; movements/audit are history).
+    // Cleanup throwaway count session; movement rows remain ledger history.
     await service.from("ops_checklist_sessions").delete().eq("id", countSession);
-    await service.from("inventory_movements").delete().eq("batch_id", batchId);
-    await service.from("inventory_batches").delete().eq("id", batchId);
   }
 
   // 7. Waste still feeds the existing intelligence path (closing ritual reuses this RPC).
@@ -268,8 +268,6 @@ async function main() {
         .eq("batch_id", wasteBatch)
         .eq("movement_type", "WASTE");
       check("waste lands in inventory_movements (feeds intelligence)", (wasteMovements ?? 0) >= 1, `count=${wasteMovements}`);
-      await service.from("inventory_movements").delete().eq("batch_id", wasteBatch);
-      await service.from("inventory_batches").delete().eq("id", wasteBatch);
     }
   }
 

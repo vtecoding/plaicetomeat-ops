@@ -7,6 +7,7 @@
  * unit-testable from fixtures.
  */
 import type { OwnerAction } from "@/lib/action-intelligence/action-types";
+import type { InventoryTruthGuidanceInput } from "@/lib/domain/operator-guidance";
 import type { IntelConfidence } from "./types";
 
 export type SnapshotBatch = {
@@ -107,6 +108,9 @@ export type ShopSnapshot = {
     }>;
     supplierReadiness: "ready" | "needs_review";
   };
+
+  /** V14.2 operator guidance reads the V14.1-H truth monitor and hides scores/reasons. */
+  inventoryTruth: InventoryTruthGuidanceInput[];
 
   system: { failedSmsToday: number; realtimeHealthy: boolean };
 

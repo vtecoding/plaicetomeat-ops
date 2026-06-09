@@ -25,6 +25,8 @@ export type PurchasingRecommendation = {
   productName: string;
   title: string;
   reason: string;
+  operatorActionLabel: string;
+  operatorDetail: string | null;
   metrics: Array<{ label: string; value: string }>;
   suggestedAction: string;
   confidence: PurchasingConfidence;
@@ -108,14 +110,15 @@ export function buildPurchasingRecommendations(input: {
       id: `order-less-${slug(waste.productName)}`,
       kind: "order_less",
       productName: waste.productName,
-      title: `Order less ${waste.productName}`,
-      reason: `${gbp(waste.weeklyWasteValue)} of ${waste.productName} (${roundTo(waste.weeklyWasteKg, 2)}kg) was recorded as waste this week. Buying less reduces that loss directly.`,
+      title: `Order less ${waste.productName} next time`,
+      reason: `${waste.productName} is not moving cleanly enough.`,
+      operatorActionLabel: "Order less next time",
+      operatorDetail: `Potential value at risk: ${gbp(waste.weeklyWasteValue)}.`,
       metrics: [
         { label: "Waste this week", value: gbp(waste.weeklyWasteValue) },
         { label: "Wasted weight", value: `${roundTo(waste.weeklyWasteKg, 2)}kg` },
       ],
-      suggestedAction:
-        "Consider reducing your next order of this product by 10–20%, and sell short-dated stock first via a bundle or counter offer.",
+      suggestedAction: `Order a bit less ${waste.productName} next time. Sell short-dated stock first.`,
       confidence: capConfidence("medium", cap),
       generatedDate,
       priorityRank: 3,
@@ -136,14 +139,16 @@ export function buildPurchasingRecommendations(input: {
       id: `order-more-${slug(row.productName)}`,
       kind: "order_more",
       productName: row.productName,
-      title: `Order more ${row.productName}`,
-      reason: `${row.productName} is selling about ${weeklySalesKg}kg a week with only ${roundTo(row.remainingWeightKg, 1)}kg in stock — roughly ${row.daysUntilRunout} day${row.daysUntilRunout === 1 ? "" : "s"} of cover left.`,
+      title: `Order ${row.productName} tomorrow`,
+      reason: `${row.productName} is running low.`,
+      operatorActionLabel: "Order tomorrow",
+      operatorDetail: `About ${row.daysUntilRunout} day${row.daysUntilRunout === 1 ? "" : "s"} of stock left.`,
       metrics: [
-        { label: "Avg weekly sales", value: `${weeklySalesKg}kg` },
-        { label: "Current stock", value: `${roundTo(row.remainingWeightKg, 1)}kg` },
-        { label: "Estimated cover", value: `${row.daysUntilRunout} day${row.daysUntilRunout === 1 ? "" : "s"}` },
+        { label: "Weekly movement", value: `${weeklySalesKg}kg` },
+        { label: "Stock left", value: `${roundTo(row.remainingWeightKg, 1)}kg` },
+        { label: "Stock left for", value: `${row.daysUntilRunout} day${row.daysUntilRunout === 1 ? "" : "s"}` },
       ],
-      suggestedAction: "Consider ordering more before you run out.",
+      suggestedAction: `Order ${row.productName} tomorrow.`,
       confidence: capConfidence(baseConfidence, cap),
       generatedDate,
       priorityRank: 4,
@@ -157,7 +162,7 @@ export function buildPurchasingRecommendations(input: {
 }
 
 // ---------------------------------------------------------------------------
-// Data quality (Feature 10) — tells the owner how far to trust the guidance.
+// Data quality (Feature 10) — internal cap on recommendation strength.
 // ---------------------------------------------------------------------------
 export type DataQualityInput = {
   productCount: number;
@@ -227,11 +232,11 @@ export function buildProductsNeedingAttention(products: ProductDataInput[]): Pro
   return products
     .map((product) => {
       const issues: string[] = [];
-      if (!(product.pricePerUnit > 0)) issues.push("No sale price set");
-      if (!product.hasCost) issues.push("No cost price — margin can't be calculated");
-      if (!product.isActive) issues.push("Inactive — hidden from the shop");
-      if (product.unitsSold <= 0) issues.push("No sales recorded yet");
-      if (!product.hasStockInfo) issues.push("No stock information");
+      if (!(product.pricePerUnit > 0)) issues.push("Add a sale price");
+      if (!product.hasCost) issues.push("Add a cost price");
+      if (!product.isActive) issues.push("Hidden from the shop");
+      if (product.unitsSold <= 0) issues.push("No sales yet");
+      if (!product.hasStockInfo) issues.push("Add stock information");
       return { productName: product.productName, issues };
     })
     .filter((product) => product.issues.length > 0)
@@ -266,36 +271,36 @@ export function buildSupplierReadiness(input: SupplierReadinessInput, wasteThres
       ok: input.missingCostCount === 0,
       detail:
         input.missingCostCount === 0
-          ? "Every product has a cost — margins can be calculated."
-          : `${input.missingCostCount} product(s) have no cost. Enter costs to see true margin before ordering.`,
+          ? "Every product has a cost."
+          : `${input.missingCostCount} product(s) need a cost before ordering.`,
     },
     {
-      label: "Margins are visible",
+      label: "Best sellers checked",
       ok: input.marginVisibleCount > 0,
-      detail: input.marginVisibleCount > 0 ? `${input.marginVisibleCount} product(s) show a margin.` : "No product margins available yet — enter costs.",
+      detail: input.marginVisibleCount > 0 ? "Best sellers have enough detail." : "Add costs to your best sellers first.",
     },
     {
       label: "Waste is under control",
       ok: input.weeklyWasteValue <= wasteThreshold,
-      detail: `${`£${input.weeklyWasteValue.toFixed(2)}`} of waste this week.`,
+      detail: input.weeklyWasteValue <= wasteThreshold ? "Waste is not driving this order." : "Sell short-dated stock before ordering more.",
     },
     {
       label: "Expiring stock addressed",
       ok: input.expiringStockCount === 0,
       detail:
         input.expiringStockCount === 0
-          ? "No stock expiring imminently."
-          : `${input.expiringStockCount} batch(es) expiring soon — use or discount before re-ordering.`,
+          ? "No short-dated stock needs selling first."
+          : "Sell short-dated stock before ordering more.",
     },
     {
       label: "Certificates in date",
       ok: input.expiredCertificateCount === 0,
-      detail: input.expiredCertificateCount === 0 ? "No expired supplier certificates." : `${input.expiredCertificateCount} certificate(s) expired.`,
+      detail: input.expiredCertificateCount === 0 ? "Supplier papers are ready." : "Check supplier papers before ordering.",
     },
     {
       label: "Stock level checked",
       ok: true,
-      detail: input.hasUrgentReorder ? "Some products are low — see the order-more list above." : "No products are about to run out.",
+      detail: input.hasUrgentReorder ? "Some products are running low." : "No need to order yet.",
     },
     {
       label: "Seasonal events",
