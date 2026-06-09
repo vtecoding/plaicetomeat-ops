@@ -57,8 +57,8 @@ export function AdminInventoryClient({
         <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Admin</p>
         <h1 className="mt-2 text-3xl font-black">Stock</h1>
         <p className="mt-2 text-sm text-[#6c5e52]">What arrived, what is left, and what needs using first.</p>
-        <p className="mt-2 rounded-md border border-[#f0d8a8] bg-[#fdf6e9] px-3 py-2 text-xs font-semibold text-[#92510a]" data-testid="stock-honesty-stamp">
-          Stock is intake/count based — sales are not deducted automatically yet.{" "}
+        <p className="mt-2 rounded-md border border-[#bfe3cf] bg-[#f2fbf5] px-3 py-2 text-xs font-semibold text-[#0f5132]" data-testid="stock-honesty-stamp">
+          Collected orders are already taken off stock.{" "}
           {lastStockCountDate
             ? `Last stock count: ${lastStockCountDate}.`
             : "No stock count recorded yet."}{" "}

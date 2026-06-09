@@ -11,10 +11,12 @@ import {
   type PurchasingRecommendation,
   type SupplierReadiness,
 } from "@/lib/domain/purchasing-intelligence";
+import { isLowConfidence } from "@/lib/domain/confidence-routing";
 import { getActiveSeasonalEvents } from "@/lib/action-intelligence/seasonal-calendar";
 import { getAllProducts, getProductCostMap } from "@/lib/server/catalog";
 import { getInventoryBatches } from "@/lib/server/compliance-inventory";
 import { getOperationsIntelligence, type OpsIntelligence } from "@/lib/server/operations-intelligence";
+import { getInventoryTruthGuidance } from "@/lib/server/inventory-truth-guidance";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 import { buildWeightedBatchCostMap } from "@/lib/domain/cost-sources";
 
@@ -86,12 +88,19 @@ async function getWeeklyWasteByProduct(
 }
 
 export async function getPurchasingPlan(branchId: string, now = new Date()): Promise<PurchasingPlan> {
-  const [intelligence, products, batches, productCostMap] = await Promise.all([
+  const [intelligence, products, batches, productCostMap, inventoryTruth] = await Promise.all([
     getOperationsIntelligence(branchId, now),
     getAllProducts(branchId),
     getInventoryBatches(branchId),
     getProductCostMap(branchId),
+    getInventoryTruthGuidance(branchId),
   ]);
+
+  // Confidence→Verb contract: never advise ordering a product the truth engine
+  // cannot trust. Its action is "count this" (shown on TODAY), not "order".
+  const lowConfidenceProductNames = inventoryTruth
+    .filter((row) => isLowConfidence(row.operatorSignal))
+    .map((row) => row.productName);
 
   const weightedBatchCostMap = buildWeightedBatchCostMap(batches);
   const costByProduct = new Map<string, number>();
@@ -142,6 +151,7 @@ export async function getPurchasingPlan(branchId: string, now = new Date()): Pro
       dailyVelocityKg: row.dailyVelocityKg,
     })),
     productWaste,
+    lowConfidenceProductNames,
   });
 
   const productsNeedingAttention = buildProductsNeedingAttention(

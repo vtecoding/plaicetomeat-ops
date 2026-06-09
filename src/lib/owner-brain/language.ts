@@ -26,6 +26,17 @@ export const TRANSLATIONS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bdata confidence\b/gi, "based on limited information"],
   [/\bconfidence score\b/gi, "how sure we are"],
   [/\bdepletion forecast\b/gi, "when stock will run out"],
+  // V14.3 — inventory-truth jargon must never reach the operator.
+  [/\bforecasted exhaustion\b/gi, "when stock will run out"],
+  [/\bstock exhaustion\b/gi, "when stock will run out"],
+  [/\bstock discrepancy\b/gi, "stock count that doesn't match"],
+  [/\binventory variance\b/gi, "stock that doesn't add up"],
+  [/\bstock reconciliation\b/gi, "stock check"],
+  [/\bmovement ledger\b/gi, "stock history"],
+  [/\bshortfall event\b/gi, "stock that ran short"],
+  [/\bdepletion failure\b/gi, "a sale that didn't update stock"],
+  [/\binventory confidence\b/gi, "how sure we are about stock"],
+  [/\bconfidence degraded\b/gi, "needs a fresh count"],
   [/\bgross margin percentage\b/gi, "profit after meat costs"],
   [/\bgross margin\b/gi, "profit after meat costs"],
   [/\bgross profit\b/gi, "profit after meat costs"],
@@ -55,6 +66,17 @@ export const FORBIDDEN_TERMS: readonly string[] = [
   "depletion forecast",
   "gross margin",
   "gross profit",
+  // V14.3 — inventory-truth jargon
+  "forecasted exhaustion",
+  "stock exhaustion",
+  "stock discrepancy",
+  "inventory variance",
+  "stock reconciliation",
+  "movement ledger",
+  "shortfall event",
+  "depletion failure",
+  "inventory confidence",
+  "confidence degraded",
 ];
 
 /** Rewrite known technical phrases into plain English. Idempotent. */

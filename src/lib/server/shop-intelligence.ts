@@ -1,7 +1,6 @@
 import "server-only";
 
 import { buildWeightedBatchCostMap } from "@/lib/domain/cost-sources";
-import type { InventoryOperatorSignal, InventoryTruthGuidanceInput } from "@/lib/domain/operator-guidance";
 import { buildShopIntelligence } from "@/lib/shop-intelligence/engine";
 import type { ShopSnapshot, SnapshotBatch } from "@/lib/shop-intelligence/snapshot";
 import type { ShopIntelligence } from "@/lib/shop-intelligence/types";
@@ -10,19 +9,13 @@ import { getInventoryBatches, type InventoryBatch } from "@/lib/server/complianc
 import { getDashboardMetrics } from "@/lib/server/dashboard";
 import { getOperationsIntelligence } from "@/lib/server/operations-intelligence";
 import { getPurchasingPlan } from "@/lib/server/purchasing-intelligence";
+import { getInventoryTruthGuidance } from "@/lib/server/inventory-truth-guidance";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 
 export type { ShopIntelligence } from "@/lib/shop-intelligence/types";
 
 const DAY_MS = 86_400_000;
-
-type InventoryConfidenceMonitorRow = {
-  product_id: string;
-  product_name: string | null;
-  operator_signal: string;
-  internal_reasons: string[] | null;
-};
 
 function toSnapshotBatch(batch: InventoryBatch): SnapshotBatch {
   return {
@@ -79,40 +72,6 @@ async function getWeekToDateRevenue(branchId: string, now: Date): Promise<number
   }
 }
 
-async function getInventoryTruthGuidance(branchId: string): Promise<InventoryTruthGuidanceInput[]> {
-  if (!hasSupabaseServiceEnv()) return [];
-
-  try {
-    const supabase = createSupabaseServiceClient();
-    const { data, error } = await supabase
-      .from("inventory_confidence_monitor")
-      .select("product_id, product_name, operator_signal, internal_reasons")
-      .eq("branch_id", branchId);
-
-    if (error || !data) return [];
-
-    return (data as InventoryConfidenceMonitorRow[])
-      .map((row): InventoryTruthGuidanceInput | null => {
-        const signal = toInventoryOperatorSignal(row.operator_signal);
-        if (!signal) return null;
-        return {
-          productId: row.product_id,
-          productName: row.product_name ?? "this item",
-          operatorSignal: signal,
-          internalReasons: row.internal_reasons ?? [],
-        };
-      })
-      .filter((row): row is InventoryTruthGuidanceInput => row !== null);
-  } catch (error) {
-    console.error("[shop-intelligence] inventory truth guidance query failed", { branchId, error });
-    return [];
-  }
-}
-
-function toInventoryOperatorSignal(value: string): InventoryOperatorSignal | null {
-  if (value === "trusted" || value === "count_soon" || value === "count_today") return value;
-  return null;
-}
 
 /**
  * Assemble the V8 `ShopSnapshot` from the platform's existing reads and run the

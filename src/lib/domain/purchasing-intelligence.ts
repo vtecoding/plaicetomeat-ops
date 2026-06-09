@@ -95,6 +95,12 @@ export function formatGeneratedDate(now: Date) {
  * in `confidence-routing.ts` via `buildOperatorGuidanceCards`: an "Order" verb
  * is suppressed for a product the truth engine cannot trust, regardless of the
  * data-quality confidence computed here. Do not conflate the two axes.
+ *
+ * `lowConfidenceProductNames` lets a caller (e.g. the purchasing page server)
+ * enforce that same confidence→verb contract at this builder, so an "Order"
+ * never appears for a product we cannot count — on TODAY *or* on the purchasing
+ * page. A low-confidence product is dropped from both order-more and order-less;
+ * its action lives elsewhere as "count this".
  */
 export function buildPurchasingRecommendations(input: {
   depletion: DepletionRowInput[];
@@ -102,14 +108,21 @@ export function buildPurchasingRecommendations(input: {
   now: Date;
   confidenceCap?: PurchasingConfidence;
   thresholds?: PurchasingThresholds;
+  lowConfidenceProductNames?: Iterable<string>;
 }): PurchasingRecommendation[] {
   const cap = input.confidenceCap ?? "high";
   const thresholds = input.thresholds ?? DEFAULT_PURCHASING_THRESHOLDS;
   const generatedDate = formatGeneratedDate(input.now);
   const recommendations: PurchasingRecommendation[] = [];
 
+  // Confidence→Verb contract: products the truth engine cannot trust get no
+  // "Order" advice here (matched by name, case-insensitive).
+  const lowConfidence = new Set<string>();
+  for (const name of input.lowConfidenceProductNames ?? []) lowConfidence.add(name.toLowerCase());
+
   // Order LESS — waste risk (priority 3, shown before stock risk).
   for (const waste of input.productWaste) {
+    if (lowConfidence.has(waste.productName.toLowerCase())) continue;
     if (waste.weeklyWasteValue < thresholds.wasteValueThreshold && waste.weeklyWasteKg < thresholds.wasteKgThreshold) {
       continue;
     }
@@ -134,6 +147,7 @@ export function buildPurchasingRecommendations(input: {
 
   // Order MORE — stock risk (priority 4).
   for (const row of input.depletion) {
+    if (lowConfidence.has(row.productName.toLowerCase())) continue;
     if (row.state !== "enough_data" || row.daysUntilRunout === null || (row.dailyVelocityKg ?? 0) <= 0) {
       continue;
     }

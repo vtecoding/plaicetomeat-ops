@@ -11,6 +11,21 @@ import {
 const NOW = new Date("2026-06-01T09:00:00.000Z");
 
 describe("purchasing recommendations", () => {
+  it("suppresses Order advice for a low-confidence product (confidence→verb contract)", () => {
+    // Same conditions that would normally produce 'Order tomorrow', but the
+    // truth engine cannot trust this product's stock — so no order advice is
+    // shown on the purchasing page either. Its action is 'count' (on TODAY).
+    const recs = buildPurchasingRecommendations({
+      now: NOW,
+      productWaste: [{ productName: "Chicken Breast", weeklyWasteValue: 30, weeklyWasteKg: 3 }],
+      depletion: [
+        { productName: "Chicken Breast", state: "enough_data", remainingWeightKg: 4, daysUntilRunout: 2, dailyVelocityKg: 2.5 },
+      ],
+      lowConfidenceProductNames: ["chicken breast"],
+    });
+    expect(recs).toHaveLength(0);
+  });
+
   it("recommends ordering more when a steady seller is about to run out", () => {
     const recs = buildPurchasingRecommendations({
       now: NOW,
@@ -190,11 +205,13 @@ describe("supplier readiness", () => {
 });
 
 describe("stock honesty — purchasing confidence cap", () => {
-  it("high data quality band does not allow trust claims about stock accuracy", () => {
-    // Stock figures are intake/count based; sales are not decremented. Even when
-    // data quality is "high", the guidance is not trustworthy from a stock-accuracy
-    // standpoint. The confidence cap controls recommendation strength, not stock truth.
-    // This test proves that band="high" is still subject to the no-sales-decrement caveat.
+  it("high data quality band does not by itself imply inventory-truth is exact", () => {
+    // Two distinct confidence axes (see confidence-routing.ts):
+    //   - DATA QUALITY: are costs/prices/stock info present? (this function)
+    //   - INVENTORY TRUTH: do we trust the live stock level? (truth-hardening)
+    // A "high" data-quality band controls recommendation *strength*; it does NOT
+    // assert the stock level is exact. Whether an "Order" is even shown is gated
+    // separately by the inventory-truth confidence→verb contract.
     const quality = buildDataQuality({
       productCount: 10,
       missingCostCount: 0,
@@ -204,19 +221,18 @@ describe("stock honesty — purchasing confidence cap", () => {
       missingCertificateCount: 0,
     });
     expect(quality.band).toBe("high");
-    // Confidence cap is "high", but this does NOT mean "stock is exact".
-    // The UI must display a stock-honesty stamp regardless of quality score.
-    // (Verify the quality band does not produce any "trusted" string from the domain.)
+    // A "high" data-quality cap does NOT emit any "trusted" stock-truth claim; the
+    // band name is about information completeness, not stock exactness.
     expect(quality.band).not.toBe("trusted");
-    // capConfidence with a "high" cap still only means recommendations are allowed
-    // at that confidence level — not that stock is sales-decremented.
+    // capConfidence with a "high" cap only means recommendations are allowed at that
+    // confidence level — it says nothing about live inventory truth.
     expect(capConfidence("high", quality.confidenceCap)).toBe("high");
   });
 
-  it("recommendations produced with high cap still exist even without sales decrement", () => {
-    // If stock is not sales-decremented, depletion data is inaccurate.
-    // This test verifies that recommendations are capped at the data quality band —
-    // but the system must ALSO show the intake-only honesty disclaimer in the UI.
+  it("recommendations are capped by data quality, independently of inventory-truth gating", () => {
+    // The data-quality cap controls recommendation strength. Whether the resulting
+    // "Order" reaches the operator is decided downstream by the inventory-truth
+    // confidence→verb contract (a low-confidence product is routed to "Count").
     const recs = buildPurchasingRecommendations({
       now: NOW,
       confidenceCap: "high",

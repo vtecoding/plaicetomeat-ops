@@ -32,7 +32,9 @@
     "verify:disaster-recovery": "node scripts/verify-disaster-recovery.mjs",
     "verify:disaster-recovery-integrity": "node scripts/verify-disaster-recovery-integrity.mjs",
     "report:disaster-recovery": "node scripts/disaster-recovery-certification.mjs",
-    "probe:v14": "node scripts/audit-probe-v14.mjs"
+    "probe:v14": "node scripts/audit-probe-v14.mjs",
+    "verify:operator-language": "node scripts/verify-operator-language.mjs",
+    "verify:operator-journeys": "node scripts/verify-operator-journeys.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
