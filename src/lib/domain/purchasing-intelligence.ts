@@ -88,6 +88,13 @@ export function formatGeneratedDate(now: Date) {
  * - Order more: a product is selling steadily and stock cover is short.
  * - Order less: a product is generating meaningful waste week on week.
  * Confidence never exceeds the supplied `confidenceCap` (from data quality).
+ *
+ * NOTE: `confidenceCap` here is the *data-quality* axis (missing costs/prices).
+ * It is distinct from *inventory-truth* confidence (repeated shortfalls, stale
+ * counts). The inventory-truth confidence→verb contract is enforced downstream
+ * in `confidence-routing.ts` via `buildOperatorGuidanceCards`: an "Order" verb
+ * is suppressed for a product the truth engine cannot trust, regardless of the
+ * data-quality confidence computed here. Do not conflate the two axes.
  */
 export function buildPurchasingRecommendations(input: {
   depletion: DepletionRowInput[];

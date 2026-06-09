@@ -34,6 +34,61 @@ describe("operator guidance", () => {
     expect(cards[0]?.whatHappened).toBe("Lamb Mince is running low.");
   });
 
+  it("escalates a recurring-problem product from 'soon' to 'today' (Workstream B)", () => {
+    // Signal arrives as the weaker count_soon, but the reasons show recurring
+    // instability — the operator must still be told to count it TODAY.
+    const cards = buildOperatorGuidanceCards({
+      inventoryTruth: [
+        {
+          productId: "mince",
+          productName: "Beef Mince",
+          operatorSignal: "count_soon",
+          internalReasons: ["repeated_shortfall"],
+        },
+      ],
+    });
+
+    expect(cards[0]).toMatchObject({
+      title: "Please count Beef Mince today",
+      whatHappened: "Stock keeps changing unexpectedly.",
+      recommendedAction: "Count Beef Mince today.",
+      severity: "urgent",
+      health: "Needs Attention",
+    });
+  });
+
+  it("suppresses an Order for a low-confidence product and shows Count instead", () => {
+    // The named V14.3 bug: a product with repeated shortfalls (low inventory-truth
+    // confidence) must never be told "Order tomorrow" — only "Count today".
+    const cards = buildOperatorGuidanceCards({
+      inventoryTruth: [
+        {
+          productId: "chicken",
+          productName: "Chicken Breast",
+          operatorSignal: "count_today",
+          internalReasons: ["repeated_shortfall"],
+        },
+      ],
+      purchasing: [{ kind: "order_more", productName: "Chicken Breast", confidence: "high" }],
+    });
+
+    const titles = cards.map((card) => card.title);
+    const verbs = cards.map((card) => card.verb);
+    expect(verbs).toContain("count");
+    expect(verbs).not.toContain("order");
+    expect(titles.some((title) => title.includes("Order"))).toBe(false);
+    expect(titles).toContain("Please count Chicken Breast today");
+  });
+
+  it("still allows an Order for a trusted product", () => {
+    const cards = buildOperatorGuidanceCards({
+      inventoryTruth: [{ productId: "lamb", productName: "Lamb Mince", operatorSignal: "trusted" }],
+      purchasing: [{ kind: "order_more", productName: "Lamb Mince", confidence: "high" }],
+    });
+    expect(cards.map((card) => card.verb)).toContain("order");
+    expect(cards.some((card) => card.title === "Order Lamb Mince tomorrow")).toBe(true);
+  });
+
   it("translates short-dated stock into sell-first wording", () => {
     const cards = buildOperatorGuidanceCards({
       expiry: [{ productName: "Beef Steak", daysToExpiry: 1, valueAtRisk: 92 }],

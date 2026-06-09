@@ -1,4 +1,5 @@
 import type { IntelConfidence, IntelSeverity } from "@/lib/shop-intelligence/types";
+import { verbAllowedForSignal, type ConfidenceSignal, type GuidanceVerb } from "./confidence-routing";
 
 export type InventoryOperatorSignal = "trusted" | "count_soon" | "count_today";
 export type ProductHealthSignal = "Healthy" | "Check Soon" | "Needs Attention";
@@ -45,6 +46,8 @@ export type OperatorGuidanceCard = {
   priority: number;
   health: ProductHealthSignal;
   source: "inventory_truth" | "purchasing" | "expiry";
+  /** The operator verb this card asks for — gated by the confidence→verb contract. */
+  verb: GuidanceVerb;
   valueAtRisk: number | null;
 };
 
@@ -60,7 +63,18 @@ export function buildOperatorGuidanceCards(input: {
     ...(input.purchasing ?? []).flatMap(cardFromPurchasing),
   ];
 
-  return dedupeGuidance(cards)
+  // Confidence → Verb contract (Workstream A): a product the truth engine
+  // flagged as low-confidence may only ever be given a "count" instruction.
+  // Suppress any sell/order/fix card for such a product. The matching count
+  // card is already present (inventory-truth always emits one when a product
+  // is flagged), so suppression never leaves the operator with nothing to do.
+  const signalByProduct = new Map<string, ConfidenceSignal>();
+  for (const row of input.inventoryTruth ?? []) {
+    signalByProduct.set(row.productName.toLowerCase(), row.operatorSignal);
+  }
+  const routed = cards.filter((card) => verbAllowedForSignal(card.verb, signalByProduct.get(card.productName.toLowerCase())));
+
+  return dedupeGuidance(routed)
     .sort((a, b) => b.priority - a.priority || a.title.localeCompare(b.title))
     .slice(0, input.maxCards ?? 6);
 }
@@ -76,8 +90,23 @@ export function buildProductHealthSignals(products: ProductHealthInput[]): Array
 function cardFromInventoryTruth(row: InventoryTruthGuidanceInput): OperatorGuidanceCard[] {
   if (row.operatorSignal === "trusted") return [];
 
-  const repeatedProblem = (row.internalReasons ?? []).some((reason) => reason === "repeated_shortfall" || reason === "cache_mismatch");
-  const countToday = row.operatorSignal === "count_today";
+  // Workstream B — recurring instability. If the truth engine has seen this
+  // product drift more than once (repeated shortfalls, cache mismatches,
+  // recurring corrections, a failure trend), the operator action must be the
+  // STRONGEST form ("count today"), never the weak "count soon" — even if the
+  // raw signal arrived as count_soon. We escalate here defensively so a
+  // "keeps changing" product can never be under-stated to the butcher.
+  const reasons = row.internalReasons ?? [];
+  const keepsChanging = reasons.some(
+    (reason) =>
+      reason === "repeated_shortfall" ||
+      reason === "cache_mismatch" ||
+      reason === "ledger_cache_mismatch" ||
+      reason === "recurring_mismatch" ||
+      reason === "recurring_correction" ||
+      reason === "failure_trend",
+  );
+  const countToday = keepsChanging || row.operatorSignal === "count_today";
   const productName = row.productName;
 
   return [
@@ -85,7 +114,7 @@ function cardFromInventoryTruth(row: InventoryTruthGuidanceInput): OperatorGuida
       id: `operator-count-${slug(productName)}`,
       productName,
       title: countToday ? `Please count ${productName} today` : `Please count ${productName} soon`,
-      whatHappened: repeatedProblem ? "Stock keeps changing unexpectedly." : "This stock needs a fresh count.",
+      whatHappened: keepsChanging ? "Stock keeps changing unexpectedly." : "This stock needs a fresh count.",
       whyItMatters: "Ordering and serving are easier when this item is checked.",
       recommendedAction: countToday ? `Count ${productName} today.` : `Count ${productName} when you can.`,
       severity: countToday ? "urgent" : "warning",
@@ -93,6 +122,7 @@ function cardFromInventoryTruth(row: InventoryTruthGuidanceInput): OperatorGuida
       priority: countToday ? 95 : 65,
       health: countToday ? "Needs Attention" : "Check Soon",
       source: "inventory_truth",
+      verb: "count",
       valueAtRisk: null,
     },
   ];
@@ -114,6 +144,7 @@ function cardFromPurchasing(row: PurchasingGuidanceInput): OperatorGuidanceCard[
         priority: 75,
         health: "Check Soon",
         source: "purchasing",
+        verb: "order",
         valueAtRisk: null,
       },
     ];
@@ -132,6 +163,7 @@ function cardFromPurchasing(row: PurchasingGuidanceInput): OperatorGuidanceCard[
       priority: 70,
       health: "Check Soon",
       source: "purchasing",
+      verb: "order",
       valueAtRisk: null,
     },
   ];
@@ -155,6 +187,9 @@ function cardFromExpiry(row: ExpiryGuidanceInput): OperatorGuidanceCard[] {
       priority: expired ? 100 : row.daysToExpiry === 0 ? 90 : 68,
       health: expired || row.daysToExpiry === 0 ? "Needs Attention" : "Check Soon",
       source: "expiry",
+      // Expired stock → a "check & dispose" fix (always safe to show). Short-dated
+      // → a sell-first action, which the confidence contract may gate.
+      verb: expired ? "fix" : "sell",
       valueAtRisk: row.valueAtRisk > 0 ? row.valueAtRisk : null,
     },
   ];
