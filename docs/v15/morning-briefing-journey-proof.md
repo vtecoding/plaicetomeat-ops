@@ -1,6 +1,6 @@
 # V15.3 · Morning Briefing Engine — Operator-Journey Proof
 
-Generated: 2026-06-10T13:39:18.532Z
+Generated: 2026-06-10T20:40:37.826Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test · viewport: 1366×1000
 
 A real start-of-day journey against the running app. Screenshot in

@@ -1,6 +1,6 @@
 # V15.2 · One-Tap Action Layer — Operator-Journey Proof
 
-Generated: 2026-06-10T13:39:14.571Z
+Generated: 2026-06-10T20:40:29.809Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test
 
 A real start-of-day journey against the running app on live data. Screenshot in

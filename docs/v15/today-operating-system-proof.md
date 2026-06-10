@@ -1,6 +1,6 @@
 # V15.1 · TODAY Operating System — Operator-Journey Proof
 
-Generated: 2026-06-10T13:39:06.112Z
+Generated: 2026-06-10T20:40:21.026Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test · viewport: 1366×1000
 
 A real start-of-day journey against the running app. Screenshot in
