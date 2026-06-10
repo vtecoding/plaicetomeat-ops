@@ -199,7 +199,7 @@ export function CounterDashboard({
           return (
             <section key={column.status} className="min-h-[520px] rounded-lg border border-[#ded6ca] bg-[#f7f3ed]">
               <header className="flex h-14 items-center justify-between border-b border-[#ded6ca] px-4">
-                <h2 className="font-black">{column.label}</h2>
+                <h2 className="font-display text-lg font-semibold tracking-[-0.01em]">{column.label}</h2>
                 <Badge tone="neutral">{columnOrders.length}</Badge>
               </header>
               <div className="space-y-3 p-3">
@@ -256,7 +256,7 @@ function CounterOrderCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <p className="text-2xl font-black tracking-normal">{order.orderRef}</p>
+            <p className="text-2xl font-bold tracking-normal">{order.orderRef}</p>
             {order.isTest && (
               <Badge tone="amber" data-testid="test-order-badge">
                 TEST ORDER

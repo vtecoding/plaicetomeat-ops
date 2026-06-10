@@ -2,6 +2,7 @@ import { ShieldAlert } from "lucide-react";
 
 import { ComplianceClient } from "@/components/compliance-client";
 import { PageFrame } from "@/components/site-header";
+import { Masthead } from "@/components/ui/page";
 import { getComplianceDayResult } from "@/lib/server/compliance";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
@@ -19,11 +20,11 @@ export default async function CounterCompliancePage() {
   return (
     <PageFrame>
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Compliance vault</p>
-          <h1 className="mt-2 text-3xl font-black">Daily log</h1>
-          <p className="mt-2 text-sm text-[#6c5e52]">Record today&apos;s fridge and freezer temperatures and your end-of-day checks.</p>
-        </div>
+        <Masthead
+          eyebrow="Compliance vault"
+          title="Daily log"
+          subtitle="Record today's fridge and freezer temperatures and your end-of-day checks."
+        />
 
         {unavailable ? (
           <div
@@ -32,7 +33,7 @@ export default async function CounterCompliancePage() {
           >
             <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
             <div>
-              <p className="font-black">Compliance records are unavailable right now.</p>
+              <p className="font-semibold">Compliance records are unavailable right now.</p>
               <p className="mt-1">{result.message}</p>
             </div>
           </div>

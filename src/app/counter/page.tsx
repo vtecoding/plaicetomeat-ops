@@ -1,5 +1,6 @@
 import { CounterDashboard } from "@/components/counter-dashboard";
 import { PageFrame } from "@/components/site-header";
+import { Masthead } from "@/components/ui/page";
 import { getCounterOrders, getOrderNotes } from "@/lib/server/orders";
 import { getPickupWindows } from "@/lib/server/pickup-windows";
 import { requireStaffContext } from "@/lib/server/staff-context";
@@ -15,8 +16,7 @@ export default async function CounterPage() {
     <PageFrame>
       <main className="mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Tablet counter view</p>
-          <h1 className="mt-2 text-3xl font-black">Orders</h1>
+          <Masthead eyebrow="Tablet counter view" title="Orders" />
         </div>
         <CounterDashboard
           initialOrders={orders}

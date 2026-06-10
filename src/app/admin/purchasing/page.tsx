@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   TrendingDown,
   TrendingUp,
@@ -9,6 +8,7 @@ import {
 
 import { ActionContext } from "@/components/owner-brain/action-context";
 import { PageFrame } from "@/components/site-header";
+import { BackLink, Masthead, SectionHeading } from "@/components/ui/page";
 import type { PurchasingRecommendation, SupplierReadiness } from "@/lib/domain/purchasing-intelligence";
 import { getPurchasingPlan, type PurchasingPlan } from "@/lib/server/purchasing-intelligence";
 import { requireStaffContext } from "@/lib/server/staff-context";
@@ -36,15 +36,16 @@ export default async function PurchasingPage({
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <ActionContext from={firstParam(sp.from)} doParam={firstParam(sp.do)} focus={focus} why={firstParam(sp.why)} />
 
-        <Link href="/admin" className="inline-flex items-center gap-1 text-sm font-bold text-[#0f5132]">
-          <ArrowLeft className="h-4 w-4" aria-hidden /> Back to dashboard
-        </Link>
-        <p className="mt-4 text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Purchasing &amp; Stock Planning</p>
-        <h1 className="mt-2 text-3xl font-black">What should I order?</h1>
-        <p className="mt-1 text-sm text-[#6c5e52]">
-          Only items that need a decision are shown here. Generated {plan.generatedDate}.
-        </p>
-        <p className="mt-2 rounded-md border border-[#bfe3cf] bg-[#f2fbf5] px-3 py-2 text-xs font-semibold text-[#0f5132]" data-testid="stock-honesty-stamp">
+        <Masthead
+          back={<BackLink href="/admin">Back to dashboard</BackLink>}
+          eyebrow="Purchasing & Stock Planning"
+          title="What should I order?"
+          subtitle={`Only items that need a decision are shown here. Generated ${plan.generatedDate}.`}
+        />
+        <p
+          className="mt-4 inline-flex rounded-lg border border-[#cfe6da] bg-[#f4faf6] px-3 py-2 text-xs font-semibold text-[var(--brand)]"
+          data-testid="stock-honesty-stamp"
+        >
           Collected orders are already taken off stock.
         </p>
 
@@ -69,9 +70,9 @@ export default async function PurchasingPage({
           <Section title="Big-day preparation" subtitle="Peak trading days are coming up. Work through the checklist while there's still time to order.">
             <div className="grid gap-4 md:grid-cols-2">
               {plan.seasonalPrep.map((event) => (
-                <article key={event.name} className="rounded-lg border border-[#ded6ca] bg-white p-4">
+                <article key={event.name} className="rounded-lg border border-[var(--line)] bg-white p-4">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-black">{event.name}</h3>
+                    <h3 className="font-bold">{event.name}</h3>
                     <span className="rounded-full bg-[#f7f3ed] px-2 py-0.5 text-xs font-bold text-[#6c5e52]">
                       {event.daysUntil === 0 ? "Today" : event.daysUntil === 1 ? "Tomorrow" : `${event.daysUntil} days away`}
                     </span>
@@ -100,7 +101,7 @@ export default async function PurchasingPage({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {plan.productsNeedingAttention.map((product) => (
                 <article key={product.productName} className="rounded-lg border border-[#f0d8a8] bg-[#fdf6e9] p-4">
-                  <p className="font-black">{product.productName}</p>
+                  <p className="font-bold">{product.productName}</p>
                   <ul className="mt-2 space-y-1">
                     {product.issues.map((issue) => (
                       <li key={issue} className="flex items-start gap-2 text-xs text-[#92510a]">
@@ -137,8 +138,8 @@ function OrderReadinessCard({ plan }: { plan: PurchasingPlan }) {
   return (
     <div className="rounded-lg border p-5" style={{ borderColor: tone.border, backgroundColor: tone.bg }}>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-black">Before you order</h2>
-        <span className="rounded-full border bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.06em]" style={{ color: tone.text, borderColor: tone.border }}>
+        <h2 className="font-bold">Before you order</h2>
+        <span className="rounded-full border bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.06em]" style={{ color: tone.text, borderColor: tone.border }}>
           {status}
         </span>
       </div>
@@ -160,8 +161,8 @@ function SupplierReadinessBanner({ readiness }: { readiness: SupplierReadiness }
   return (
     <div className="rounded-lg border p-5" style={{ borderColor: tone.border, backgroundColor: tone.bg }}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-black">Before you place an order</h2>
-        <span className="rounded-full border bg-white px-3 py-1 text-sm font-black" style={{ color: tone.text, borderColor: tone.border }}>
+        <h2 className="font-bold">Before you place an order</h2>
+        <span className="rounded-full border bg-white px-3 py-1 text-sm font-bold" style={{ color: tone.text, borderColor: tone.border }}>
           {ready ? "Ready to order" : "Needs review"}
         </span>
       </div>
@@ -193,16 +194,16 @@ function RecommendationCard({ rec, focused = false }: { rec: PurchasingRecommend
       id={slug(rec.productName)}
       className={cn(
         "scroll-mt-24 rounded-lg border bg-white p-4",
-        focused ? "border-[#0f5132] ring-2 ring-[#0f5132]/40" : "border-[#ded6ca]",
+        focused ? "border-[#0f5132] ring-2 ring-[#0f5132]/40" : "border-[var(--line)]",
       )}
       data-focused={focused ? "true" : undefined}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
-          <h3 className="font-black">{rec.title}</h3>
+          <h3 className="font-bold">{rec.title}</h3>
         </div>
-        <span className="rounded-full bg-[#f2fbf5] px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.06em] text-[#0f5132]">
+        <span className="rounded-full bg-[#f2fbf5] px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.06em] text-[#0f5132]">
           {rec.operatorActionLabel}
         </span>
       </div>
@@ -216,13 +217,12 @@ function RecommendationCard({ rec, focused = false }: { rec: PurchasingRecommend
 function Section({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-xl font-black">{title}</h2>
-      <p className="mt-1 text-sm text-[#6c5e52]">{subtitle}</p>
+      <SectionHeading title={title} subtitle={subtitle} />
       <div className="mt-4">{children}</div>
     </section>
   );
 }
 
 function EmptyNote({ text }: { text: string }) {
-  return <p className="rounded-lg border border-[#ded6ca] bg-white p-5 text-sm text-[#6c5e52]">{text}</p>;
+  return <p className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 text-sm text-[var(--muted)]">{text}</p>;
 }

@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 import { saveSupplier } from "@/app/actions/compliance-inventory";
 import { Button } from "@/components/ui/button";
+import { Masthead } from "@/components/ui/page";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,13 +50,11 @@ export function AdminComplianceClient({ branchId, suppliers }: { branchId: strin
 
   return (
     <div>
-      <div>
-        <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Admin</p>
-        <h1 className="mt-2 text-3xl font-black">Supplier compliance</h1>
-        <p className="mt-2 text-sm text-[#6c5e52]">
-          Track halal certificate metadata. Public trust pages only show non-sensitive certificate status.
-        </p>
-      </div>
+      <Masthead
+        eyebrow="Admin"
+        title="Supplier compliance"
+        subtitle="Track halal certificate metadata. Public trust pages only show non-sensitive certificate status."
+      />
 
       {feedback && (
         <div
@@ -72,8 +71,8 @@ export function AdminComplianceClient({ branchId, suppliers }: { branchId: strin
         </div>
       )}
 
-      <section className="mt-6 rounded-lg border border-[#ded6ca] bg-white p-5">
-        <h2 className="text-lg font-black">Compliance Dashboard</h2>
+      <section className="mt-6 rounded-lg border border-[var(--line)] bg-white p-5">
+        <h2 className="text-lg font-semibold">Compliance Dashboard</h2>
         <p className="mt-1 text-sm text-[#6c5e52]">
           Supplier status: <strong>{health}</strong>.
         </p>
@@ -105,7 +104,7 @@ export function AdminComplianceClient({ branchId, suppliers }: { branchId: strin
 
       <div className="mt-8 grid gap-4">
         {suppliers.length === 0 ? (
-          <p className="rounded-lg border border-[#ded6ca] bg-white p-5 text-sm text-[#6c5e52]">
+          <p className="rounded-lg border border-[var(--line)] bg-white p-5 text-sm text-[#6c5e52]">
             Action required: record your first supplier certificate so public halal status is backed by internal evidence.
           </p>
         ) : (
@@ -120,7 +119,7 @@ function ComplianceMetric({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-md bg-[#f7f3ed] p-3">
       <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">{label}</dt>
-      <dd className="mt-1 text-2xl font-black">{value}</dd>
+      <dd className="mt-1 text-2xl font-semibold">{value}</dd>
     </div>
   );
 }
@@ -163,10 +162,10 @@ function SupplierCard({
   }
 
   return (
-    <article className="rounded-lg border border-[#ded6ca] bg-white p-5">
+    <article className="rounded-lg border border-[var(--line)] bg-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-black">{supplier.name}</h2>
+          <h2 className="text-lg font-semibold">{supplier.name}</h2>
           <p className="mt-1 text-sm text-[#6c5e52]">
             {supplier.certifyingBody ?? "Certifying body not set"} - ref {supplier.certNumber ?? "not set"}
           </p>
@@ -263,13 +262,13 @@ function SupplierForm({
 
   return (
     <form
-      className="mt-6 grid gap-4 rounded-lg border border-[#ded6ca] bg-white p-5"
+      className="mt-6 grid gap-4 rounded-lg border border-[var(--line)] bg-white p-5"
       onSubmit={(event) => {
         event.preventDefault();
         submit();
       }}
     >
-      <h2 className="text-lg font-black">{supplier ? "Edit supplier certificate" : "Record supplier certificate"}</h2>
+      <h2 className="text-lg font-semibold">{supplier ? "Edit supplier certificate" : "Record supplier certificate"}</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-semibold">
           Supplier name

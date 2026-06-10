@@ -1,5 +1,6 @@
 import { GuidedChecklist } from "@/components/ops-capture/guided-checklist";
 import { PageFrame } from "@/components/site-header";
+import { Masthead } from "@/components/ui/page";
 import { getChecklist } from "@/lib/ops-capture/checklists";
 import { getTodaysChecklistState, type ChecklistKind } from "@/lib/server/ops-capture";
 import { requireStaffContext } from "@/lib/server/staff-context";
@@ -13,13 +14,9 @@ export async function ChecklistPage({ kind, testid }: { kind: ChecklistKind; tes
   return (
     <PageFrame>
       <main className="mx-auto max-w-2xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid={testid}>
-        <header className="rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">{kind === "opening" ? "Start of day" : "End of day"}</p>
-          <h1 className="mt-2 text-3xl font-black">{def.title}</h1>
-          <p className="mt-2 text-sm font-semibold text-[#6c5e52]">{def.intro}</p>
-        </header>
+        <Masthead eyebrow={kind === "opening" ? "Start of day" : "End of day"} title={def.title} subtitle={def.intro} />
 
-        <div className="mt-4">
+        <div className="mt-6">
           <GuidedChecklist
             branchId={branchId}
             kind={kind}

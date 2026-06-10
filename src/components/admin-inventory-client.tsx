@@ -7,6 +7,7 @@ import { AlertCircle, CheckCircle2, ClipboardCheck } from "lucide-react";
 
 import { createInventoryBatch, recordWaste } from "@/app/actions/compliance-inventory";
 import { Button } from "@/components/ui/button";
+import { Masthead } from "@/components/ui/page";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { InventoryBatch, Supplier } from "@/lib/server/compliance-inventory";
@@ -66,10 +67,8 @@ export function AdminInventoryClient({
   return (
     <div>
       <div>
-        <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Admin</p>
-        <h1 className="mt-2 text-3xl font-black">Stock</h1>
-        <p className="mt-2 text-sm text-[#6c5e52]">What arrived, what is left, and what needs using first.</p>
-        <p className="mt-2 rounded-md border border-[#bfe3cf] bg-[#f2fbf5] px-3 py-2 text-xs font-semibold text-[#0f5132]" data-testid="stock-honesty-stamp">
+        <Masthead eyebrow="Admin" title="Stock" subtitle="What arrived, what is left, and what needs using first." />
+        <p className="mt-4 rounded-lg border border-[#cfe6da] bg-[#f4faf6] px-3 py-2 text-xs font-semibold text-[var(--brand)]" data-testid="stock-honesty-stamp">
           Collected orders are already taken off stock.{" "}
           {lastStockCountDate
             ? `Last stock count: ${lastStockCountDate}.`
@@ -93,8 +92,8 @@ export function AdminInventoryClient({
         </div>
       )}
 
-      <section className="mt-6 rounded-lg border border-[#ded6ca] bg-white p-5">
-        <h2 className="text-lg font-black">What expires soon?</h2>
+      <section className="mt-6 rounded-lg border border-[var(--line)] bg-white p-5">
+        <h2 className="text-lg font-semibold">What expires soon?</h2>
         <p className="mt-1 text-sm font-bold text-[#231f20]">Use this stock first</p>
         <p className="mt-1 text-sm text-[#6c5e52]">
           {risk.length} stock item{risk.length === 1 ? "" : "s"} expire within 3 days. Money at risk:{" "}
@@ -103,19 +102,19 @@ export function AdminInventoryClient({
         <dl className="mt-4 grid gap-3 sm:grid-cols-4">
           <div className="rounded-md bg-[#f7f3ed] p-3">
             <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Expires today</dt>
-            <dd className="mt-1 text-2xl font-black">{expiresToday.length}</dd>
+            <dd className="mt-1 text-2xl font-semibold">{expiresToday.length}</dd>
           </div>
           <div className="rounded-md bg-[#f7f3ed] p-3">
             <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Expires this week</dt>
-            <dd className="mt-1 text-2xl font-black">{expiresThisWeek.length}</dd>
+            <dd className="mt-1 text-2xl font-semibold">{expiresThisWeek.length}</dd>
           </div>
           <div className="rounded-md bg-[#f7f3ed] p-3">
             <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Expired</dt>
-            <dd className="mt-1 text-2xl font-black">{expired.length}</dd>
+            <dd className="mt-1 text-2xl font-semibold">{expired.length}</dd>
           </div>
           <div className="rounded-md bg-[#f7f3ed] p-3">
             <dt className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Money at risk</dt>
-            <dd className="mt-1 text-2xl font-black">{formatCurrency(totalAtRisk)}</dd>
+            <dd className="mt-1 text-2xl font-semibold">{formatCurrency(totalAtRisk)}</dd>
           </div>
         </dl>
       </section>
@@ -124,7 +123,7 @@ export function AdminInventoryClient({
 
       <div className="mt-8 grid gap-4">
         {batches.length === 0 ? (
-          <p className="rounded-lg border border-[#ded6ca] bg-white p-5 text-sm text-[#6c5e52]">
+          <p className="rounded-lg border border-[var(--line)] bg-white p-5 text-sm text-[#6c5e52]">
             Add your first stock item to start expiry and waste tracking.
           </p>
         ) : (
@@ -198,13 +197,13 @@ function BatchForm({
 
   return (
     <form
-      className="mt-6 grid gap-4 rounded-lg border border-[#ded6ca] bg-white p-5"
+      className="mt-6 grid gap-4 rounded-lg border border-[var(--line)] bg-white p-5"
       onSubmit={(event) => {
         event.preventDefault();
         submit();
       }}
     >
-      <h2 className="text-lg font-black">Add stock</h2>
+      <h2 className="text-lg font-semibold">Add stock</h2>
       <ol className="grid gap-2 rounded-md bg-[#f7f3ed] p-3 text-sm font-bold text-[#5c5148] sm:grid-cols-4">
         <li>1. What arrived?</li>
         <li>2. What did we expect?</li>
@@ -321,7 +320,7 @@ function BatchRow({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-black">{batch.productName}</h2>
+          <h2 className="text-lg font-semibold">{batch.productName}</h2>
           <p className="mt-1 text-sm text-[#6c5e52]">{batch.supplierName ?? "Unknown supplier"} - {batch.storageLocation ?? "No location"}</p>
         </div>
         <span className="rounded-full bg-[#f7f3ed] px-3 py-1 text-xs font-bold">{batch.status === "active" ? "In stock" : batch.status}</span>

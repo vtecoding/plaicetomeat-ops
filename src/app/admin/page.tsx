@@ -21,6 +21,7 @@ import {
 
 import { BusinessInsightsSections } from "@/components/admin/business-insights";
 import { PageFrame } from "@/components/site-header";
+import { Masthead } from "@/components/ui/page";
 import type { DataState } from "@/lib/domain/data-result";
 import type { DashboardMetrics } from "@/lib/server/dashboard";
 import type { OpsIntelligence } from "@/lib/server/operations-intelligence";
@@ -82,22 +83,19 @@ export default async function AdminPage() {
   return (
     <PageFrame>
       <main className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid="owner-dashboard">
-        <header className="flex flex-col gap-4 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Business Insights</p>
-            <h1 className="mt-2 text-3xl font-black">Review the business</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6c5e52]">
-              Historical analysis — money, stock, waste, margin, customers and certificates. For today&apos;s jobs, use Today.
-            </p>
-            <p className="mt-2 text-sm font-semibold text-[#0f5132]">{formatDisplayDate(metrics.date)}</p>
-          </div>
-          <Link
-            href="/admin/today"
-            className="inline-flex h-11 items-center rounded-full bg-[#0f5132] px-4 text-sm font-bold text-white transition hover:bg-[#0c3f27]"
-          >
-            Back to Today
-          </Link>
-        </header>
+        <Masthead
+          eyebrow="Business Insights"
+          title="Review the business"
+          subtitle={`Historical analysis — money, stock, waste, margin, customers and certificates. For today's jobs, use Today. · ${formatDisplayDate(metrics.date)}`}
+          actions={
+            <Link
+              href="/admin/today"
+              className="inline-flex h-10 items-center rounded-lg bg-[var(--brand)] px-4 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_22px_-12px_rgba(15,81,50,0.6)] transition hover:bg-[var(--brand-700)]"
+            >
+              Back to Today
+            </Link>
+          }
+        />
 
         {snapshot.result.state !== "HEALTHY" && <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />}
 
