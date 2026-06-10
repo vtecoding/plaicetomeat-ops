@@ -7,20 +7,35 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { ActionContext } from "@/components/owner-brain/action-context";
 import { PageFrame } from "@/components/site-header";
 import type { PurchasingRecommendation, SupplierReadiness } from "@/lib/domain/purchasing-intelligence";
 import { getPurchasingPlan, type PurchasingPlan } from "@/lib/server/purchasing-intelligence";
 import { requireStaffContext } from "@/lib/server/staff-context";
+import { cn, firstParam } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-export default async function PurchasingPage() {
+/** Slug ↔ name, mirrors the slug used to build the operator-action id (operator-guidance). */
+function slug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+export default async function PurchasingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const plan = await getPurchasingPlan(branchId);
+  const sp = await searchParams;
+  const focus = firstParam(sp.focus);
 
   return (
     <PageFrame>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <ActionContext from={firstParam(sp.from)} doParam={firstParam(sp.do)} focus={focus} why={firstParam(sp.why)} />
+
         <Link href="/admin" className="inline-flex items-center gap-1 text-sm font-bold text-[#0f5132]">
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to dashboard
         </Link>
@@ -44,7 +59,7 @@ export default async function PurchasingPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {plan.recommendations.map((rec) => (
-                <RecommendationCard key={rec.id} rec={rec} />
+                <RecommendationCard key={rec.id} rec={rec} focused={focus !== undefined && slug(rec.productName) === focus} />
               ))}
             </div>
           )}
@@ -169,12 +184,19 @@ function SupplierReadinessBanner({ readiness }: { readiness: SupplierReadiness }
   );
 }
 
-function RecommendationCard({ rec }: { rec: PurchasingRecommendation }) {
+function RecommendationCard({ rec, focused = false }: { rec: PurchasingRecommendation; focused?: boolean }) {
   const isMore = rec.kind === "order_more";
   const Icon = isMore ? TrendingUp : TrendingDown;
 
   return (
-    <article className="rounded-lg border border-[#ded6ca] bg-white p-4">
+    <article
+      id={slug(rec.productName)}
+      className={cn(
+        "scroll-mt-24 rounded-lg border bg-white p-4",
+        focused ? "border-[#0f5132] ring-2 ring-[#0f5132]/40" : "border-[#ded6ca]",
+      )}
+      data-focused={focused ? "true" : undefined}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Icon className="h-5 w-5 text-[#0f5132]" aria-hidden />

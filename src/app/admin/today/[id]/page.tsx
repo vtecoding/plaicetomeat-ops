@@ -15,11 +15,11 @@ export default async function DecisionPage({ params }: { params: Promise<{ id: s
 
   const { id } = await params;
   const brain = await getOwnerBrain(branchId);
-  const decision = findDecision(brain, id);
+  const action = findDecision(brain, id);
 
-  // The brain is rebuilt fresh each request, so a decision can disappear once it's
+  // The brain is rebuilt fresh each request, so an action can disappear once it's
   // resolved. Send the owner calmly back to Today rather than showing a dead end.
-  if (!decision) {
+  if (!action) {
     redirect("/admin/today");
   }
 
@@ -32,7 +32,7 @@ export default async function DecisionPage({ params }: { params: Promise<{ id: s
         </Link>
 
         <div className="mt-3">
-          <DecisionDetail decision={decision} headingLevel={1} />
+          <DecisionDetail action={action} headingLevel={1} />
         </div>
       </main>
     </PageFrame>

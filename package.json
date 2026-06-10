@@ -34,7 +34,13 @@
     "report:disaster-recovery": "node scripts/disaster-recovery-certification.mjs",
     "probe:v14": "node scripts/audit-probe-v14.mjs",
     "verify:operator-language": "node scripts/verify-operator-language.mjs",
-    "verify:operator-journeys": "node scripts/verify-operator-journeys.mjs"
+    "verify:operator-journeys": "node scripts/verify-operator-journeys.mjs",
+    "verify:action-compression": "node scripts/verify-action-compression.mjs",
+    "verify:today-os": "node scripts/verify-today-os.mjs",
+    "verify:one-tap-actions": "node scripts/verify-one-tap-actions.mjs",
+    "verify:morning-briefing": "node scripts/verify-morning-briefing.mjs",
+    "verify:intelligence-firewall": "node scripts/verify-intelligence-firewall.mjs",
+    "verify:owner-brain-compliance": "node scripts/verify-owner-brain-compliance.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

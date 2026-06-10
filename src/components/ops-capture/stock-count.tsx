@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ClipboardCheck, PlayCircle } from "lucide-react";
 
@@ -11,16 +11,24 @@ import { cn } from "@/lib/utils";
 
 type Lines = Record<string, StockCountLineState>;
 
+/** Slug ↔ name, mirrors the slug used to build the operator-action id (operator-guidance). */
+function slug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
 export function StockCount({
   branchId,
   initialSessionId,
   batches,
   initialLines,
+  focusSlug = null,
 }: {
   branchId: string;
   initialSessionId: string | null;
   batches: StockCountBatch[];
   initialLines: Lines;
+  /** V15.2 — when the operator arrived to count a specific item, its slug. Highlighted + scrolled to. */
+  focusSlug?: string | null;
 }) {
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
   const [lines, setLines] = useState<Lines>(initialLines);
@@ -157,6 +165,7 @@ export function StockCount({
                 line={lines[batch.batchId] ?? null}
                 value={inputs[batch.batchId] ?? ""}
                 busy={busy === batch.batchId}
+                focused={focusSlug !== null && slug(batch.productName) === focusSlug}
                 onChange={(v) => setInputs((p) => ({ ...p, [batch.batchId]: v }))}
                 onSave={() => saveCount(batch)}
                 onApply={() => applyCount(batch.batchId)}
@@ -185,6 +194,7 @@ function BatchRow({
   line,
   value,
   busy,
+  focused,
   onChange,
   onSave,
   onApply,
@@ -193,6 +203,7 @@ function BatchRow({
   line: StockCountLineState | null;
   value: string;
   busy: boolean;
+  focused: boolean;
   onChange: (v: string) => void;
   onSave: () => void;
   onApply: () => void;
@@ -200,9 +211,23 @@ function BatchRow({
   const systemKg = line ? line.systemKg : batch.remainingKg;
   const variance = line ? stockVarianceKg(line.systemKg, line.countedKg) : null;
   const matches = variance === 0;
+  const ref = useRef<HTMLDivElement>(null);
+
+  // V15.2 — when the operator tapped a TODAY action to count this item, bring it into view.
+  useEffect(() => {
+    if (focused) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focused]);
 
   return (
-    <div className="rounded-2xl border border-[#ded6ca] bg-white p-4 shadow-sm" data-testid="stock-count-batch">
+    <div
+      ref={ref}
+      className={cn(
+        "rounded-2xl border bg-white p-4 shadow-sm",
+        focused ? "border-[#0f5132] ring-2 ring-[#0f5132]/40" : "border-[#ded6ca]",
+      )}
+      data-testid="stock-count-batch"
+      data-focused={focused ? "true" : undefined}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-base font-black text-[#241f1a]">{batch.productName}</p>
         <span className="text-sm font-semibold text-[#6c5e52]">

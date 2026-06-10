@@ -1,11 +1,12 @@
 # Playwright UI Audit
 
-Generated: 2026-05-30T10:47:23.818Z
+Generated: 2026-06-09T18:13:31.199Z
 
 **Passed flows:**
 - /
 - /shop
 - /basket
+- /checkout
 - /counter
 - /counter/compliance
 - /admin
@@ -16,7 +17,7 @@ Generated: 2026-05-30T10:47:23.818Z
 - /admin/settings
 
 **Failed flows:**
-- /checkout
+- None
 
 **Details**
 
@@ -29,7 +30,6 @@ Generated: 2026-05-30T10:47:23.818Z
 
 - Passed: true
 - HTTP status: 200
-- Clicked buttons: `Add`
 
 ### /basket
 
@@ -38,13 +38,8 @@ Generated: 2026-05-30T10:47:23.818Z
 
 ### /checkout
 
-- Passed: false
+- Passed: true
 - HTTP status: 200
-- Page errors:
-  - Checkout field #customerName is missing required attribute
-  - Checkout field #customerPhone is missing required attribute
-  - Checkout field #pickupDate is missing required attribute
-  - Checkout field #pickupWindowId is missing required attribute
 
 ### /counter
 
@@ -85,3 +80,4 @@ Generated: 2026-05-30T10:47:23.818Z
 
 - Passed: true
 - HTTP status: 200
+

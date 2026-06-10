@@ -53,6 +53,7 @@ export function toOwnerDecision(finding: Finding): OwnerDecision {
   return {
     id: finding.id,
     category,
+    area: finding.area,
     priority,
     title: deJargon(finding.finding),
     whatHappened: deJargon(finding.explanation),

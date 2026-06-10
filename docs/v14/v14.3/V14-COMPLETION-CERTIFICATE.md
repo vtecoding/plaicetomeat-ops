@@ -3,7 +3,7 @@
 **Release:** V14.3 Truth Alignment & Operator Completion
 **Date:** 2026-06-09
 **Branch:** `v14-p1-inventory-truth`
-**Status:** ✅ V14 CERTIFIED COMPLETE (code-level + live-journey gates green; production build/deploy is the operator step)
+**Status:** ✅ V14 RELEASE-CERTIFIED — all 10 V15 entry-gate requirements green (production build + Playwright legacy-audit run green 2026-06-09). **V15 — Action Compression Engine — is unblocked.**
 
 V14.3 closed the six doctrine gaps from the operator-journey audit. No new
 capability was added — the existing intelligence is now truthful, consistent,
@@ -36,7 +36,8 @@ complete, and operator-safe.
 | V14 DB probe | `pnpm probe:v14` | ✅ **23 / 23** (FEFO, once-only depletion, oversell-flag, each/box, reversals) |
 | Operational truth | `node scripts/verify-operational-truth.mjs` | ✅ ALL PASS |
 | Operator journey | `node scripts/verify-operator-journeys.mjs` | ✅ PASSED (live app, contract holds on rendered surfaces) |
-| Production build + Playwright legacy-audit | `pnpm build` · `pnpm playwright:legacy-audit` | ⏳ **Operator step** — not run here to avoid clobbering the live dev server's `.next` (house style: build-ahead, deploy separately). |
+| Production build | `pnpm build` | ✅ **Compiled successfully** (20/20 static pages, full route table, no errors) — run 2026-06-09 |
+| Playwright legacy-audit | `pnpm playwright:legacy-audit` | ✅ **13 / 13 passed** (13.2s) — run 2026-06-09 against the production build |
 
 ---
 
@@ -64,11 +65,13 @@ complete, and operator-safe.
 
 ## Hand-back: remaining operator actions
 
-1. **Production build + full Playwright suite** before deploy: `pnpm build` then
-   `pnpm playwright:legacy-audit` (and the broader `pnpm playwright:full`). Run
-   when the dev server can be stopped.
+1. ✅ **Done** — production build (`pnpm build`) and Playwright legacy-audit
+   (`pnpm playwright:legacy-audit`) both run green on 2026-06-09. The broader
+   `pnpm playwright:full` suite remains available to run before deploy if desired.
 2. **Deploy** per house style (build-ahead, deploy separately); these changes are
    code-only (no new migrations in V14.3 — the V14.1-H migrations were sealed in
    the checkpoint commit and still require the usual prod DB push).
 
-At that point V14 is fully shipped, and **V15 — Action Compression Engine** may begin.
+V14 is now **release-certified** (all 10 V15 entry-gate requirements green).
+**V15 — Action Compression Engine — may begin.** Deploy remains the outstanding
+operator action but does not block V15 implementation under the entry gate.

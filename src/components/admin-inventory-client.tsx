@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { AlertCircle, CheckCircle2, ClipboardCheck } from "lucide-react";
 
 import { createInventoryBatch, recordWaste } from "@/app/actions/compliance-inventory";
@@ -11,7 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { InventoryBatch, Supplier } from "@/lib/server/compliance-inventory";
 import type { Product } from "@/lib/domain/types";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
+
+/** Slug ↔ name, mirrors the slug used to build the operator-action id (operator-guidance). */
+function slug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
 
 const WASTE_REASONS = ["expired", "damaged", "trim_loss", "customer_issue", "other"] as const;
 const WASTE_REASON_LABEL: Record<(typeof WASTE_REASONS)[number], string> = {
@@ -30,13 +35,20 @@ export function AdminInventoryClient({
   suppliers,
   batches,
   lastStockCountDate,
+  focusSlug = null,
 }: {
   branchId: string;
   products: Product[];
   suppliers: Supplier[];
   batches: InventoryBatch[];
   lastStockCountDate: string | null;
+  /** V15.2 — when the operator arrived to sell a specific item first, its slug. Highlighted + scrolled to. */
+  focusSlug?: string | null;
 }) {
+  // First batch of the focused product gets the scroll target; all matching batches ring-highlight.
+  const firstFocusedId = focusSlug
+    ? batches.find((batch) => slug(batch.productName) === focusSlug)?.id ?? null
+    : null;
   const router = useRouter();
   const [feedback, setFeedback] = useState<Feedback>(null);
 
@@ -117,7 +129,13 @@ export function AdminInventoryClient({
           </p>
         ) : (
           batches.map((batch) => (
-            <BatchRow key={batch.id} batch={batch} onResult={announce} />
+            <BatchRow
+              key={batch.id}
+              batch={batch}
+              onResult={announce}
+              focused={focusSlug !== null && slug(batch.productName) === focusSlug}
+              scrollTarget={batch.id === firstFocusedId}
+            />
           ))
         )}
       </div>
@@ -272,18 +290,35 @@ function BatchForm({
 function BatchRow({
   batch,
   onResult,
+  focused = false,
+  scrollTarget = false,
 }: {
   batch: InventoryBatch;
   onResult: (result: Awaited<ReturnType<typeof recordWaste>>) => void;
+  focused?: boolean;
+  scrollTarget?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState<string>("expired");
   const critical = batch.daysToExpiry < 0;
   const soon = batch.daysToExpiry >= 0 && batch.daysToExpiry <= 3;
+  const ref = useRef<HTMLDivElement>(null);
+
+  // V15.2 — when the operator tapped a TODAY "sell first" action, bring this item into view.
+  useEffect(() => {
+    if (scrollTarget) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [scrollTarget]);
 
   return (
-    <article className={"rounded-lg border bg-white p-5 " + (critical ? "border-[#b42318]" : soon ? "border-[#d99b22]" : "border-[#ded6ca]")}>
+    <article
+      ref={ref}
+      data-focused={focused ? "true" : undefined}
+      className={cn(
+        "scroll-mt-24 rounded-lg border bg-white p-5",
+        focused ? "border-[#0f5132] ring-2 ring-[#0f5132]/40" : critical ? "border-[#b42318]" : soon ? "border-[#d99b22]" : "border-[#ded6ca]",
+      )}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-black">{batch.productName}</h2>

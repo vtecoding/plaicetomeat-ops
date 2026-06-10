@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 
 import { DecisionDetail } from "@/components/owner-brain/decision-detail";
-import type { OwnerDecision } from "@/lib/owner-brain/types";
+import type { OperatorAction } from "@/lib/owner-brain/types";
 
 /**
  * V10 guided walk. Steps the owner through Urgent + Important one at a time, so a
@@ -13,7 +13,7 @@ import type { OwnerDecision } from "@/lib/owner-brain/types";
  * here changes stock, orders or prices, so we never fake a "done" tick — progress comes
  * from honestly moving through the list to "Ready for trading".
  */
-export function GuidedDay({ steps, opportunityCount }: { steps: OwnerDecision[]; opportunityCount: number }) {
+export function GuidedDay({ steps, opportunityCount }: { steps: OperatorAction[]; opportunityCount: number }) {
   // index === steps.length is the finish screen. An empty list lands there immediately.
   const [index, setIndex] = useState(0);
   const total = steps.length;
@@ -23,7 +23,7 @@ export function GuidedDay({ steps, opportunityCount }: { steps: OwnerDecision[];
     return <Finish opportunityCount={opportunityCount} />;
   }
 
-  const decision = steps[index];
+  const action = steps[index];
   const isLast = index === total - 1;
 
   return (
@@ -47,7 +47,7 @@ export function GuidedDay({ steps, opportunityCount }: { steps: OwnerDecision[];
       </div>
 
       <div className="mt-4" data-testid="guided-step">
-        <DecisionDetail decision={decision} headingLevel={2} />
+        <DecisionDetail action={action} headingLevel={2} />
       </div>
 
       <div className="mt-6 flex items-center justify-between gap-3">

@@ -1,10 +1,9 @@
 # Playwright UI Audit
 
-Generated: 2026-06-02T22:03:13.635Z
+Generated: 2026-06-09T18:13:35.502Z
 
 **Passed flows:**
 - /
-- /shop
 - /basket
 - /checkout
 - /counter
@@ -17,7 +16,7 @@ Generated: 2026-06-02T22:03:13.635Z
 - /admin/settings
 
 **Failed flows:**
-- None
+- /shop
 
 **Details**
 
@@ -28,9 +27,10 @@ Generated: 2026-06-02T22:03:13.635Z
 
 ### /shop
 
-- Passed: true
+- Passed: false
 - HTTP status: 200
-- Clicked buttons: `Add`
+- Page errors:
+  - No add-to-basket button found on shop
 
 ### /basket
 
@@ -81,3 +81,4 @@ Generated: 2026-06-02T22:03:13.635Z
 
 - Passed: true
 - HTTP status: 200
+

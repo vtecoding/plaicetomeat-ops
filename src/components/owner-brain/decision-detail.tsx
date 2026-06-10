@@ -2,65 +2,53 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BookOpen, CalendarClock, CheckCircle2, Coins, Lightbulb, User } from "lucide-react";
 
-import { CATEGORY_LABEL, DUE_WINDOW_LABEL, type OwnerDecision } from "@/lib/owner-brain/types";
-
-const CATEGORY_TONE = {
-  urgent: "red",
-  important: "amber",
-  opportunity: "green",
-} as const;
+import { ACTION_VERB } from "@/lib/owner-brain/action-target";
+import type { OperatorAction } from "@/lib/owner-brain/types";
 
 /**
- * The standard decision presentation, shared by the Today decision card (`today/[id]`)
- * and the V10 guided walk. Plain data in, no hooks — safe in both server and client
- * trees. The heading level is configurable so each surface keeps a correct outline.
+ * The standard action presentation, shared by the Today decision card (`today/[id]`) and
+ * the V10 guided walk. Plain data in, no hooks — safe in both server and client trees.
+ *
+ * V15.4 — this renders an `OperatorAction` only. It has no access to scores, confidence,
+ * priority or ranking evidence: those fields do not exist on the type it is handed.
  */
-export function DecisionDetail({ decision, headingLevel = 1 }: { decision: OwnerDecision; headingLevel?: 1 | 2 }) {
-  const tone = CATEGORY_TONE[decision.category];
+export function DecisionDetail({ action, headingLevel = 1 }: { action: OperatorAction; headingLevel?: 1 | 2 }) {
   const Heading = headingLevel === 1 ? "h1" : "h2";
 
   return (
     <div>
       <header className="rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-        <span
-          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.08em] ${
-            tone === "red"
-              ? "bg-[#fde8e7] text-[#9f1d1d]"
-              : tone === "amber"
-                ? "bg-[#fff4d8] text-[#8b5e00]"
-                : "bg-[#e6f5ec] text-[#0f5132]"
-          }`}
-        >
-          {CATEGORY_LABEL[decision.category]}
+        <span className="inline-flex items-center rounded-full bg-[#e6f5ec] px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-[#0f5132]">
+          {ACTION_VERB[action.actionType]}
         </span>
-        <Heading className="mt-3 text-2xl font-black leading-tight">{decision.title}</Heading>
+        <Heading className="mt-3 text-2xl font-black leading-tight">{action.title}</Heading>
       </header>
 
       <section className="mt-4 grid gap-4 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" data-testid="decision-detail">
-        <Block heading="What happened?">{decision.whatHappened}</Block>
-        <Block heading="Why it matters">{decision.whyItMatters}</Block>
+        <Block heading="What happened?">{action.whatHappened}</Block>
+        <Block heading="Why it matters">{action.whyItMatters}</Block>
         <Block heading="Recommended action" accent>
-          {decision.recommendedAction}
+          {action.recommendedAction}
         </Block>
       </section>
 
       <section className="mt-4 grid gap-3 sm:grid-cols-3">
-        <Fact icon={Coins} label="Money impact" value={decision.estimatedImpact.label} />
-        <Fact icon={User} label="Who should do it" value={decision.owner} />
-        <Fact icon={CalendarClock} label="When" value={DUE_WINDOW_LABEL[decision.dueWindow]} />
+        <Fact icon={Coins} label="Money impact" value={action.impactLabel} />
+        <Fact icon={User} label="Who should do it" value={action.owner} />
+        <Fact icon={CalendarClock} label="When" value={action.dueLabel} />
       </section>
 
-      <Evidence decision={decision} />
+      <Evidence action={action} />
 
-      {decision.playbook && (
+      {action.playbook && (
         <Link
-          href={`/admin/playbooks/${decision.playbook.slug}`}
+          href={`/admin/playbooks/${action.playbook.slug}`}
           className="mt-4 flex items-center gap-3 rounded-2xl border border-[#bfe3cf] bg-[#f2fbf5] p-4 shadow-sm transition hover:bg-[#eafaf0]"
         >
           <BookOpen className="h-5 w-5 shrink-0 text-[#0f5132]" aria-hidden />
           <span className="min-w-0">
             <span className="block text-xs font-black uppercase tracking-[0.08em] text-[#0f5132]">Learn more</span>
-            <span className="block text-base font-bold text-[#0f5132]">How to: {decision.playbook.title}</span>
+            <span className="block text-base font-bold text-[#0f5132]">How to: {action.playbook.title}</span>
           </span>
         </Link>
       )}
@@ -89,8 +77,7 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Coins; label: string;
   );
 }
 
-function Evidence({ decision }: { decision: OwnerDecision }) {
-  const { basis, metrics } = decision.sourceEvidence;
+function Evidence({ action }: { action: OperatorAction }) {
   return (
     <section className="mt-4 rounded-2xl border border-[#ece2d5] bg-[#fbfaf7] p-4">
       <div className="flex items-center gap-2">
@@ -99,13 +86,13 @@ function Evidence({ decision }: { decision: OwnerDecision }) {
       </div>
       <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-[#3f372f]">
         <CheckCircle2 className="h-4 w-4 shrink-0 text-[#0f5132]" aria-hidden />
-        {basis.summary}
+        {action.basisSummary}
       </p>
-      {metrics.length > 0 && (
+      {action.supportingFacts.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {metrics.map((metric) => (
-            <span key={metric.label} className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-[#5c5148] ring-1 ring-[#ece2d5]">
-              {metric.label}: <span className="font-black text-[#241f1a]">{metric.value}</span>
+          {action.supportingFacts.map((fact) => (
+            <span key={fact.label} className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-[#5c5148] ring-1 ring-[#ece2d5]">
+              {fact.label}: <span className="font-black text-[#241f1a]">{fact.value}</span>
             </span>
           ))}
         </div>

@@ -22,7 +22,7 @@ export default async function WalkPage() {
     redirect("/admin/today");
   }
 
-  const day = buildDayShape(brain);
+  const day = buildDayShape(brain.walkSteps);
 
   return (
     <PageFrame>
@@ -33,7 +33,7 @@ export default async function WalkPage() {
         </header>
 
         <div className="mt-4">
-          <GuidedDay steps={day.steps} opportunityCount={brain.opportunities.length} />
+          <GuidedDay steps={day.steps} opportunityCount={brain.opportunityCount} />
         </div>
       </main>
     </PageFrame>

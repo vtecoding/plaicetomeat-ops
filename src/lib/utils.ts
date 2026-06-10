@@ -5,6 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Normalise a Next.js `searchParams` value (which may be a string, a repeated array, or
+ * undefined) down to the single string a page actually wants — or undefined.
+ */
+export function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",

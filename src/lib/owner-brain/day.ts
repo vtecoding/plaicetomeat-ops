@@ -10,11 +10,10 @@
  * "no rush" by definition (V9) and would turn a quick morning check into a chore, so
  * they stay off the walk and remain glanceable on the Today list.
  */
-import type { DayShape, OwnerBrain } from "./types";
+import type { DayShape, OperatorAction } from "./types";
 
 /** Rough per-item minutes — deliberately small and honest, not a promise. */
-const MINUTES_PER_URGENT = 3;
-const MINUTES_PER_IMPORTANT = 2;
+const MINUTES_PER_STEP = 3;
 
 /** Round to the nearest 5, but never report 0 minutes for real work. */
 function roundMinutes(raw: number): number {
@@ -28,12 +27,15 @@ function timePhrase(minutes: number): string | null {
   return `about ${minutes} minutes`;
 }
 
-export function buildDayShape(brain: Pick<OwnerBrain, "urgent" | "important">): DayShape {
-  const steps = [...brain.urgent, ...brain.important];
+/**
+ * V15.4 — works on the operator-safe action list (no scored buckets). The estimate is an
+ * honest flat per-item figure; it never reads a priority or score.
+ */
+export function buildDayShape(steps: OperatorAction[]): DayShape {
   const needsYouCount = steps.length;
   const allClear = needsYouCount === 0;
 
-  const estimateMinutes = roundMinutes(brain.urgent.length * MINUTES_PER_URGENT + brain.important.length * MINUTES_PER_IMPORTANT);
+  const estimateMinutes = roundMinutes(needsYouCount * MINUTES_PER_STEP);
   const timeLabel = timePhrase(estimateMinutes);
 
   const headline = allClear

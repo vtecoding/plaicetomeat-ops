@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Circle,
   ClipboardCheck,
@@ -18,33 +19,34 @@ import {
 
 import { PageFrame } from "@/components/site-header";
 import type { DataState } from "@/lib/domain/data-result";
-import { buildDayShape } from "@/lib/owner-brain/brain";
+import { buildDayShape, buildMorningBriefing } from "@/lib/owner-brain/brain";
 import { getOperationalSnapshotV1 } from "@/lib/server/operational-snapshot";
 import { requireStaffContext } from "@/lib/server/staff-context";
-import {
-  DUE_WINDOW_LABEL,
-  SHOP_STATUS_LABEL,
-  type DayShape,
-  type OwnerDecision,
-  type OwnerWeeklySummary,
-  type ShopStatus,
+import type {
+  DayShape,
+  MorningBriefing,
+  OperatorAction,
+  OwnerWeeklySummary,
 } from "@/lib/owner-brain/types";
 import type { GettingStarted } from "@/lib/shop-intelligence/types";
 import { cn, formatDisplayDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_TONE = {
-  good: "green",
-  needs_attention: "amber",
-  unknown: "neutral",
-} as const;
-
 export default async function TodayPage() {
   const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const snapshot = await getOperationalSnapshotV1(branchId);
   const brain = snapshot.result.data?.brain;
+  const morning = snapshot.result.data?.intelligence.morning;
   const date = formatDisplayDate(new Date(snapshot.asOf));
+
+  // V15.3 — the 20-second orientation read before the actions. Built purely from the same
+  // trusted signals the brain already used + the operational morning signal; never shown
+  // when the shop is still in setup (no day to brief yet).
+  const briefing =
+    brain && !brain.setupMode && morning
+      ? buildMorningBriefing({ doNow: brain.doNow, later: brain.later, morning })
+      : null;
 
   return (
     <PageFrame>
@@ -61,37 +63,20 @@ export default async function TodayPage() {
           <SetupMode gettingStarted={brain.gettingStarted} />
         ) : (
           <>
-            <DayShapeBanner day={buildDayShape(brain)} />
+            {/* V15.3 — the 20-second briefing sits above Do Now. It orients (Yesterday /
+                Today / Ignore); it never decides. Compact by design so the actions stay
+                dominant and reachable without scrolling. */}
+            {briefing && <MorningBriefingPanel briefing={briefing} />}
 
-            {/* The three — and only three — sections. */}
-            <DecisionSection
-              testid="decisions-urgent"
-              dot="🔴"
-              title="Urgent"
-              subtitle="Needs action today"
-              decisions={brain.urgent}
-              emptyText="Nothing urgent. Nothing here can't wait."
-            />
-            <DecisionSection
-              testid="decisions-important"
-              dot="🟡"
-              title="Important"
-              subtitle="Worth doing this week"
-              decisions={brain.important}
-              emptyText="Nothing pressing this week."
-            />
-            <DecisionSection
-              testid="decisions-opportunities"
-              dot="🟢"
-              title="Opportunities"
-              subtitle="Ways to grow — no rush"
-              decisions={brain.opportunities}
-              emptyText="No new opportunities spotted yet."
-              anchorId="opportunities"
-            />
+            {/* V15.1 TODAY OS — Do Now dominates the page. It is the first and largest thing
+                the operator acts on; the day-shape + guided walk fold in as a slim lead-in so
+                nothing competes with the three actions. */}
+            <DoNowZone day={buildDayShape(brain.doNow)} actions={brain.doNow} />
 
-            <ShopStatusPanel status={brain.status} />
-            <WeeklySummaryPanel weekly={brain.weekly} />
+            {/* Everything below recedes. Later is collapsed; the weekly summary is demoted to a
+                collapsed "for reference" panel. No dashboard surface sits above Do Now. */}
+            <LaterReserve actions={brain.later} />
+            <SecondaryInfo weekly={brain.weekly} />
           </>
         )}
 
@@ -177,119 +162,183 @@ function SetupMode({ gettingStarted }: { gettingStarted: GettingStarted }) {
   );
 }
 
-function DayShapeBanner({ day }: { day: DayShape }) {
-  if (day.allClear) {
-    return (
-      <section
-        className="mt-4 flex items-center gap-3 rounded-2xl border border-[#bfe3cf] bg-[#f2fbf5] p-5 shadow-sm"
-        data-testid="day-shape"
-      >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0f5132] text-white">
-          <CheckCircle2 className="h-5 w-5" aria-hidden />
-        </span>
-        <div>
-          <p className="text-lg font-black text-[#0f5132]">You&apos;re clear to trade</p>
-          <p className="text-sm font-semibold text-[#27543c]">Nothing urgent or pressing this morning. Have a good day.</p>
-        </div>
-      </section>
-    );
-  }
+/**
+ * V15.3 — the morning briefing. A calm, compact orientation read before the actions:
+ * Yesterday (context) · Today (the shape) · what to ignore (reassurance). Deliberately
+ * lighter than Do Now — it explains, it never decides, and it never shows a number.
+ */
+function MorningBriefingPanel({ briefing }: { briefing: MorningBriefing }) {
+  const rows: Array<{ label: string; text: string; testid: string }> = [
+    { label: "Yesterday", text: briefing.yesterday, testid: "briefing-yesterday" },
+    { label: "Today", text: briefing.today, testid: "briefing-today" },
+    { label: "You can ignore", text: briefing.ignore, testid: "briefing-ignore" },
+  ];
 
+  return (
+    <section className="mt-4 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" data-testid="morning-briefing">
+      <div className="flex items-center gap-2">
+        <Sunrise className="h-5 w-5 text-[#0f5132]" aria-hidden />
+        <h2 className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Your morning briefing</h2>
+      </div>
+      <dl className="mt-3 grid gap-2.5">
+        {rows.map((row) => (
+          <div key={row.testid} className="flex flex-col gap-0.5 sm:flex-row sm:gap-3" data-testid={row.testid}>
+            <dt className="shrink-0 text-xs font-black uppercase tracking-[0.08em] text-[#9a8c7d] sm:w-28 sm:pt-0.5">{row.label}</dt>
+            <dd className="text-base font-semibold leading-6 text-[#3f372f]">{row.text}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+/**
+ * V15.1 — the operating-system centre of TODAY. The single dominant zone (bordered, raised)
+ * that the operator reads first. At most three actions, chosen by the V15 Action Compression
+ * Engine; there is no path to a fourth. The day-shape and guided walk fold in as a slim
+ * lead-in so they support — never compete with — the three actions.
+ */
+function DoNowZone({ day, actions }: { day: DayShape; actions: OperatorAction[] }) {
   return (
     <section
-      className="mt-4 rounded-2xl border border-[#0f5132] bg-[#0f5132] p-5 text-white shadow-sm"
-      data-testid="day-shape"
+      className="mt-4 scroll-mt-20 rounded-2xl border-2 border-[#0f5132] bg-white p-5 shadow-md sm:p-6"
+      data-testid="do-now-zone"
     >
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#bfe3cf]">Let&apos;s get the shop ready</p>
-          <p className="mt-1 text-xl font-black leading-snug">{day.headline}</p>
-          {day.timeLabel && (
-            <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-[#d7ecdf]">
-              <Clock className="h-4 w-4" aria-hidden />
-              {day.timeLabel}, one thing at a time
-            </p>
-          )}
-        </div>
-        <Link
-          href="/admin/today/walk"
-          data-testid="walk-start"
-          className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-white px-6 text-base font-bold text-[#0f5132] transition hover:bg-[#eafaf0]"
-        >
-          <PlayCircle className="h-5 w-5" aria-hidden />
-          Walk me through it
-        </Link>
-      </div>
-    </section>
-  );
-}
-
-function DecisionSection({
-  testid,
-  dot,
-  title,
-  subtitle,
-  decisions,
-  emptyText,
-  anchorId,
-}: {
-  testid: string;
-  dot: string;
-  title: string;
-  subtitle: string;
-  decisions: OwnerDecision[];
-  emptyText: string;
-  anchorId?: string;
-}) {
-  return (
-    <section id={anchorId} className="mt-6 scroll-mt-20 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-      <div className="flex items-baseline justify-between gap-4">
-        <div className="flex items-baseline gap-2">
-          <span aria-hidden className="text-lg">
-            {dot}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span aria-hidden className="text-xl">
+            🔴
           </span>
-          <h2 className="text-xl font-black">{title}</h2>
-          <p className="text-sm font-semibold text-[#6c5e52]">{subtitle}</p>
+          <h2 className="text-2xl font-black">Do now</h2>
         </div>
-        <span className="rounded-full bg-[#eee7db] px-3 py-1 text-xs font-black uppercase tracking-[0.06em] text-[#6c5e52]">
-          {decisions.length === 0 ? "All clear" : decisions.length}
+        <span className="rounded-full bg-[#0f5132] px-3 py-1 text-xs font-black uppercase tracking-[0.06em] text-white">
+          {actions.length === 0 ? "All clear" : `${actions.length} ${actions.length === 1 ? "thing" : "things"}`}
         </span>
       </div>
 
-      <div className="mt-4">
-        {decisions.length === 0 ? (
-          <p className="flex items-center gap-2 rounded-xl bg-[#f2fbf5] p-4 text-sm font-semibold text-[#0f5132]">
-            <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden />
-            {emptyText}
-          </p>
-        ) : (
-          <ul className="grid gap-3" data-testid={testid}>
-            {decisions.map((decision) => (
-              <li key={decision.id}>
-                <DecisionRow decision={decision} />
+      {actions.length === 0 ? (
+        <div className="mt-4 flex items-center gap-3 rounded-xl bg-[#f2fbf5] p-4" data-testid="day-shape">
+          <CheckCircle2 className="h-6 w-6 shrink-0 text-[#0f5132]" aria-hidden />
+          <div>
+            <p className="text-lg font-black text-[#0f5132]">You&apos;re clear to trade</p>
+            <p className="text-sm font-semibold text-[#27543c]">Nothing needs you right now. Have a good day.</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Slim lead-in: the shape of the day + an optional guided walk. Subordinate to the
+              action cards below — small, muted, never a filled banner. */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3" data-testid="day-shape">
+            <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#6c5e52]">
+              <Clock className="h-4 w-4" aria-hidden />
+              {day.timeLabel ? `${day.timeLabel}, one thing at a time` : "One thing at a time"}
+            </p>
+            <Link
+              href="/admin/today/walk"
+              data-testid="walk-start"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-[#bfe3cf] bg-white px-4 text-sm font-bold text-[#0f5132] transition hover:bg-[#eafaf0]"
+            >
+              <PlayCircle className="h-4 w-4" aria-hidden />
+              Walk me through it
+            </Link>
+          </div>
+
+          <ol className="mt-4 grid gap-3" data-testid="decisions-do-now">
+            {actions.map((action, index) => (
+              <li key={action.id}>
+                <ActionCard action={action} ordinal={index + 1} />
               </li>
             ))}
-          </ul>
-        )}
-      </div>
+          </ol>
+        </>
+      )}
     </section>
   );
 }
 
-function DecisionRow({ decision }: { decision: OwnerDecision }) {
+/**
+ * V15.1 — a primary action card. What (title), why (one line — money at stake when we can
+ * price it, otherwise what's happening), and the whole card is "do it" (opens the action).
+ * Numbered 1·2·3 so the order to work through is unmistakable. Nothing else.
+ */
+function ActionCard({ action, ordinal }: { action: OperatorAction; ordinal: number }) {
   return (
     <Link
-      href={`/admin/today/${decision.id}`}
+      href={action.href}
+      data-testid="decision-row"
+      className="flex items-center gap-4 rounded-xl border border-[#ded6ca] bg-[#fbfaf7] p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md sm:p-5"
+    >
+      <span
+        aria-hidden
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0f5132] text-base font-black text-white"
+      >
+        {ordinal}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-lg font-black leading-snug text-[#241f1a] sm:text-xl">{action.title}</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-[#5c5148]">{action.reason}</p>
+      </div>
+      <ChevronRight className="h-6 w-6 shrink-0 text-[#9a8c7d]" aria-hidden />
+    </Link>
+  );
+}
+
+/**
+ * V15 — the Later reserve. Everything that did not make the top three is kept here, never
+ * lost, collapsed by default. The butcher is not asked to review it during normal trade —
+ * it exists for the moment they want to, plus auditability and debugging.
+ */
+function LaterReserve({ actions }: { actions: OperatorAction[] }) {
+  if (actions.length === 0) return null;
+
+  return (
+    // Secondary by design: muted, collapsed, recedes below Do Now. id="opportunities" keeps
+    // the guided-walk "ways to grow" link landing here — growth opportunities are the lowest
+    // doctrine tier, so they live in the Later reserve now.
+    <details
+      id="opportunities"
+      className="group mt-6 scroll-mt-20 rounded-2xl border border-[#ece2d5] bg-[#fbfaf7] p-5"
+      data-testid="later-reserve"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+        <div className="flex items-baseline gap-2">
+          <span aria-hidden className="text-base">
+            🗂️
+          </span>
+          <h2 className="text-lg font-black text-[#6c5e52]">Later</h2>
+          <p className="text-sm font-semibold text-[#9a8c7d]">Can wait — open if you want a look</p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eee7db] px-3 py-1 text-xs font-black uppercase tracking-[0.06em] text-[#6c5e52]">
+          {actions.length}
+          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden />
+        </span>
+      </summary>
+
+      <ul className="mt-4 grid gap-3" data-testid="decisions-later">
+        {actions.map((action) => (
+          <li key={action.id}>
+            <DecisionRow action={action} />
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function DecisionRow({ action }: { action: OperatorAction }) {
+  return (
+    <Link
+      href={action.href}
       data-testid="decision-row"
       className="flex items-center gap-3 rounded-xl border border-[#ece2d5] bg-[#fbfaf7] p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
     >
       <div className="min-w-0 flex-1">
-        <p className="text-base font-black text-[#241f1a]">{decision.title}</p>
-        <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5c5148]">{decision.whyItMatters}</p>
+        <p className="text-base font-black text-[#241f1a]">{action.title}</p>
+        <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5c5148]">{action.whyItMatters}</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <MoneyChip impact={decision.estimatedImpact} />
+          <MoneyChip tone={action.impactTone} label={action.impactLabel} />
           <span className="rounded-full bg-[#eee7db] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.06em] text-[#6c5e52]">
-            {DUE_WINDOW_LABEL[decision.dueWindow]}
+            {action.dueLabel}
           </span>
         </div>
       </div>
@@ -298,8 +347,8 @@ function DecisionRow({ decision }: { decision: OwnerDecision }) {
   );
 }
 
-function MoneyChip({ impact }: { impact: OwnerDecision["estimatedImpact"] }) {
-  const tone = impact.kind === "opportunity" ? "green" : impact.kind === "none" ? "neutral" : "amber";
+function MoneyChip({ tone: kind, label }: { tone: OperatorAction["impactTone"]; label: string }) {
+  const tone = kind === "opportunity" ? "green" : kind === "none" ? "neutral" : "amber";
   return (
     <span
       className={cn(
@@ -309,65 +358,34 @@ function MoneyChip({ impact }: { impact: OwnerDecision["estimatedImpact"] }) {
         tone === "neutral" && "bg-[#eee7db] text-[#6c5e52]",
       )}
     >
-      {impact.label}
+      {label}
     </span>
   );
 }
 
-function ShopStatusPanel({ status }: { status: ShopStatus }) {
-  const tone = STATUS_TONE[status.band];
+/**
+ * V15.1 — information demotion. The "How the shop is doing" status panel is retired from
+ * TODAY entirely (it changed no behaviour — "the shop is doing well" is not an action).
+ * The weekly summary is kept for completeness but demoted to a collapsed, muted "for
+ * reference" panel that sits below Do Now and never competes with it.
+ */
+function SecondaryInfo({ weekly }: { weekly: OwnerWeeklySummary }) {
   return (
-    <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" data-testid="shop-status">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <details className="group mt-6 rounded-2xl border border-[#ece2d5] bg-[#fbfaf7] p-5" data-testid="weekly-owner-summary">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">How the shop is doing</p>
-          <h2 className="mt-1 text-xl font-black">{status.headline}</h2>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#9a8c7d]">For reference</p>
+          <h2 className="mt-1 text-lg font-black text-[#6c5e52]">Your week at a glance · {weekly.rangeLabel}</h2>
         </div>
-        <span
-          className={cn(
-            "inline-flex items-center rounded-full px-4 py-1.5 text-sm font-black uppercase tracking-[0.06em]",
-            tone === "green" && "bg-[#e6f5ec] text-[#0f5132]",
-            tone === "amber" && "bg-[#fff4d8] text-[#8b5e00]",
-            tone === "neutral" && "bg-[#eee7db] text-[#6c5e52]",
-          )}
-        >
-          {SHOP_STATUS_LABEL[status.band]}
-        </span>
-      </div>
-
-      {(status.good.length > 0 || status.watch.length > 0) && (
-        <div className="mt-4 grid gap-2">
-          {status.good.map((item) => (
-            <p key={`good-${item}`} className="flex items-center gap-2 text-sm font-semibold text-[#0f5132]">
-              <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden /> {item} is in good shape
-            </p>
-          ))}
-          {status.watch.map((item) => (
-            <p key={`watch-${item}`} className="flex items-center gap-2 text-sm font-semibold text-[#8b5e00]">
-              <span aria-hidden className="text-base leading-none">
-                ⚠
-              </span>{" "}
-              {item} needs a look
-            </p>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function WeeklySummaryPanel({ weekly }: { weekly: OwnerWeeklySummary }) {
-  return (
-    <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" data-testid="weekly-owner-summary">
-      <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">This week</p>
-      <h2 className="mt-1 text-xl font-black">Your week at a glance · {weekly.rangeLabel}</h2>
+        <ChevronDown className="h-5 w-5 shrink-0 text-[#9a8c7d] transition group-open:rotate-180" aria-hidden />
+      </summary>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <SummaryColumn title="Wins" tone="green" items={weekly.wins} emptyText="Building up." />
         <SummaryColumn title="Risks" tone="amber" items={weekly.risks} emptyText="None to flag." />
         <SummaryColumn title="Opportunities" tone="neutral" items={weekly.opportunities} emptyText="None yet." />
       </div>
-    </section>
+    </details>
   );
 }
 

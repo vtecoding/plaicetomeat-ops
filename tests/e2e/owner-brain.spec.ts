@@ -21,13 +21,18 @@ test.describe("v9 owner brain — today", () => {
     if (await setup.count()) {
       // Setup mode: only Getting Started is shown, no intelligence.
       await expect(setup).toBeVisible();
-      await expect(page.getByTestId("decisions-urgent")).toHaveCount(0);
+      await expect(page.getByTestId("decisions-do-now")).toHaveCount(0);
     } else {
-      // Active mode: the three — and only three — decision sections plus status + week.
-      await expect(page.getByRole("heading", { name: "Urgent", exact: true })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Important", exact: true })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Opportunities", exact: true })).toBeVisible();
-      await expect(page.getByTestId("shop-status")).toBeVisible();
+      // V15.1 TODAY OS — the dominant "Do now" zone (≤3), an optional collapsed Later
+      // reserve, and demoted reference info. The "How the shop is doing" status panel is
+      // retired; the weekly summary is demoted to a secondary collapsed panel.
+      await expect(page.getByTestId("do-now-zone")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Do now", exact: true })).toBeVisible();
+      const doNowRows = page.getByTestId("decisions-do-now").getByTestId("decision-row");
+      expect(await doNowRows.count()).toBeLessThanOrEqual(3);
+      // Dashboard retirement: the status panel is gone from TODAY.
+      await expect(page.getByTestId("shop-status")).toHaveCount(0);
+      // Weekly summary still exists, but demoted (collapsed/secondary), never above Do Now.
       await expect(page.getByTestId("weekly-owner-summary")).toBeVisible();
     }
   });
