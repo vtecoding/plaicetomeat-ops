@@ -1,6 +1,6 @@
 # V15.3 · Morning Briefing Engine — Operator-Journey Proof
 
-Generated: 2026-06-10T20:40:37.826Z
+Generated: 2026-06-10T22:30:18.973Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test · viewport: 1366×1000
 
 A real start-of-day journey against the running app. Screenshot in
@@ -22,8 +22,8 @@ Briefing length: **31 words** (limit 100). Actions length: 47 words.
 - PASS: operator signs in — http://127.0.0.1:3001/admin/today
 - PASS: morning briefing is present — found
 - PASS: three sections present and non-empty — Y:y T:y I:y
-- PASS: briefing sits above Do Now — briefing top=239px, Do Now top=431px
-- PASS: briefing + Do Now read without scrolling (above the fold) — Do Now bottom=900px (viewport 1000px)
+- PASS: briefing sits above Do Now — briefing top=188px, Do Now top=389px
+- PASS: briefing + Do Now read without scrolling (above the fold) — Do Now bottom=861px (viewport 1000px)
 - PASS: no metric / number / percentage in the briefing — clean
 - PASS: no confidence / ranking / score language in the briefing — clean
 - PASS: briefing within the 100-word limit — 31 words (target 40–80, max 100)

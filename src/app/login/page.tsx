@@ -29,19 +29,21 @@ export default async function LoginPage({
   return (
     <PageFrame>
       <main className="mx-auto flex max-w-md flex-col px-4 py-16 sm:px-6">
-        <div className="rounded-lg border border-[#ded6ca] bg-white p-6 shadow-sm">
-          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Staff &amp; back office</p>
-          <h1 className="mt-2 text-2xl font-black">Sign in</h1>
-          <p className="mt-2 text-sm text-[#6c5e52]">
-            Counter and admin tools are restricted to PlaiceToMeat staff accounts.
-          </p>
-
-          <div className="mt-6">
-            <LoginForm returnTo={returnTo} />
+        <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--card)] shadow-[0_1px_0_rgba(255,255,255,0.7),0_40px_80px_-50px_rgba(40,28,16,0.5)]">
+          <div className="border-b border-[var(--line)] bg-gradient-to-b from-[var(--brand-50)] to-transparent px-6 py-6">
+            <p className="eyebrow text-[var(--brand)]">Staff &amp; back office</p>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-[-0.02em] text-[var(--ink)]">Sign in</h1>
+            <p className="mt-2 text-sm font-medium text-[var(--muted)]">
+              Counter and admin tools are restricted to PlaiceToMeat staff accounts.
+            </p>
           </div>
 
-          <div className="mt-4 border-t border-[#eee5d8] pt-4">
-            <PasswordResetRequest />
+          <div className="px-6 py-6">
+            <LoginForm returnTo={returnTo} />
+
+            <div className="mt-4 border-t border-[var(--line)] pt-4">
+              <PasswordResetRequest />
+            </div>
           </div>
         </div>
       </main>

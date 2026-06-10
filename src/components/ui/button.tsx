@@ -5,20 +5,26 @@ import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition-[transform,background-color,box-shadow,border-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--paper)] active:translate-y-px disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-[#0f5132] text-white hover:bg-[#0b3d26] focus-visible:outline-[#0f5132]",
-        secondary: "bg-[#f4efe7] text-[#231f20] hover:bg-[#ebe2d5] focus-visible:outline-[#826f4a]",
-        outline: "border border-[#cfc7bb] bg-white text-[#231f20] hover:bg-[#f7f3ed] focus-visible:outline-[#826f4a]",
-        destructive: "bg-[#b42318] text-white hover:bg-[#8f1d15] focus-visible:outline-[#b42318]",
-        ghost: "text-[#231f20] hover:bg-[#f4efe7] focus-visible:outline-[#826f4a]",
+        // Tactile primary: an inner top highlight + a soft coloured drop shadow give the
+        // button real depth instead of a flat fill.
+        default:
+          "bg-[var(--brand)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_22px_-12px_rgba(15,81,50,0.6)] hover:bg-[var(--brand-700)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_14px_26px_-12px_rgba(15,81,50,0.62)]",
+        secondary:
+          "bg-[var(--cream)] text-[var(--ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] hover:bg-[#ece2d2]",
+        outline:
+          "border border-[var(--line-strong)] bg-[var(--card)] text-[var(--ink)] shadow-[0_1px_0_rgba(255,255,255,0.6)] hover:border-[var(--brand)] hover:text-[var(--brand)] hover:bg-[var(--brand-50)]",
+        destructive:
+          "bg-[var(--clay)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_22px_-12px_rgba(166,64,43,0.6)] hover:bg-[#8c3322]",
+        ghost: "text-[var(--ink)] hover:bg-[var(--cream)]",
       },
       size: {
-        sm: "h-8 px-3 text-xs",
+        sm: "h-8 gap-1.5 rounded-md px-3 text-xs",
         md: "h-10 px-4",
-        lg: "h-12 px-5 text-base",
+        lg: "h-12 rounded-xl px-6 text-base",
         icon: "h-10 w-10 px-0",
       },
     },

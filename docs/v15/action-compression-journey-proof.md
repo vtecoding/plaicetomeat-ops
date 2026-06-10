@@ -1,6 +1,6 @@
 # V15 · Action Compression — Operator-Journey Proof
 
-Generated: 2026-06-10T20:40:11.496Z
+Generated: 2026-06-10T22:30:12.428Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test
 
 A real rendered operator journey against the running app on live data — not a

@@ -1,33 +1,88 @@
 @import "tailwindcss";
 
+/*
+ * PlaiceToMeat design tokens — "modern craft butcher".
+ * A warm, paper-and-forest palette with real typography. Tokens live here so the whole
+ * app shares one identity instead of scattered hex. Components may still use literal hex
+ * for one-off tints, but the core palette and both typefaces come from here.
+ */
 :root {
-  --background: #fbfaf7;
-  --foreground: #231f20;
+  --paper: #f6f2ea; /* warm page background */
+  --card: #ffffff; /* raised surfaces */
+  --cream: #f3ece0; /* recessed / secondary panels */
+  --ink: #20191a; /* primary text — warm near-black */
+  --muted: #6f6357; /* secondary text */
+  --faint: #9a8d7e; /* tertiary / labels */
+  --line: #e7ddce; /* hairline borders */
+  --line-strong: #d8ccb8;
+
+  --brand: #0f5132; /* forest green */
+  --brand-700: #0a3a24;
+  --brand-600: #0d4a2d;
+  --brand-50: #ecf4ef;
+  --brand-100: #d9ebe1;
+
+  --amber: #9a6612; /* warning ink */
+  --amber-50: #fdf4e0;
+  --clay: #a6402b; /* accent — butcher's red-clay */
+
+  --background: var(--paper);
+  --foreground: var(--ink);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-system);
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+
+  /* Fonts are injected as CSS variables by next/font in layout.tsx. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
 }
 
 /*
- * Base element resets live in `@layer base` so Tailwind's utility layer (which is
- * ordered after `base`) always wins. Without this, an unlayered `a { color: inherit }`
- * rule beat utility classes like `text-[#0f5132]` — making green-on-white CTAs inside a
- * dark parent inherit white and render invisible (the "Walk me through it" button bug).
+ * Base resets in @layer base so Tailwind's utility layer always wins (an unlayered
+ * `a { color: inherit }` once beat utility text colours and made green-on-white CTAs
+ * render invisible — keep these layered).
  */
 @layer base {
   * {
     box-sizing: border-box;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    background: var(--background);
-    color: var(--foreground);
-    font-family:
-      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-      sans-serif;
+    min-height: 100vh;
+    background-color: var(--paper);
+    /* Faint warm light from the top corners — gives the paper depth without an image. */
+    background-image:
+      radial-gradient(1100px 520px at 108% -8%, #ffffff 0%, rgba(255, 255, 255, 0) 60%),
+      radial-gradient(820px 460px at -8% -6%, #fcf4e4 0%, rgba(252, 244, 228, 0) 58%);
+    background-attachment: fixed;
+    color: var(--ink);
+    font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Display typeface for headings, with optical-size-friendly tight tracking. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-fraunces), Georgia, "Times New Roman", serif;
+    letter-spacing: -0.015em;
   }
 
   a {
@@ -42,8 +97,30 @@
     font: inherit;
   }
 
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
   ::selection {
-    background: #0f5132;
-    color: white;
+    background: var(--brand);
+    color: #fff;
+  }
+}
+
+@layer utilities {
+  /* Small-caps eyebrow label used across operator surfaces. */
+  .eyebrow {
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.7rem;
+  }
+
+  /* Subtle engraved separator that reads as "craft" rather than a flat 1px line. */
+  .rule-engraved {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--line-strong) 18%, var(--line-strong) 82%, transparent);
   }
 }
