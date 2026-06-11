@@ -143,7 +143,25 @@ export function buildProductPerformance(rows: ProductPerformanceInput[]) {
   };
 }
 
-export function buildCustomerIntelligence(orders: CustomerOrderInput[]) {
+export type LapsedRegular = {
+  customerName: string;
+  customerPhone: string;
+  orders: number;
+  averageOrderValue: number;
+  lastOrder: string;
+  daysSinceLastOrder: number;
+};
+
+/** A genuine regular has ordered this many times within the window we can see. */
+const REGULAR_MIN_ORDERS = 3;
+/** ...and at a cadence of at least roughly every three weeks (else they're just occasional). */
+const REGULAR_MAX_AVG_GAP_DAYS = 21;
+/** A regular who's been silent this long has missed a cycle — worth a call. */
+const LAPSED_DAYS = 21;
+const MAX_LAPSED_REGULARS = 5;
+const DAY_MS = 86_400_000;
+
+export function buildCustomerIntelligence(orders: CustomerOrderInput[], now = new Date()) {
   const grouped = new Map<string, CustomerOrderInput[]>();
 
   for (const order of orders) {
@@ -154,6 +172,12 @@ export function buildCustomerIntelligence(orders: CustomerOrderInput[]) {
   const customers = [...grouped.values()].map((customerOrders) => {
     const sorted = [...customerOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const latest = sorted[0];
+    const earliest = sorted[sorted.length - 1];
+    const lastOrderMs = new Date(latest.createdAt).getTime();
+    const daysSinceLastOrder = Math.floor((now.getTime() - lastOrderMs) / DAY_MS);
+    // Average gap between their orders — the cadence that tells a regular from an occasional buyer.
+    const spanDays = (lastOrderMs - new Date(earliest.createdAt).getTime()) / DAY_MS;
+    const averageGapDays = customerOrders.length > 1 ? spanDays / (customerOrders.length - 1) : Infinity;
 
     return {
       customerName: latest.customerName,
@@ -161,11 +185,33 @@ export function buildCustomerIntelligence(orders: CustomerOrderInput[]) {
       orders: customerOrders.length,
       spend: roundMoney(sum(customerOrders.map((order) => order.subtotal))),
       lastOrder: latest.createdAt,
+      daysSinceLastOrder,
+      averageGapDays,
       averageOrderValue: roundMoney(sum(customerOrders.map((order) => order.subtotal)) / customerOrders.length),
     };
   });
 
   const repeatCustomers = customers.filter((customer) => customer.orders > 1);
+
+  // Regulars who have gone quiet: enough orders, a real cadence, and now past a full cycle.
+  // This is what *creates* revenue — a named customer to win back, with a basket value attached.
+  const lapsedRegulars: LapsedRegular[] = customers
+    .filter(
+      (customer) =>
+        customer.orders >= REGULAR_MIN_ORDERS &&
+        customer.averageGapDays <= REGULAR_MAX_AVG_GAP_DAYS &&
+        customer.daysSinceLastOrder >= LAPSED_DAYS,
+    )
+    .sort((a, b) => b.averageOrderValue - a.averageOrderValue || b.spend - a.spend)
+    .slice(0, MAX_LAPSED_REGULARS)
+    .map((customer) => ({
+      customerName: customer.customerName,
+      customerPhone: customer.customerPhone,
+      orders: customer.orders,
+      averageOrderValue: customer.averageOrderValue,
+      lastOrder: customer.lastOrder,
+      daysSinceLastOrder: customer.daysSinceLastOrder,
+    }));
 
   return {
     firstTimeCustomers: customers.length - repeatCustomers.length,
@@ -173,6 +219,7 @@ export function buildCustomerIntelligence(orders: CustomerOrderInput[]) {
     repeatRate: customers.length === 0 ? 0 : Math.round((repeatCustomers.length / customers.length) * 100),
     averageOrderValue: orders.length === 0 ? 0 : roundMoney(sum(orders.map((order) => order.subtotal)) / orders.length),
     topCustomers: [...customers].sort((a, b) => b.spend - a.spend).slice(0, 5),
+    lapsedRegulars,
   };
 }
 

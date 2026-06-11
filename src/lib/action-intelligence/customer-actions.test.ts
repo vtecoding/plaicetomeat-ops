@@ -18,6 +18,15 @@ function withCustomers(firstTimeCustomers: number, repeatCustomers: number, repe
   return { ...baseInput, customers: { firstTimeCustomers, repeatCustomers, repeatRate } };
 }
 
+type Lapsed = NonNullable<ActionEngineInput["customers"]["lapsedRegulars"]>[number];
+
+function withLapsed(lapsedRegulars: Lapsed[], aggregate?: { firstTimeCustomers: number; repeatCustomers: number; repeatRate: number }): ActionEngineInput {
+  return {
+    ...baseInput,
+    customers: { ...(aggregate ?? { firstTimeCustomers: 0, repeatCustomers: 0, repeatRate: 0 }), lapsedRegulars },
+  };
+}
+
 describe("buildCustomerActions", () => {
   it("says nothing without any customers", () => {
     expect(buildCustomerActions(baseInput)).toEqual([]);
@@ -44,5 +53,43 @@ describe("buildCustomerActions", () => {
 
   it("stays quiet on too small a sample to mean anything", () => {
     expect(buildCustomerActions(withCustomers(1, 0, 0))).toEqual([]);
+  });
+
+  it("emits a named win-back action per lapsed regular, with basket value attached", () => {
+    const actions = buildCustomerActions(
+      withLapsed([{ customerName: "Aisha", averageOrderValue: 47, daysSinceLastOrder: 28, orders: 6 }]),
+    );
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({
+      id: "customer-winback-aisha-0",
+      title: "Win back Aisha",
+      category: "customer",
+      group: "customer_growth",
+    });
+    expect(actions[0]?.explanation).toContain("4 weeks");
+    expect(actions[0]?.estimatedImpact).toContain("£47");
+    expect(actions[0]?.recommendedAction).toBe("Call or message Aisha with a return offer.");
+  });
+
+  it("prefers named win-backs over the aggregate nudge", () => {
+    const actions = buildCustomerActions(
+      withLapsed([{ customerName: "Bilal", averageOrderValue: 30, daysSinceLastOrder: 21, orders: 4 }], {
+        firstTimeCustomers: 20,
+        repeatCustomers: 0,
+        repeatRate: 0,
+      }),
+    );
+    expect(actions).toHaveLength(1);
+    expect(actions[0]?.id).toBe("customer-winback-bilal-0");
+  });
+
+  it("caps win-back actions at three even with more lapsed regulars", () => {
+    const lapsed = Array.from({ length: 5 }, (_, index) => ({
+      customerName: `Regular ${index}`,
+      averageOrderValue: 25,
+      daysSinceLastOrder: 30,
+      orders: 4,
+    }));
+    expect(buildCustomerActions(withLapsed(lapsed))).toHaveLength(3);
   });
 });

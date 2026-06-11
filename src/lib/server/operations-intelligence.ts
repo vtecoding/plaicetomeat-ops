@@ -183,6 +183,7 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
       subtotal: toNum(order.subtotal),
       createdAt: order.created_at,
     })),
+    now,
   );
   const basket = buildBasketIntelligence(buildBasketOrders(orders, orderItems));
   const depletion = buildInventoryDepletionForecast(

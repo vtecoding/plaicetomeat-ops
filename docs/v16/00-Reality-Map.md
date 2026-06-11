@@ -27,7 +27,7 @@ Legend: ✅ shipped · ◓ partial / stub · ❌ genuinely new · ⚠️ conflic
 | **16.4 Inventory Intelligence** | Inventory → decisions | ✅ | `src/lib/server/inventory-truth-guidance.ts` + `domain/operator-guidance.ts`; surfaced via `buildOperatorGuidanceFindings`. |
 | **16.5 Purchasing Intelligence** | Recommendation engine | ✅ | `src/lib/domain/purchasing-intelligence.ts` (+ `.test.ts`), `server/purchasing-intelligence.ts`. |
 | **16.6 Waste Intelligence** | Expiry 24h/48h, low turnover, waste trend, margin impact + a **new `/admin/waste-intelligence` page** | ◓ engine stub / ⚠️ new page | `action-intelligence/waste-actions.ts` is a **single rule** (top product >50% of week waste). None of the 24h/48h/trend/margin signals exist. The **new page conflicts with the firewall** — see §2. |
-| **16.7 Customer Return Engine** | Per-customer `last_order`/`frequency`/`basket`/`favourites`; lapsed-regular alerts | ◓ stub | `action-intelligence/customer-actions.ts` fires only when `repeatRate === 0` exactly. No per-customer history, no "absent 21 days / £47 / call" output. → real work, see §4. |
+| **16.7 Customer Return Engine** | Per-customer `last_order`/`frequency`/`basket`; lapsed-regular alerts | ✅ **done (V16)** | `buildCustomerIntelligence` now emits `lapsedRegulars` (regular cadence + a missed cycle); `customer-actions.ts` turns each into a named "Win back X — £Y a visit" brain action. Proven live (`verify:customer-winback`). The feared data-layer add was unnecessary — see §4. |
 | **16.8 KPI rationalisation** | ≤5 primary KPIs/screen; rest expandable | ✅ on strict surfaces | `verify:owner-brain-compliance` bans bare %/score/confidence/ranking on strict surfaces. Not yet enforced on the secondary pages. |
 | **16.9 Mobile-first operator pass** | One-handed; <10s actions | ◓ | One-tap layer (V15.2) gives the *routing*; no systematic mobile audit of the secondary screens. |
 | **16.10 Screen consolidation** | 20–30% fewer destinations | ◓ | V11.3 already did "one door per job" (Today is sole home, Briefing→redirect, counter-mode removed). Remaining merge candidates are few — needs a destination audit, not a cull. |
@@ -118,12 +118,28 @@ Still open (honest follow-ups, not done): low-turnover / slow-moving and waste-t
 both need prior-period data the `ActionEngineInput.waste` shape doesn't carry today — a
 snapshot/query addition, deferred with the customer engine below.
 
-**Customer (`action-intelligence/customer-actions.ts`)** — currently fires only on
-`repeatRate === 0`. To deliver 16.7 we need per-customer history (`last_order`,
-`order_frequency`, `average_basket`, `favourite_products`). **Open question:** does the
-snapshot expose per-customer rows today? If not, this needs a snapshot/query addition before
-the engine can produce the "regular absent 21 days" action — that is the one place 16.7 may
-touch the data layer.
+**Customer (`action-intelligence/customer-actions.ts`)** — ✅ **done (V16).**
+
+The open question resolved in favour of *no data-layer change*: `getOperationsIntelligence`
+already fetches **120 days** of order history, and `buildCustomerIntelligence` already groups
+it per customer with `lastOrder` and `averageOrderValue`. The data was always there — it was
+just never turned into a return signal.
+
+Implemented: `buildCustomerIntelligence` now also returns `lapsedRegulars` — customers with a
+genuine cadence (≥3 orders, average gap ≤21 days) who are now ≥21 days silent, sorted by
+basket value. `customer-actions.ts` turns each into a named "Win back {name}" action carrying
+"Potential revenue: £{averageOrderValue} a visit" + "Call or message {name}". It flows through
+the brain → TODAY's Later/opportunities (info severity — it never crowds out urgent work), and
+classifies as `review` so one tap opens the decision detail that names who to call. Plain copy,
+no `%` on display strings (firewall-safe). Per-customer **favourite product** ("they usually
+buy lamb shoulder") is the one honest follow-up still open — it needs order *items* threaded
+per customer, which `buildCustomerIntelligence` doesn't take yet.
+
+Proof: unit (`operations-intelligence.test.ts` cadence/lapse cases + `customer-actions.test.ts`
+win-back cases) **plus a live operator-journey gate** `verify:customer-winback` (seeded lapsed
+regular "Yusuf Ali" → named, £-attached, one-tap on TODAY; screenshot in
+`docs/v16/screens/customer-winback.png`). Seed fixture added to `scripts/seed-dev.mjs` so the
+feature stays demonstrable.
 
 ---
 

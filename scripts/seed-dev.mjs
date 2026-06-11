@@ -96,7 +96,7 @@ async function ensureBranchB() {
 async function seedOrders() {
   const pickupDate = todayIso();
   // Remove previously seeded orders (idempotency keys are stable below).
-  const keys = ["seed-incoming-1", "seed-prepping-1", "seed-ready-1"];
+  const keys = ["seed-incoming-1", "seed-prepping-1", "seed-ready-1", "seed-winback-1", "seed-winback-2", "seed-winback-3"];
   const { data: existing } = await supabase.from("orders").select("id, idempotency_key").in("idempotency_key", keys);
   for (const row of existing ?? []) {
     await supabase.from("orders").delete().eq("id", row.id);
@@ -146,6 +146,57 @@ async function seedOrders() {
 
     console.log(`  order ${o.ref} (${o.status}) -> ${inserted.id}`);
   }
+
+  await seedLapsedRegular();
+}
+
+/**
+ * A lapsed regular: Yusuf ordered three times at a weekly cadence and then went quiet ~31
+ * days ago. This makes the V16 customer win-back action ("Win back Yusuf Ali") demonstrable
+ * on TODAY. created_at is backdated relative to now so it stays valid whenever the seed runs.
+ */
+async function seedLapsedRegular() {
+  const dayMs = 86_400_000;
+  const isoDaysAgo = (n) => new Date(Date.now() - n * dayMs).toISOString();
+  const history = [
+    { ref: "PTM-2026-90801", key: "seed-winback-1", daysAgo: 45, subtotal: 32.0 },
+    { ref: "PTM-2026-90802", key: "seed-winback-2", daysAgo: 38, subtotal: 28.0 },
+    { ref: "PTM-2026-90803", key: "seed-winback-3", daysAgo: 31, subtotal: 30.0 },
+  ];
+
+  for (const h of history) {
+    const createdAt = isoDaysAgo(h.daysAgo);
+    const { data: inserted, error } = await supabase
+      .from("orders")
+      .insert({
+        branch_id: BRANCH_A,
+        order_ref: h.ref,
+        customer_name: "Yusuf Ali",
+        customer_phone: "+447700900444",
+        status: "collected",
+        pickup_window_id: WINDOW_LUNCH,
+        pickup_date: createdAt.slice(0, 10),
+        subtotal: h.subtotal,
+        idempotency_key: h.key,
+        created_at: createdAt,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+
+    const { error: itemError } = await supabase.from("order_items").insert({
+      branch_id: BRANCH_A,
+      order_id: inserted.id,
+      product_name_snapshot: "Lamb Shoulder",
+      quantity: 1,
+      unit_type: "kg",
+      unit_price_snapshot: h.subtotal,
+      line_total: h.subtotal,
+      created_at: createdAt,
+    });
+    if (itemError) throw itemError;
+  }
+  console.log("  lapsed regular Yusuf Ali (3 orders, last ~31 days ago) -> win-back fixture");
 }
 
 async function clearOpsSessions() {

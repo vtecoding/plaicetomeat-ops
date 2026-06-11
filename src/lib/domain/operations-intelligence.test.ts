@@ -97,6 +97,42 @@ describe("operations intelligence", () => {
     expect(result.topCustomers[0]?.averageOrderValue).toBe(17.5);
   });
 
+  it("flags a regular who has gone quiet, not occasional or still-active buyers", () => {
+    const now = new Date("2026-06-30T10:00:00Z");
+    const result = buildCustomerIntelligence(
+      [
+        // Aisha: a weekly regular who stopped 46 days ago → lapsed.
+        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-01T10:00:00Z" },
+        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-08T10:00:00Z" },
+        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-15T10:00:00Z" },
+        // Bilal: also a regular, but still ordering this week → not lapsed.
+        { customerName: "Bilal", customerPhone: "2", subtotal: 30, createdAt: "2026-06-20T10:00:00Z" },
+        { customerName: "Bilal", customerPhone: "2", subtotal: 30, createdAt: "2026-06-25T10:00:00Z" },
+        { customerName: "Bilal", customerPhone: "2", subtotal: 30, createdAt: "2026-06-29T10:00:00Z" },
+        // Dina: three orders but ~6 weeks apart → occasional, not a "regular" cadence.
+        { customerName: "Dina", customerPhone: "3", subtotal: 15, createdAt: "2026-03-01T10:00:00Z" },
+        { customerName: "Dina", customerPhone: "3", subtotal: 15, createdAt: "2026-04-15T10:00:00Z" },
+        { customerName: "Dina", customerPhone: "3", subtotal: 15, createdAt: "2026-05-30T10:00:00Z" },
+        // Carl: only two orders → not enough to call a regular.
+        { customerName: "Carl", customerPhone: "4", subtotal: 50, createdAt: "2026-04-01T10:00:00Z" },
+        { customerName: "Carl", customerPhone: "4", subtotal: 50, createdAt: "2026-04-08T10:00:00Z" },
+      ],
+      now,
+    );
+
+    expect(result.lapsedRegulars.map((customer) => customer.customerName)).toEqual(["Aisha"]);
+    expect(result.lapsedRegulars[0]).toMatchObject({
+      customerName: "Aisha",
+      orders: 3,
+      averageOrderValue: 20,
+      daysSinceLastOrder: 46,
+    });
+  });
+
+  it("flags no lapsed regulars when there is no history", () => {
+    expect(buildCustomerIntelligence([]).lapsedRegulars).toEqual([]);
+  });
+
   it("waits for enough real orders before basket recommendations", () => {
     const result = buildBasketIntelligence([]);
 

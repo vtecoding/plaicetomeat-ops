@@ -46,6 +46,13 @@ export type ActionEngineInput = {
     firstTimeCustomers: number;
     repeatCustomers: number;
     repeatRate: number;
+    /** Named regulars who have gone quiet — each a basket of revenue to win back. */
+    lapsedRegulars?: Array<{
+      customerName: string;
+      averageOrderValue: number;
+      daysSinceLastOrder: number;
+      orders: number;
+    }>;
   };
   basket: {
     status: "ready" | "insufficient_history" | "no_pairings";
