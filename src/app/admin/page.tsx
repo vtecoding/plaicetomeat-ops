@@ -101,8 +101,8 @@ export default async function AdminPage() {
 
         <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Business snapshot">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Shop numbers</p>
-            <h2 className="mt-1 text-xl font-black">What happened today?</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">Shop numbers</p>
+            <h2 className="mt-1 text-xl font-semibold">What happened today?</h2>
             <p className="mt-1 text-sm text-[#6c5e52]">Money, waste, stock risk and certificates.</p>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -119,8 +119,8 @@ export default async function AdminPage() {
 
         <section id="business-insights" className="mt-6" aria-label="Business insights">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">The detail</p>
-            <h2 className="mt-1 text-xl font-black">What should I watch?</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">The detail</p>
+            <h2 className="mt-1 text-xl font-semibold">What should I watch?</h2>
             <p className="mt-1 text-sm text-[#6c5e52]">Stock, buying, margin, waste, customers and certificates.</p>
           </div>
 
@@ -131,11 +131,11 @@ export default async function AdminPage() {
                   <div className="flex items-center gap-3">
                     <panel.icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
                     <div>
-                      <p className="text-sm font-black">{panel.title}</p>
+                      <p className="text-sm font-semibold">{panel.title}</p>
                       <p className="mt-0.5 text-xs text-[#6c5e52]">{panel.summary}</p>
                     </div>
                   </div>
-                  <span className="text-sm font-black text-[#0f5132] transition group-open:rotate-180">v</span>
+                  <span className="text-sm font-semibold text-[#0f5132] transition group-open:rotate-180">v</span>
                 </summary>
                 <div className="mt-4 border-t border-[#eee4d8] pt-4">{panel.content}</div>
               </details>
@@ -154,8 +154,8 @@ export default async function AdminPage() {
 
         <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Analysis tools">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">Dig deeper</p>
-            <h2 className="mt-1 text-xl font-black">Analysis tools</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">Dig deeper</p>
+            <h2 className="mt-1 text-xl font-semibold">Analysis tools</h2>
             <p className="mt-1 text-sm text-[#6c5e52]">Buying, pricing, products, stock and history.</p>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -167,8 +167,8 @@ export default async function AdminPage() {
 
         <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="More tools">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f5132]">More tools</p>
-            <h2 className="mt-1 text-xl font-black">Admin links</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">More tools</p>
+            <h2 className="mt-1 text-xl font-semibold">Admin links</h2>
             <p className="mt-1 text-sm text-[#6c5e52]">The rest of the admin surface stays one tap away.</p>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -198,7 +198,7 @@ function TruthStateBanner({ state, message }: { state: DataState; message: strin
 
   return (
     <section className="mt-4 rounded-xl border border-[#f0c66e] bg-[#fff8e6] p-4 text-sm text-[#5a3900]" data-testid="truth-state-banner">
-      <p className="font-black">{label[state]}</p>
+      <p className="font-semibold">{label[state]}</p>
       <p className="mt-1 font-semibold">{message}</p>
     </section>
   );
@@ -409,7 +409,7 @@ function SnapshotStat({ label, value, testid }: { label: string; value: string; 
   return (
     <div className="rounded-xl bg-[#f7f3ed] p-4">
       <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">{label}</p>
-      <p className="mt-1 text-lg font-black" data-testid={testid}>
+      <p className="mt-1 text-lg font-semibold" data-testid={testid}>
         {value}
       </p>
     </div>
@@ -442,7 +442,7 @@ function QuickActionCard({
       className="flex min-h-28 flex-col rounded-2xl border border-[#ded6ca] bg-[#fbfaf7] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
     >
       <Icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
-      <p className="mt-4 text-lg font-black">{label}</p>
+      <p className="mt-4 text-lg font-semibold">{label}</p>
       <p className="mt-1 text-sm text-[#6c5e52]">{detail}</p>
     </Link>
   );
@@ -460,7 +460,7 @@ function IntelligencePanel({
   return (
     <article className="rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
       <Icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
-      <h3 className="mt-3 text-lg font-black">{title}</h3>
+      <h3 className="mt-3 text-lg font-semibold">{title}</h3>
       <div className="mt-4">{children}</div>
     </article>
   );
@@ -481,7 +481,7 @@ function MobileActionBar() {
           <Link
             key={item.href}
             href={item.href}
-            className="flex min-h-16 flex-col items-center justify-center rounded-2xl border border-[#ded6ca] bg-white text-center text-[11px] font-black uppercase tracking-[0.08em] text-[#0f5132] shadow-sm"
+            className="flex min-h-16 flex-col items-center justify-center rounded-2xl border border-[#ded6ca] bg-white text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0f5132] shadow-sm"
           >
             <item.icon className="h-4 w-4" aria-hidden />
             <span className="mt-1">{item.label}</span>

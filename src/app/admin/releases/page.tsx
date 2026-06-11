@@ -1,5 +1,6 @@
 import { AdminReleasesClient } from "@/components/admin-releases-client";
 import { PageFrame } from "@/components/site-header";
+import { BackLink, Masthead } from "@/components/ui/page";
 import { getReleaseGovernance } from "@/lib/server/releases";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
@@ -14,11 +15,12 @@ export default async function AdminReleasesPage() {
   return (
     <PageFrame>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Release governance</p>
-        <h1 className="mt-2 text-3xl font-black">Deployment Ledger</h1>
-        <p className="mt-2 text-sm text-[#6c5e52]">
-          Every release records gates, migration status, hosted smoke, and post-deploy verification before it is complete.
-        </p>
+        <Masthead
+          back={<BackLink href="/admin">Back to dashboard</BackLink>}
+          eyebrow="Release governance"
+          title="Deployment Ledger"
+          subtitle="Every release records gates, migration status, hosted smoke, and post-deploy verification before it is complete."
+        />
 
         {!governance.configured && (
           <p className="mt-4 rounded-lg border border-[#f0c66e] bg-[#fff6df] p-4 text-sm text-[#5a3900]">
@@ -26,18 +28,18 @@ export default async function AdminReleasesPage() {
           </p>
         )}
 
-        <section className="mt-6 rounded-lg border border-[#ded6ca] bg-white p-5" aria-label="Migration Health">
+        <section className="mt-6 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm" aria-label="Migration Health">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-black">Migration Health</h2>
-              <p className="mt-1 text-sm text-[#6c5e52]">
+              <h2 className="text-lg font-semibold">Migration Health</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
                 Expected migrations: {governance.migrationHealth.expected.length}. Applied migrations:{" "}
                 {governance.migrationHealth.applied.length}.
               </p>
             </div>
             <span
               className={
-                "rounded-full px-3 py-1 text-xs font-black " +
+                "rounded-full px-3 py-1 text-xs font-bold " +
                 (governance.migrationHealth.healthy
                   ? "bg-[#e6efe9] text-[#0f5132]"
                   : "bg-[#fff6df] text-[#5a3900]")
