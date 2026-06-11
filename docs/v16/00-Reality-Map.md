@@ -98,13 +98,25 @@ Two engines are stubs and are where "strengthen existing" delivers real signal q
 mature engines (yield reality, consistency monitor, operator guidance, purchasing) are good
 references for the bar — see `shop-intelligence/findings.ts`.
 
-**Waste (`action-intelligence/waste-actions.ts`)** — currently one rule. Add, honesty-gated
-(no finding without evidence, as the existing engines do):
-- expiry within 24h / 48h on active batches (data already in `snapshot.batches[].daysToExpiry`);
-- low-turnover / slow-moving stock;
-- waste trend vs. prior week.
-Each emits an `OwnerAction` → flows through the brain. Recommended verb stays an existing one
-(reduce order / short-dated offer / dispose), so the one-tap target already resolves.
+**Waste (`action-intelligence/waste-actions.ts`)** — ✅ **done (V16, this branch).**
+
+Correction to the first draft of this section: expiry-window risk (24h/48h short-dated and
+out-of-date batches) is **already** covered by `stock-actions.ts` (`daysToExpiry <= 3`,
+value-at-risk) and `operator-guidance.ts` `cardFromExpiry` (`<= 2`, with the confidence→verb
+contract). Adding it to the waste engine would only have produced duplicates for the
+compression engine to dedupe. The genuine gap was **diffuse waste**: the old single rule
+emitted nothing unless one product crossed 50% of the week's waste, so a shop bleeding money
+across several lines saw no guidance at all.
+
+Implemented: a second, honesty-gated rule (`waste-week-review`) that fires when the weekly
+total is material (≥ £20) but no single product dominates. It emits an `OwnerAction` → flows
+through the brain like any other. Plain copy, no `%` on the display strings (firewall-safe).
+Unit-tested across all four branches (`waste-actions.test.ts`); the live action-compression
+journey re-ran green (Later unchanged on concentrated seed data — the new rule is additive).
+
+Still open (honest follow-ups, not done): low-turnover / slow-moving and waste-trend signals
+both need prior-period data the `ActionEngineInput.waste` shape doesn't carry today — a
+snapshot/query addition, deferred with the customer engine below.
 
 **Customer (`action-intelligence/customer-actions.ts`)** — currently fires only on
 `repeatRate === 0`. To deliver 16.7 we need per-customer history (`last_order`,
