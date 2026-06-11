@@ -40,6 +40,7 @@
     "verify:one-tap-actions": "node scripts/verify-one-tap-actions.mjs",
     "verify:morning-briefing": "node scripts/verify-morning-briefing.mjs",
     "verify:customer-winback": "node scripts/verify-customer-winback.mjs",
+    "verify:surface-convergence": "node scripts/verify-surface-convergence.mjs",
     "verify:intelligence-firewall": "node scripts/verify-intelligence-firewall.mjs",
     "verify:owner-brain-compliance": "node scripts/verify-owner-brain-compliance.mjs"
   },

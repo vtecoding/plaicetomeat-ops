@@ -27,9 +27,9 @@ export default async function WalkPage() {
   return (
     <PageFrame>
       <main className="mx-auto max-w-2xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid="guided-walk">
-        <header className="rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Let&apos;s get the shop ready</p>
-          <h1 className="mt-2 text-2xl font-black">{day.headline}</h1>
+        <header className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">
+          <p className="eyebrow text-[var(--brand)]">Let&apos;s get the shop ready</p>
+          <h1 className="mt-2 font-display text-2xl font-semibold tracking-[-0.01em] text-[var(--ink)]">{day.headline}</h1>
         </header>
 
         <div className="mt-4">
