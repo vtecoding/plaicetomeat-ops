@@ -1,6 +1,6 @@
 # V16 · Customer Win-Back — Operator-Journey Proof
 
-Generated: 2026-06-11T15:47:36.141Z
+Generated: 2026-06-11T16:02:13.630Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test
 
 A real rendered operator journey against the running app on live seeded data — not a
@@ -13,4 +13,5 @@ TODAY. Screenshot in `./screens/customer-winback.png`.
 - PASS: a named win-back for the lapsed regular is shown — Win back Yusuf Ali
 - PASS: win-back carries the basket value it is worth — £ figure present
 - PASS: win-back is one tap to the work (who to contact) — /admin/today/action-customer-winback-yusuf-ali-0 · names+contact=true
+- PASS: win-back names what the customer usually buys — usually buy Lamb Shoulder
 - PASS: no score/confidence/ranking language is shown — clean

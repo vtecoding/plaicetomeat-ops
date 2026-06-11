@@ -55,9 +55,9 @@ describe("buildCustomerActions", () => {
     expect(buildCustomerActions(withCustomers(1, 0, 0))).toEqual([]);
   });
 
-  it("emits a named win-back action per lapsed regular, with basket value attached", () => {
+  it("emits a named win-back action per lapsed regular, with basket value and favourite attached", () => {
     const actions = buildCustomerActions(
-      withLapsed([{ customerName: "Aisha", averageOrderValue: 47, daysSinceLastOrder: 28, orders: 6 }]),
+      withLapsed([{ customerName: "Aisha", averageOrderValue: 47, daysSinceLastOrder: 28, orders: 6, favouriteProduct: "Lamb Shoulder" }]),
     );
     expect(actions).toHaveLength(1);
     expect(actions[0]).toMatchObject({
@@ -67,8 +67,16 @@ describe("buildCustomerActions", () => {
       group: "customer_growth",
     });
     expect(actions[0]?.explanation).toContain("4 weeks");
+    expect(actions[0]?.explanation).toContain("They usually buy Lamb Shoulder.");
     expect(actions[0]?.estimatedImpact).toContain("£47");
     expect(actions[0]?.recommendedAction).toBe("Call or message Aisha with a return offer.");
+  });
+
+  it("omits the favourite line when there is no item history", () => {
+    const actions = buildCustomerActions(
+      withLapsed([{ customerName: "Bilal", averageOrderValue: 30, daysSinceLastOrder: 21, orders: 4 }]),
+    );
+    expect(actions[0]?.explanation).not.toContain("They usually buy");
   });
 
   it("prefers named win-backs over the aggregate nudge", () => {

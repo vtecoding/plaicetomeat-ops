@@ -23,7 +23,9 @@ export function buildCustomerActions(input: ActionEngineInput): OwnerAction[] {
     group: "customer_growth" as const,
     severity: "info" as const,
     title: `Win back ${customer.customerName}`,
-    explanation: `${customer.customerName} was a regular but hasn't ordered in ${weeksAway(customer.daysSinceLastOrder)}.`,
+    explanation: `${customer.customerName} was a regular but hasn't ordered in ${weeksAway(customer.daysSinceLastOrder)}.${
+      customer.favouriteProduct ? ` They usually buy ${customer.favouriteProduct}.` : ""
+    }`,
     estimatedImpact: `Potential revenue: ${formatMoney(customer.averageOrderValue)} a visit.`,
     recommendedAction: `Call or message ${customer.customerName} with a return offer.`,
     sourceMetrics: {

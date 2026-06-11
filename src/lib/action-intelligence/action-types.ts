@@ -52,6 +52,7 @@ export type ActionEngineInput = {
       averageOrderValue: number;
       daysSinceLastOrder: number;
       orders: number;
+      favouriteProduct?: string | null;
     }>;
   };
   basket: {

@@ -101,10 +101,10 @@ describe("operations intelligence", () => {
     const now = new Date("2026-06-30T10:00:00Z");
     const result = buildCustomerIntelligence(
       [
-        // Aisha: a weekly regular who stopped 46 days ago → lapsed.
-        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-01T10:00:00Z" },
-        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-08T10:00:00Z" },
-        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-15T10:00:00Z" },
+        // Aisha: a weekly regular who stopped 46 days ago → lapsed. Buys lamb shoulder most.
+        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-01T10:00:00Z", items: ["Lamb Shoulder"] },
+        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-08T10:00:00Z", items: ["Lamb Shoulder", "Chicken Breast"] },
+        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-15T10:00:00Z", items: ["Lamb Shoulder"] },
         // Bilal: also a regular, but still ordering this week → not lapsed.
         { customerName: "Bilal", customerPhone: "2", subtotal: 30, createdAt: "2026-06-20T10:00:00Z" },
         { customerName: "Bilal", customerPhone: "2", subtotal: 30, createdAt: "2026-06-25T10:00:00Z" },
@@ -126,6 +126,7 @@ describe("operations intelligence", () => {
       orders: 3,
       averageOrderValue: 20,
       daysSinceLastOrder: 46,
+      favouriteProduct: "Lamb Shoulder",
     });
   });
 

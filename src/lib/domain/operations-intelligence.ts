@@ -29,6 +29,8 @@ export type CustomerOrderInput = {
   customerPhone: string;
   subtotal: number;
   createdAt: string;
+  /** Product names in this order — used to learn the customer's favourite. */
+  items?: string[];
 };
 
 export type CertificateForecastInput = {
@@ -150,6 +152,7 @@ export type LapsedRegular = {
   averageOrderValue: number;
   lastOrder: string;
   daysSinceLastOrder: number;
+  favouriteProduct: string | null;
 };
 
 /** A genuine regular has ordered this many times within the window we can see. */
@@ -188,6 +191,7 @@ export function buildCustomerIntelligence(orders: CustomerOrderInput[], now = ne
       daysSinceLastOrder,
       averageGapDays,
       averageOrderValue: roundMoney(sum(customerOrders.map((order) => order.subtotal)) / customerOrders.length),
+      favouriteProduct: mostFrequentProduct(customerOrders),
     };
   });
 
@@ -211,6 +215,7 @@ export function buildCustomerIntelligence(orders: CustomerOrderInput[], now = ne
       averageOrderValue: customer.averageOrderValue,
       lastOrder: customer.lastOrder,
       daysSinceLastOrder: customer.daysSinceLastOrder,
+      favouriteProduct: customer.favouriteProduct,
     }));
 
   return {
@@ -379,6 +384,19 @@ function daysUntil(date: string, now = new Date()) {
   const target = new Date(`${date}T00:00:00.000Z`);
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   return Math.ceil((target.getTime() - today.getTime()) / 86_400_000);
+}
+
+/** The product a customer buys most across their orders — their favourite, or null if unknown. */
+function mostFrequentProduct(orders: CustomerOrderInput[]): string | null {
+  const counts = new Map<string, number>();
+  for (const order of orders) {
+    for (const name of order.items ?? []) {
+      const clean = name.trim();
+      if (clean) counts.set(clean, (counts.get(clean) ?? 0) + 1);
+    }
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  return top ? top[0] : null;
 }
 
 function groupSum<T>(items: T[], label: (item: T) => string, value: (item: T) => number) {

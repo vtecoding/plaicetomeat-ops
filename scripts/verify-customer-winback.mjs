@@ -21,6 +21,7 @@ const BASE = process.env.BASE ?? "http://127.0.0.1:3001";
 const EMAIL = process.env.OPERATOR_EMAIL ?? "owner@ptm.test";
 const PASSWORD = process.env.OPERATOR_PASSWORD ?? "PlaiceTest123!";
 const WINBACK_NAME = "Yusuf Ali";
+const WINBACK_PRODUCT = "Lamb Shoulder";
 
 const OUT_DIR = resolve(process.cwd(), "docs", "v16");
 const SHOTS = resolve(OUT_DIR, "screens");
@@ -81,8 +82,13 @@ async function main() {
     const detailText = (await page.locator("main").innerText().catch(() => "")) || "";
     const tellsWhoToCall = detailText.includes(WINBACK_NAME) && /call|message|contact/i.test(detailText);
     record("win-back is one tap to the work (who to contact)", targeted && tellsWhoToCall, `${href || "(no href)"} · names+contact=${tellsWhoToCall}`);
+
+    // The favourite product gives the owner something to say on the call.
+    const showsFavourite = /usually buy/i.test(detailText) && detailText.includes(WINBACK_PRODUCT);
+    record("win-back names what the customer usually buys", showsFavourite, showsFavourite ? `usually buy ${WINBACK_PRODUCT}` : "favourite not shown");
   } else {
     record("win-back is one tap to the work (who to contact)", false, "no win-back to tap");
+    record("win-back names what the customer usually buys", false, "no win-back to inspect");
   }
 
   // 6. No score / confidence / ranking language leaks (firewall holds).

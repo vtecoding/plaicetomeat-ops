@@ -176,12 +176,17 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
 
   const performanceRows = buildPerformanceRows(orderItems, wasteEvents, costByProduct);
   const productPerformance = buildProductPerformance(performanceRows);
+  const itemNamesByOrder = new Map<string, string[]>();
+  for (const item of orderItems) {
+    itemNamesByOrder.set(item.order_id, [...(itemNamesByOrder.get(item.order_id) ?? []), item.product_name_snapshot]);
+  }
   const customerIntelligence = buildCustomerIntelligence(
     orders.map((order) => ({
       customerName: order.customer_name,
       customerPhone: order.customer_phone,
       subtotal: toNum(order.subtotal),
       createdAt: order.created_at,
+      items: itemNamesByOrder.get(order.id) ?? [],
     })),
     now,
   );

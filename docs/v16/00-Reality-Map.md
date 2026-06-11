@@ -131,9 +131,10 @@ basket value. `customer-actions.ts` turns each into a named "Win back {name}" ac
 "Potential revenue: £{averageOrderValue} a visit" + "Call or message {name}". It flows through
 the brain → TODAY's Later/opportunities (info severity — it never crowds out urgent work), and
 classifies as `review` so one tap opens the decision detail that names who to call. Plain copy,
-no `%` on display strings (firewall-safe). Per-customer **favourite product** ("they usually
-buy lamb shoulder") is the one honest follow-up still open — it needs order *items* threaded
-per customer, which `buildCustomerIntelligence` doesn't take yet.
+no `%` on display strings (firewall-safe). Per-customer **favourite product** is now included
+too ("They usually buy Lamb Shoulder.") — `CustomerOrderInput` carries `items` and the server
+threads order-item names per customer, so the owner has something to say on the call. Proven
+live by the same gate.
 
 Proof: unit (`operations-intelligence.test.ts` cadence/lapse cases + `customer-actions.test.ts`
 win-back cases) **plus a live operator-journey gate** `verify:customer-winback` (seeded lapsed
