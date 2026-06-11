@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { canAccessStaffPath, hasMinRole, isBranchAuthorised, isStaffFacingPath } from "./route-access";
+import {
+  canAccessStaffPath,
+  hasMinRole,
+  isBranchAuthorised,
+  isOperatorAccount,
+  isStaffFacingPath,
+} from "./route-access";
 
 describe("staff route access", () => {
   it("maps staff, manager, and owner access from the V2 route rules", () => {
@@ -24,8 +30,43 @@ describe("staff route access", () => {
     expect(isStaffFacingPath("/shop")).toBe(false);
     expect(isStaffFacingPath("/admin/products")).toBe(true);
     expect(isStaffFacingPath("/counter")).toBe(true);
+    expect(isStaffFacingPath("/operator")).toBe(true);
+    expect(isStaffFacingPath("/operator/open")).toBe(true);
     // /compliance is not a real route — it must not be treated as staff-facing.
     expect(isStaffFacingPath("/compliance")).toBe(false);
+  });
+
+  describe("V17 operator mode", () => {
+    it("treats only a manager/owner-rank account with the flag as operator-locked", () => {
+      expect(isOperatorAccount("manager", true)).toBe(true);
+      // The flag without manager rank is meaningless (staff can never be operator).
+      expect(isOperatorAccount("staff", true)).toBe(false);
+      // The owner is never operator-locked even if a flag were set.
+      expect(isOperatorAccount("owner", true)).toBe(false);
+      expect(isOperatorAccount("manager", false)).toBe(false);
+      expect(isOperatorAccount(null, true)).toBe(false);
+    });
+
+    it("locks an operator account to /operator and bars /admin and /counter", () => {
+      const operator = { operatorMode: true };
+      expect(canAccessStaffPath("manager", "/operator", operator)).toBe(true);
+      expect(canAccessStaffPath("manager", "/operator/open", operator)).toBe(true);
+      expect(canAccessStaffPath("manager", "/admin", operator)).toBe(false);
+      expect(canAccessStaffPath("manager", "/admin/today", operator)).toBe(false);
+      expect(canAccessStaffPath("manager", "/counter", operator)).toBe(false);
+    });
+
+    it("lets a normal manager/owner preview operator mode but keeps counter staff out", () => {
+      expect(canAccessStaffPath("manager", "/operator")).toBe(true);
+      expect(canAccessStaffPath("owner", "/operator")).toBe(true);
+      expect(canAccessStaffPath("staff", "/operator")).toBe(false);
+    });
+
+    it("does not change normal access when the operator flag is absent", () => {
+      expect(canAccessStaffPath("manager", "/admin/settings")).toBe(true);
+      expect(canAccessStaffPath("staff", "/counter")).toBe(true);
+      expect(canAccessStaffPath("owner", "/admin")).toBe(true);
+    });
   });
 
   it("ranks roles so authority is explicit and missing roles fail closed", () => {

@@ -1,15 +1,17 @@
 import { AdminSettingsClient } from "@/components/admin-settings-client";
 import { PageFrame } from "@/components/site-header";
 import { BackLink, Masthead, Surface } from "@/components/ui/page";
-import { getBranchSettings } from "@/lib/server/catalog";
+import { getBranchById, getBranchSettings } from "@/lib/server/catalog";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
   const { branchId } = await requireStaffContext("manager", { branchScoped: true });
-  const settings = await getBranchSettings(branchId);
-  const currentBranch = { id: branchId, name: "Current branch", slug: "current", address: "", phone: null, timezone: "Europe/London" };
+  const [settings, currentBranch] = await Promise.all([
+    getBranchSettings(branchId),
+    getBranchById(branchId),
+  ]);
 
   return (
     <PageFrame>

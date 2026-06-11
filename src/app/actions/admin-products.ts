@@ -36,6 +36,10 @@ async function requireManager(): Promise<{ ok: true } | { ok: false; message: st
 
 function revalidateCatalog() {
   revalidatePath("/admin/products");
+  // Product cost/availability feeds TODAY's "selling with no cost" / pricing
+  // signals and the Business Insights hub, so refresh those too.
+  revalidatePath("/admin");
+  revalidatePath("/admin/today");
   revalidatePath("/shop");
 }
 

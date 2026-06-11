@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { ORDER_STATUSES, type Order, type OrderNote, type OrderStatus } from "@/lib/domain/types";
 import { getCollectionStockMessage } from "@/lib/server/inventory-depletion";
 import { getCounterOrders, getOrderById, getOrderNotes } from "@/lib/server/orders";
@@ -81,6 +83,12 @@ export async function updateOrderStatus(input: {
   // of what happened to stock — including a gentle "count this" nudge if the order
   // took more than the system believed it had. Never blocks; never technical.
   if (input.nextStatus === "collected") {
+    // Collection depletes inventory (V14.1), so the owner's stock surfaces —
+    // TODAY ("Do now"), Stock and Purchasing — must be invalidated too.
+    revalidatePath("/admin");
+    revalidatePath("/admin/today");
+    revalidatePath("/admin/inventory");
+    revalidatePath("/admin/purchasing");
     const stockNote = await getCollectionStockMessage(supabase, input.orderId);
     return { ok: true, order, stockNote };
   }

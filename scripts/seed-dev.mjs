@@ -22,6 +22,8 @@ const supabase = createClient(URL, SERVICE_KEY, {
 const USERS = [
   { email: "owner@ptm.test", role: "owner", branch_id: BRANCH_A, full_name: "Olivia Owner" },
   { email: "manager@ptm.test", role: "manager", branch_id: BRANCH_A, full_name: "Mara Manager" },
+  // V17: a manager-rank co-owner locked to the guided Operator surface (Uncle Gul).
+  { email: "operator@ptm.test", role: "manager", branch_id: BRANCH_A, full_name: "Gul Operator", operator_mode: true },
   { email: "staff@ptm.test", role: "staff", branch_id: BRANCH_A, full_name: "Sam Staff" },
   { email: "staff.b@ptm.test", role: "staff", branch_id: BRANCH_B, full_name: "Bea BranchB" },
   { email: "inactive@ptm.test", role: "staff", branch_id: BRANCH_A, full_name: "Ina Inactive", is_active: false },
@@ -67,6 +69,7 @@ async function upsertUser(spec) {
       role: spec.role,
       branch_id: spec.branch_id,
       is_active: spec.is_active ?? true,
+      operator_mode: spec.operator_mode ?? false,
     },
     { onConflict: "id" },
   );

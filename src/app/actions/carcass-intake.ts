@@ -125,6 +125,7 @@ export async function confirmCarcassIntake(input: ConfirmIntakeInput): Promise<C
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/today");
   revalidatePath("/admin/inventory");
   revalidatePath("/admin/products");
   revalidatePath("/admin/purchasing");

@@ -26,6 +26,7 @@ export type LogoutActionState = {
 type ProfileRow = {
   role: StaffRole | null;
   is_active: boolean | null;
+  operator_mode: boolean | null;
 };
 
 async function setStaffSessionCookie(userId: string): Promise<void> {
@@ -71,6 +72,7 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
 
   let role: StaffRole | null = null;
   let userId: string | null = null;
+  let operatorMode = false;
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -87,7 +89,7 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
     const profileClient = createSupabaseServiceClient();
     const { data: profile } = await profileClient
       .from("profiles")
-      .select("role,is_active")
+      .select("role,is_active,operator_mode")
       .eq("id", data.user.id)
       .maybeSingle<ProfileRow>();
 
@@ -103,6 +105,7 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
 
     role = profile.role;
     userId = data.user.id;
+    operatorMode = profile.operator_mode === true;
     await recordLoginAttempt({ email, success: true, networkHash });
     incrementMetric("login_success");
     log("AUTH", "info", "staff sign-in", { role });
@@ -114,7 +117,7 @@ export async function loginAction(_prev: LoginActionState, formData: FormData): 
   await setStaffSessionCookie(userId);
 
   // redirect() throws NEXT_REDIRECT - must be outside the try/catch above.
-  redirect(resolvePostLoginPath(role, returnTo));
+  redirect(resolvePostLoginPath(role, returnTo, operatorMode));
 }
 
 export async function logoutAction(_prev: LogoutActionState, _formData: FormData): Promise<LogoutActionState> {

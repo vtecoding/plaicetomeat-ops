@@ -32,6 +32,7 @@ function profile(overrides: Partial<StaffProfile>): StaffProfile {
     role: "manager",
     branchId: "branch-A",
     isActive: true,
+    operatorMode: false,
     ...overrides,
   };
 }

@@ -42,7 +42,9 @@
     "verify:customer-winback": "node scripts/verify-customer-winback.mjs",
     "verify:surface-convergence": "node scripts/verify-surface-convergence.mjs",
     "verify:intelligence-firewall": "node scripts/verify-intelligence-firewall.mjs",
-    "verify:owner-brain-compliance": "node scripts/verify-owner-brain-compliance.mjs"
+    "verify:owner-brain-compliance": "node scripts/verify-owner-brain-compliance.mjs",
+    "verify:operator-firewall": "node scripts/verify-operator-firewall.mjs",
+    "verify:operator-route-lock": "node scripts/verify-operator-route-lock.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

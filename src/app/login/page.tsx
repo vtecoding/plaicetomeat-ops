@@ -23,7 +23,7 @@ export default async function LoginPage({
   const profile = await getCurrentProfile();
 
   if (profile) {
-    redirect(resolvePostLoginPath(profile.role, returnTo));
+    redirect(resolvePostLoginPath(profile.role, returnTo, profile.operatorMode));
   }
 
   return (

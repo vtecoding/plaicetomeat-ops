@@ -12,6 +12,8 @@ export type StaffProfile = {
   role: StaffRole;
   branchId: string | null;
   isActive: boolean;
+  /** V17: when true, this manager-rank account uses the guided Operator surface. */
+  operatorMode: boolean;
 };
 
 type ProfileRow = {
@@ -21,6 +23,7 @@ type ProfileRow = {
   role: StaffRole | null;
   branch_id: string | null;
   is_active: boolean | null;
+  operator_mode: boolean | null;
 };
 
 /**
@@ -51,7 +54,7 @@ export const getCurrentProfile = cache(async (): Promise<StaffProfile | null> =>
 
   const { data } = await supabase
     .from("profiles")
-    .select("id,email,full_name,role,branch_id,is_active")
+    .select("id,email,full_name,role,branch_id,is_active,operator_mode")
     .eq("id", user.id)
     .maybeSingle<ProfileRow>();
 
@@ -66,5 +69,6 @@ export const getCurrentProfile = cache(async (): Promise<StaffProfile | null> =>
     role: data.role,
     branchId: data.branch_id,
     isActive: true,
+    operatorMode: data.operator_mode === true,
   };
 });

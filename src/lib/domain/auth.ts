@@ -1,4 +1,4 @@
-import { canAccessStaffPath, type StaffRole } from "./route-access";
+import { canAccessStaffPath, isOperatorAccount, type StaffRole } from "./route-access";
 
 export const LOGIN_MAX_FAILED_ATTEMPTS = 5;
 export const LOGIN_LOCKOUT_MINUTES = 15;
@@ -6,9 +6,13 @@ export const LOGIN_ATTEMPT_WINDOW_MINUTES = 15;
 
 /**
  * Where a freshly-authenticated user lands when they did not arrive with an
- * explicit (and authorised) returnTo target.
+ * explicit (and authorised) returnTo target. An operator-locked account always
+ * lands on the guided Operator home, never the admin console.
  */
-export function roleLandingPath(role: StaffRole): string {
+export function roleLandingPath(role: StaffRole, operatorMode = false): string {
+  if (isOperatorAccount(role, operatorMode)) {
+    return "/operator";
+  }
   return role === "staff" ? "/counter" : "/admin/today";
 }
 
@@ -64,14 +68,18 @@ export function sanitizeReturnTo(returnTo: string | null | undefined): string | 
  * Resolve the post-login destination: prefer a sanitised returnTo the role can
  * actually reach, otherwise the role's default landing page.
  */
-export function resolvePostLoginPath(role: StaffRole, returnTo: string | null | undefined): string {
+export function resolvePostLoginPath(
+  role: StaffRole,
+  returnTo: string | null | undefined,
+  operatorMode = false,
+): string {
   const safe = sanitizeReturnTo(returnTo);
 
-  if (safe && canAccessStaffPath(role, safe)) {
+  if (safe && canAccessStaffPath(role, safe, { operatorMode })) {
     return safe;
   }
 
-  return roleLandingPath(role);
+  return roleLandingPath(role, operatorMode);
 }
 
 export type LoginAttemptRecord = {

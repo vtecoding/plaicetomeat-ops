@@ -54,8 +54,13 @@ async function requireManager(): Promise<{ ok: true; branchId: string; profileId
 
 function revalidateOps() {
   revalidatePath("/admin");
+  // TODAY ("Do now" / "Later") is built from this same stock + compliance data,
+  // so it must be invalidated too — otherwise the owner does the work and the
+  // Do-now list keeps showing the stale item on back/return navigation.
+  revalidatePath("/admin/today");
   revalidatePath("/admin/compliance");
   revalidatePath("/admin/inventory");
+  revalidatePath("/admin/purchasing");
   revalidatePath("/our-halal-promise");
 }
 

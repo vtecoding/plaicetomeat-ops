@@ -103,17 +103,25 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role,is_active")
+      .select("role,is_active,operator_mode")
       .eq("id", user.id)
-      .maybeSingle<{ role: StaffRole | null; is_active: boolean | null }>();
+      .maybeSingle<{ role: StaffRole | null; is_active: boolean | null; operator_mode: boolean | null }>();
 
-    if (!profile?.is_active || !canAccessStaffPath(profile.role, pathname)) {
+    const operatorMode = profile?.operator_mode === true;
+
+    if (!profile?.is_active || !canAccessStaffPath(profile.role, pathname, { operatorMode })) {
       audit({
         reason: SECURITY_REASON.UNAUTHORISED_ROUTE,
         targetType: "authority",
         targetId: user.id,
         metadata: { route: pathname, role: profile?.role ?? null, active: profile?.is_active ?? false },
       });
+      // An operator-locked account that wandered to /admin or /counter is sent to
+      // its only home rather than to /unauthorised — it isn't a security breach,
+      // just the wrong door for this account.
+      if (operatorMode && profile?.is_active) {
+        return NextResponse.redirect(new URL("/operator", request.url));
+      }
       return redirectUnauthorised(request);
     }
 
@@ -154,5 +162,5 @@ function redirectToLogin(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/counter/:path*", "/admin/:path*"],
+  matcher: ["/counter/:path*", "/admin/:path*", "/operator/:path*"],
 };

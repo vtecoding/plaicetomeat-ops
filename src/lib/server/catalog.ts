@@ -175,6 +175,44 @@ export async function getBranchSettings(branchId: string): Promise<BranchSetting
   throw new Error(result.message);
 }
 
+export async function getBranchByIdResult(branchId: string): Promise<DataResult<Branch>> {
+  if (!hasSupabaseServiceEnv()) {
+    return allowDemoFallback()
+      ? healthy({ ...demoBranch, id: branchId })
+      : configurationRequired("Supabase service credentials are required before branch details are available.");
+  }
+
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from("branches")
+    .select("id, name, slug, address, phone, timezone")
+    .eq("id", branchId)
+    .maybeSingle<BranchRow>();
+
+  if (error) {
+    return unavailable("Branch details are temporarily unavailable.", [error.message]);
+  }
+  if (!data) {
+    return noData<Branch>(null, "Branch not found.");
+  }
+
+  return healthy({
+    id: data.id,
+    name: data.name,
+    slug: data.slug,
+    address: data.address,
+    phone: data.phone,
+    timezone: data.timezone ?? "Europe/London",
+  });
+}
+
+export async function getBranchById(branchId: string): Promise<Branch> {
+  const result = await getBranchByIdResult(branchId);
+  if (result.data) return result.data;
+  if (allowDemoFallback()) return { ...demoBranch, id: branchId };
+  throw new Error(result.message);
+}
+
 export async function getActiveCategoriesResult(branchId: string): Promise<DataResult<ProductCategory[]>> {
   if (!hasSupabaseServiceEnv()) {
     return allowDemoFallback()

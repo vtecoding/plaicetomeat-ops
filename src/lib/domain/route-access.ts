@@ -44,6 +44,14 @@ const STAFF_ROUTES = ["/counter"] as const;
 const MANAGER_ROUTES = ["/admin"] as const;
 
 /**
+ * V17 Operator Mode. The single guided front door for a low-tech co-owner.
+ * Reachable by manager/owner rank; an `operator_mode` account is *locked* to it
+ * (see `canAccessStaffPath`). Authority rank is unchanged — operator adapters
+ * still resolve as `manager` — this only selects the simple surface.
+ */
+const OPERATOR_ROUTES = ["/operator"] as const;
+
+/**
  * Sensitive back-office areas restricted to the owner only — managers can run the
  * shop but not the deployment/audit tooling. Counter staff never reach /admin at all.
  */
@@ -54,7 +62,9 @@ function matchesRoute(pathname: string, route: string) {
 }
 
 export function isStaffFacingPath(pathname: string) {
-  return [...STAFF_ROUTES, ...MANAGER_ROUTES].some((route) => matchesRoute(pathname, route));
+  return [...STAFF_ROUTES, ...MANAGER_ROUTES, ...OPERATOR_ROUTES].some((route) =>
+    matchesRoute(pathname, route),
+  );
 }
 
 /** True if a route is restricted to the owner role. */
@@ -62,12 +72,41 @@ export function isOwnerOnlyPath(pathname: string) {
   return OWNER_ONLY_ROUTES.some((route) => matchesRoute(pathname, route));
 }
 
-export function canAccessStaffPath(role: StaffRole | null | undefined, pathname: string) {
+/** True for an operator-locked account: a non-owner with the operator_mode flag. */
+export function isOperatorAccount(
+  role: StaffRole | null | undefined,
+  operatorMode: boolean | null | undefined,
+): boolean {
+  return operatorMode === true && hasMinRole(role, "manager") && role !== "owner";
+}
+
+export type StaffPathOptions = { operatorMode?: boolean };
+
+export function canAccessStaffPath(
+  role: StaffRole | null | undefined,
+  pathname: string,
+  options: StaffPathOptions = {},
+) {
   if (!role) {
     return false;
   }
 
-  // Owner-only areas are checked first so even the owner-returns-true shortcut
+  const isOperatorPath = OPERATOR_ROUTES.some((route) => matchesRoute(pathname, route));
+
+  // Operator-locked accounts can ONLY reach Operator Mode — never /admin or
+  // /counter. This is checked first so the flag is an absolute boundary that the
+  // owner-returns-true shortcut below can never widen.
+  if (isOperatorAccount(role, options.operatorMode)) {
+    return isOperatorPath;
+  }
+
+  // Operator Mode itself is a manager/owner surface (e.g. the owner previewing it).
+  // Plain counter staff never reach it.
+  if (isOperatorPath) {
+    return hasMinRole(role, "manager");
+  }
+
+  // Owner-only areas are checked next so even the owner-returns-true shortcut
   // can't accidentally widen access for managers.
   if (isOwnerOnlyPath(pathname)) {
     return role === "owner";
