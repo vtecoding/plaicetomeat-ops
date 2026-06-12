@@ -8,9 +8,9 @@ import {
   readCompletedRun,
   revalidateOperatorOps,
   saveOperatorRun,
-  simpleText,
   type OperatorActionResult,
 } from "@/app/actions/operator/escalation";
+import { linkOperatorEvidence } from "@/app/actions/operator/evidence";
 import type { WasteReasonChoice } from "@/lib/operator/workflows/waste";
 import { wasteReasonLabel } from "@/lib/operator/workflows/waste";
 import { resolveStaffContext } from "@/lib/server/staff-context";
@@ -124,7 +124,7 @@ export async function recordSimpleWaste(input: {
   productId: string | null;
   quantity: number;
   reason: WasteReasonChoice;
-  photoName?: string | null;
+  photoEvidenceId?: string | null;
 }): Promise<OperatorActionResult> {
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
@@ -134,12 +134,12 @@ export async function recordSimpleWaste(input: {
   if (completed) return { ok: true, message: "Already saved.", id: completed };
 
   const quantity = Number(input.quantity);
-  const photoName = simpleText(input.photoName, 160);
+  const photoEvidenceId = isUuid(input.photoEvidenceId) ? input.photoEvidenceId : null;
   const steps = {
     productId: input.productId,
     quantity,
     reason: input.reason,
-    photoName,
+    photoEvidenceId,
   };
 
   if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -192,15 +192,33 @@ export async function recordSimpleWaste(input: {
 
   if (!res.ok) return res;
 
+  const needsOwner = input.reason === "review";
+  const evidenceLink =
+    photoEvidenceId && res.id
+      ? await linkOperatorEvidence({
+          evidenceId: photoEvidenceId,
+          sourceType: "waste_event",
+          sourceId: res.id,
+          sourceRef: product.name,
+          reviewRequired: needsOwner,
+        })
+      : null;
+
   let alertId: string | null = null;
-  if (input.reason === "review") {
+  if (needsOwner) {
     alertId = await createOwnerAlert({
       branchId: auth.branchId,
       profileId: auth.profileId,
       kind: "operator_waste_reason_check",
       summary: `${product.name} waste was saved. Owner should check the reason.`,
       entityRef: input.runId,
-      metadata: { ...steps, productName: product.name, batchId: batch.id, reasonLabel: wasteReasonLabel(input.reason) },
+      metadata: {
+        ...steps,
+        productName: product.name,
+        batchId: batch.id,
+        reasonLabel: wasteReasonLabel(input.reason),
+        evidenceLinkOk: evidenceLink?.ok ?? null,
+      },
     });
   }
 
@@ -210,7 +228,7 @@ export async function recordSimpleWaste(input: {
     profileId: auth.profileId,
     workflow: "waste",
     status: "completed",
-    steps: { ...steps, productName: product.name, batchId: batch.id, wasteId: res.id },
+    steps: { ...steps, productName: product.name, batchId: batch.id, wasteId: res.id, evidenceLinkOk: evidenceLink?.ok ?? null },
     resultRef: res.id ? `waste:${res.id}` : alertId ? `owner_alert:${alertId}` : null,
   });
   await auditOperatorRun({
@@ -218,7 +236,14 @@ export async function recordSimpleWaste(input: {
     branchId: auth.branchId,
     profileId: auth.profileId,
     workflow: "waste",
-    metadata: { productId: product.id, batchId: batch.id, wasteId: res.id, needsOwner: !!alertId },
+    metadata: {
+      productId: product.id,
+      batchId: batch.id,
+      wasteId: res.id,
+      needsOwner: !!alertId,
+      evidenceId: photoEvidenceId,
+      evidenceLinkOk: evidenceLink?.ok ?? null,
+    },
   });
   revalidateOperatorOps();
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Check, Truck } from "lucide-react";
 
 import { confirmSimpleDelivery, reportRanOut, tellOwnerAboutStock } from "@/app/actions/operator/delivery";
+import { uploadOperatorEvidence } from "@/app/actions/operator/evidence";
 import { EXPIRY_CHOICES, STORAGE_CHOICES, type ExpiryChoice, type StorageChoice } from "@/lib/operator/workflows/stock";
 
 type ProductOption = { id: string; name: string; unitType: string };
@@ -18,6 +19,8 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
   const [supplierId, setSupplierId] = useState<string | null>(suppliers.length === 1 ? suppliers[0]?.id ?? null : null);
   const [quantity, setQuantity] = useState("");
   const [notePhotoName, setNotePhotoName] = useState<string | null>(null);
+  const [noteEvidenceId, setNoteEvidenceId] = useState<string | null>(null);
+  const [photoSaving, setPhotoSaving] = useState(false);
   const [storageChoice, setStorageChoice] = useState<StorageChoice>("fridge");
   const [expiryChoice, setExpiryChoice] = useState<ExpiryChoice>("tomorrow");
   const [sureRanOut, setSureRanOut] = useState(true);
@@ -40,6 +43,8 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
     setSupplierId(suppliers.length === 1 ? suppliers[0]?.id ?? null : null);
     setQuantity("");
     setNotePhotoName(null);
+    setNoteEvidenceId(null);
+    setPhotoSaving(false);
     setStorageChoice("fridge");
     setExpiryChoice("tomorrow");
     setSureRanOut(true);
@@ -57,7 +62,7 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
         quantity: Number(quantity),
         expiryChoice,
         storageChoice,
-        notePhotoName,
+        noteEvidenceId,
       });
       if (!res.ok) {
         setError(res.message);
@@ -92,6 +97,31 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
       setResult(res.message);
       setMode("done");
     });
+  }
+
+  async function savePhoto(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setPhotoSaving(true);
+    setNotePhotoName(file.name);
+    setNoteEvidenceId(null);
+
+    const formData = new FormData();
+    formData.set("file", file);
+    formData.set("evidenceType", "delivery_note");
+    formData.set("sourceType", "operator_workflow_run");
+    formData.set("sourceId", runId);
+    formData.set("sourceRef", product?.name ?? "Delivery note");
+
+    const res = await uploadOperatorEvidence(formData);
+    setPhotoSaving(false);
+    if (!res.ok) {
+      setError(res.message);
+      return;
+    }
+    setNoteEvidenceId(res.id);
+    setNotePhotoName(res.fileName);
+    setMode("delivery-storage");
   }
 
   return (
@@ -146,14 +176,13 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
               accept="image/*"
               capture="environment"
               className="sr-only"
-              onChange={(event) => {
-                setNotePhotoName(event.target.files?.[0]?.name ?? null);
-                setMode("delivery-storage");
-              }}
+              disabled={photoSaving || !runId}
+              onChange={(event) => void savePhoto(event.target.files?.[0])}
             />
           </label>
-          <BigButton onClick={() => { setNotePhotoName(null); setMode("delivery-storage"); }} label="Skip for now" muted />
-          {notePhotoName ? <p className="text-base font-semibold text-[var(--muted)]">Chosen: {notePhotoName}</p> : null}
+          <BigButton onClick={() => { setNotePhotoName(null); setNoteEvidenceId(null); setMode("delivery-storage"); }} label="Skip for now" muted />
+          {photoSaving ? <p className="text-base font-semibold text-[var(--muted)]">Saving photo...</p> : null}
+          {noteEvidenceId && notePhotoName ? <p className="text-base font-semibold text-[var(--muted)]">Photo saved: {notePhotoName}</p> : null}
         </Panel>
       )}
 

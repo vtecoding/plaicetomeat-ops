@@ -8,9 +8,9 @@ import {
   readCompletedRun,
   revalidateOperatorOps,
   saveOperatorRun,
-  simpleText,
   type OperatorActionResult,
 } from "@/app/actions/operator/escalation";
+import { linkOperatorEvidence } from "@/app/actions/operator/evidence";
 import {
   deliveryNeedsOwnerCheck,
   expiryDateFromChoice,
@@ -103,7 +103,7 @@ export async function confirmSimpleDelivery(input: {
   quantity: number;
   expiryChoice: ExpiryChoice;
   storageChoice: StorageChoice;
-  notePhotoName?: string | null;
+  noteEvidenceId?: string | null;
 }): Promise<OperatorActionResult> {
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
@@ -113,14 +113,14 @@ export async function confirmSimpleDelivery(input: {
   if (completed) return { ok: true, message: "Already saved.", id: completed };
 
   const quantity = Number(input.quantity);
-  const photoName = simpleText(input.notePhotoName, 160);
+  const noteEvidenceId = isUuid(input.noteEvidenceId) ? input.noteEvidenceId : null;
   const steps = {
     productId: input.productId,
     supplierId: input.supplierId,
     quantity,
     expiryChoice: input.expiryChoice,
     storageChoice: input.storageChoice,
-    notePhotoName: photoName,
+    noteEvidenceId,
   };
 
   if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -170,10 +170,10 @@ export async function confirmSimpleDelivery(input: {
     supplierKnown: true,
     expiryChoice: input.expiryChoice,
     storageChoice: input.storageChoice,
-    photoProvided: !!photoName,
+    photoProvided: !!noteEvidenceId,
   });
   const note = needsOwner
-    ? `Operator delivery needs owner check. Location: ${storageLabel(input.storageChoice)}. Note photo: ${photoName ? "yes" : "no"}.`
+    ? `Operator delivery needs owner check. Location: ${storageLabel(input.storageChoice)}. Note photo: ${noteEvidenceId ? "yes" : "no"}.`
     : null;
 
   const res = await createInventoryBatch({
@@ -194,6 +194,17 @@ export async function confirmSimpleDelivery(input: {
 
   if (!res.ok) return res;
 
+  const evidenceLink =
+    noteEvidenceId && res.id
+      ? await linkOperatorEvidence({
+          evidenceId: noteEvidenceId,
+          sourceType: "inventory_batch",
+          sourceId: res.id,
+          sourceRef: product.name,
+          reviewRequired: needsOwner,
+        })
+      : null;
+
   let alertId: string | null = null;
   if (needsOwner) {
     alertId = await createOwnerAlert({
@@ -202,7 +213,7 @@ export async function confirmSimpleDelivery(input: {
       kind: "operator_delivery_check_needed",
       summary: `${product.name} was added. Owner should check the details.`,
       entityRef: input.runId,
-      metadata: { ...steps, productName: product.name, supplierName: supplier.name, batchId: res.id },
+      metadata: { ...steps, productName: product.name, supplierName: supplier.name, batchId: res.id, evidenceLinkOk: evidenceLink?.ok ?? null },
     });
   }
 
@@ -212,7 +223,7 @@ export async function confirmSimpleDelivery(input: {
     profileId: auth.profileId,
     workflow: "delivery",
     status: "completed",
-    steps: { ...steps, productName: product.name, supplierName: supplier.name, batchId: res.id },
+    steps: { ...steps, productName: product.name, supplierName: supplier.name, batchId: res.id, evidenceLinkOk: evidenceLink?.ok ?? null },
     resultRef: res.id ? `inventory_batch:${res.id}` : alertId ? `owner_alert:${alertId}` : null,
   });
   await auditOperatorRun({
@@ -220,7 +231,7 @@ export async function confirmSimpleDelivery(input: {
     branchId: auth.branchId,
     profileId: auth.profileId,
     workflow: "delivery",
-    metadata: { productId: product.id, batchId: res.id, needsOwner },
+    metadata: { productId: product.id, batchId: res.id, needsOwner, evidenceId: noteEvidenceId, evidenceLinkOk: evidenceLink?.ok ?? null },
   });
   revalidateOperatorOps();
 

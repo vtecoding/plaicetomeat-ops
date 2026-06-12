@@ -56,6 +56,10 @@ export const AUDIT_EVENT_TYPES = [
   "inventory_reconciliation_issue",
   "inventory_confidence_degraded",
   "inventory_failure_trend_detected",
+  "evidence_uploaded",
+  "evidence_linked",
+  "evidence_deleted",
+  "evidence_upload_failed",
   "security_event",
 ] as const;
 

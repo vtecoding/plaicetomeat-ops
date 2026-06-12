@@ -53,6 +53,7 @@ const analysisToolLinks = [
   { href: "/admin/inventory", label: "What stock do I have?", detail: "What's in, what's going off", icon: PackageCheck },
   { href: "/admin/orders", label: "Order history", detail: "Past orders, search and exceptions", icon: ShoppingBag },
   { href: "/admin/compliance", label: "Supplier Certificates", detail: "Halal and food-safety paperwork", icon: ClipboardList },
+  { href: "/admin/evidence", label: "Evidence", detail: "Operator photos and document proof", icon: FileClock },
   { href: "/admin/settings", label: "Shop Settings", detail: "Shop details and customer texts", icon: Settings },
 ] as const;
 

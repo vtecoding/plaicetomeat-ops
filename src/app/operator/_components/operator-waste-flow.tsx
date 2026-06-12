@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition, type ReactNode } from "rea
 import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
 
+import { uploadOperatorEvidence } from "@/app/actions/operator/evidence";
 import { recordNoWaste, recordSimpleWaste } from "@/app/actions/operator/waste";
 import { WASTE_REASON_CHOICES, type WasteReasonChoice } from "@/lib/operator/workflows/waste";
 
@@ -17,6 +18,8 @@ export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState<WasteReasonChoice>("expired");
   const [photoName, setPhotoName] = useState<string | null>(null);
+  const [photoEvidenceId, setPhotoEvidenceId] = useState<string | null>(null);
+  const [photoSaving, setPhotoSaving] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -35,6 +38,8 @@ export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
     setQuantity("");
     setReason("expired");
     setPhotoName(null);
+    setPhotoEvidenceId(null);
+    setPhotoSaving(false);
     setResult(null);
     setError(null);
   }
@@ -60,7 +65,7 @@ export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
         productId,
         quantity: Number(quantity),
         reason,
-        photoName,
+        photoEvidenceId,
       });
       if (!res.ok) {
         setError(res.message);
@@ -69,6 +74,31 @@ export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
       setResult(res.message);
       setMode("done");
     });
+  }
+
+  async function savePhoto(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setPhotoSaving(true);
+    setPhotoName(file.name);
+    setPhotoEvidenceId(null);
+
+    const formData = new FormData();
+    formData.set("file", file);
+    formData.set("evidenceType", "waste_photo");
+    formData.set("sourceType", "operator_workflow_run");
+    formData.set("sourceId", runId);
+    formData.set("sourceRef", product?.name ?? "Waste photo");
+
+    const res = await uploadOperatorEvidence(formData);
+    setPhotoSaving(false);
+    if (!res.ok) {
+      setError(res.message);
+      return;
+    }
+    setPhotoEvidenceId(res.id);
+    setPhotoName(res.fileName);
+    setMode("confirm");
   }
 
   return (
@@ -116,14 +146,13 @@ export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
               accept="image/*"
               capture="environment"
               className="sr-only"
-              onChange={(event) => {
-                setPhotoName(event.target.files?.[0]?.name ?? null);
-                setMode("confirm");
-              }}
+              disabled={photoSaving || !runId}
+              onChange={(event) => void savePhoto(event.target.files?.[0])}
             />
           </label>
-          <BigButton onClick={() => { setPhotoName(null); setMode("confirm"); }} label="Skip for now" muted />
-          {photoName ? <p className="text-base font-semibold text-[var(--muted)]">Chosen: {photoName}</p> : null}
+          <BigButton onClick={() => { setPhotoName(null); setPhotoEvidenceId(null); setMode("confirm"); }} label="Skip for now" muted />
+          {photoSaving ? <p className="text-base font-semibold text-[var(--muted)]">Saving photo...</p> : null}
+          {photoEvidenceId && photoName ? <p className="text-base font-semibold text-[var(--muted)]">Photo saved: {photoName}</p> : null}
         </Panel>
       )}
 
