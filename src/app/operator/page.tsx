@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, DoorOpen, HelpCircle, Moon, ShoppingBag, Truck } from "lucide-react";
+import { CheckCircle2, DoorOpen, FileText, HelpCircle, Moon, ShoppingBag, Truck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { getTodaysChecklistState } from "@/lib/server/ops-capture";
@@ -56,6 +56,13 @@ export default async function OperatorHomePage() {
       title: "Stock / Delivery",
       helper: "Arrived, ran out, or waste",
       icon: Truck,
+      lead: false,
+    },
+    {
+      href: "/operator/certificate",
+      title: "Paper Photo",
+      helper: "Halal, supplier, or fridge",
+      icon: FileText,
       lead: false,
     },
     {
