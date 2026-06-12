@@ -58,6 +58,7 @@ const analysisToolLinks = [
 ] as const;
 
 const moreToolLinks: ToolLink[] = [
+  { href: "/admin/away", label: "Owner Away", detail: "Check the shop while you are out", icon: AlertTriangle, ownerOnly: true },
   { href: "/admin/pickup-windows", label: "Collection Times", detail: "Time slots customers can choose", icon: ClipboardList },
   { href: "/admin/shop-closures", label: "Closed Days", detail: "Holidays and days the shop is shut", icon: CalendarOff },
   { href: "/admin/audit", label: "Activity History", detail: "Every change — who did it and when", icon: FileClock, ownerOnly: true },

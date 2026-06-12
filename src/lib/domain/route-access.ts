@@ -55,7 +55,7 @@ const OPERATOR_ROUTES = ["/operator"] as const;
  * Sensitive back-office areas restricted to the owner only — managers can run the
  * shop but not the deployment/audit tooling. Counter staff never reach /admin at all.
  */
-const OWNER_ONLY_ROUTES = ["/admin/releases", "/admin/audit"] as const;
+const OWNER_ONLY_ROUTES = ["/admin/releases", "/admin/audit", "/admin/away"] as const;
 
 function matchesRoute(pathname: string, route: string) {
   return pathname === route || pathname.startsWith(`${route}/`);

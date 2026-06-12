@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   Archive,
   ArrowRight,
+  AlertTriangle,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -22,6 +23,7 @@ import { PageFrame } from "@/components/site-header";
 import type { DataState } from "@/lib/domain/data-result";
 import { buildDayShape, buildMorningBriefing } from "@/lib/owner-brain/brain";
 import { getOperationalSnapshotV1 } from "@/lib/server/operational-snapshot";
+import { getOwnerAwaySummary, type OwnerAwaySummary } from "@/lib/server/owner-away";
 import { requireStaffContext } from "@/lib/server/staff-context";
 import type {
   DayShape,
@@ -35,8 +37,11 @@ import { cn, formatDisplayDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
-  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
-  const snapshot = await getOperationalSnapshotV1(branchId);
+  const { profile, branchId } = await requireStaffContext("manager", { branchScoped: true });
+  const [snapshot, ownerAway] = await Promise.all([
+    getOperationalSnapshotV1(branchId),
+    profile.role === "owner" ? getOwnerAwaySummary(branchId) : Promise.resolve(null),
+  ]);
   const brain = snapshot.result.data?.brain;
   const morning = snapshot.result.data?.intelligence.morning;
   const date = formatDisplayDate(new Date(snapshot.asOf));
@@ -61,6 +66,7 @@ export default async function TodayPage() {
         <div className="rule-engraved mt-4" />
 
         {snapshot.result.state !== "HEALTHY" && <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />}
+        {ownerAway && <OwnerAwayTodayPanel summary={ownerAway} />}
 
         {!brain ? null : brain.setupMode ? (
           <SetupMode gettingStarted={brain.gettingStarted} />
@@ -83,9 +89,39 @@ export default async function TodayPage() {
           </>
         )}
 
-        <MoreDetail />
+        <MoreDetail isOwner={profile.role === "owner"} />
       </main>
     </PageFrame>
+  );
+}
+
+function OwnerAwayTodayPanel({ summary }: { summary: OwnerAwaySummary }) {
+  const needsOwner =
+    summary.alerts.openCount + summary.evidence.needsReview + summary.evidence.failed + summary.certificates.needsReview;
+
+  return (
+    <Link
+      href="/admin/away"
+      className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#c5ddd0] bg-[var(--brand-50)] px-5 py-4 shadow-[0_1px_0_rgba(255,255,255,0.7)] transition hover:border-[var(--brand)] hover:bg-white"
+      data-testid="owner-away-today-panel"
+    >
+      <span className="flex min-w-0 items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[var(--brand)] ring-1 ring-[#c5ddd0]">
+          <AlertTriangle className="h-5 w-5" aria-hidden />
+        </span>
+        <span className="min-w-0">
+          <span className="eyebrow block text-[var(--brand)]">{summary.statusLabel}</span>
+          <span className="mt-1 block text-lg font-bold text-[var(--ink)]">{summary.headline}</span>
+          <span className="mt-1 block text-sm font-medium text-[var(--muted)]">
+            {summary.sales.orderCount} sales, {summary.evidence.total} photos, {needsOwner} owner checks.
+          </span>
+        </span>
+      </span>
+      <span className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-[var(--brand)] ring-1 ring-[#c5ddd0]">
+        Review
+        <ChevronRight className="h-4 w-4" aria-hidden />
+      </span>
+    </Link>
   );
 }
 
@@ -448,8 +484,9 @@ function SummaryColumn({
   );
 }
 
-function MoreDetail() {
+function MoreDetail({ isOwner }: { isOwner: boolean }) {
   const links = [
+    { href: "/admin/away", label: "Owner Away", detail: "Check the shop while out", icon: AlertTriangle, testid: "owner-away-link", ownerOnly: true },
     { href: "/admin/open", label: "Open the shop", detail: "Morning checklist", icon: Sunrise, testid: "open-shop-link" },
     { href: "/admin/close", label: "Close the shop", detail: "End-of-day checklist", icon: Sunset, testid: "close-shop-link" },
     { href: "/admin/stock-count", label: "Stock count", detail: "Count what's really there", icon: ClipboardCheck, testid: "stock-count-link" },
@@ -466,7 +503,7 @@ function MoreDetail() {
         <span aria-hidden className="rule-engraved flex-1" />
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {links.map((item) => (
+        {links.filter((item) => !("ownerOnly" in item) || !item.ownerOnly || isOwner).map((item) => (
           <Link
             key={item.href}
             href={item.href}

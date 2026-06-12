@@ -21,8 +21,10 @@ describe("staff route access", () => {
   it("restricts release and audit tooling to the owner", () => {
     expect(canAccessStaffPath("manager", "/admin/releases")).toBe(false);
     expect(canAccessStaffPath("manager", "/admin/audit")).toBe(false);
+    expect(canAccessStaffPath("manager", "/admin/away")).toBe(false);
     expect(canAccessStaffPath("owner", "/admin/releases")).toBe(true);
     expect(canAccessStaffPath("owner", "/admin/audit")).toBe(true);
+    expect(canAccessStaffPath("owner", "/admin/away")).toBe(true);
     expect(canAccessStaffPath("staff", "/admin/releases")).toBe(false);
   });
 
