@@ -4,7 +4,7 @@ import { emitAuditLog, type AuditEventType } from "@/lib/server/audit";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
 type AlertSeverity = "warning" | "critical";
-type WorkflowName = "delivery" | "waste";
+type WorkflowName = "delivery" | "serve" | "waste";
 
 export type OperatorActionResult =
   | { ok: true; message: string; id?: string; needsOwner?: boolean }

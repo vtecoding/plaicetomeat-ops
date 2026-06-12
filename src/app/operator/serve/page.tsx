@@ -1,7 +1,18 @@
-import { OperatorPlaceholder } from "@/app/operator/_components/placeholder";
+import { OperatorServeFlow } from "@/app/operator/serve/operator-serve-flow";
+import { buildServeTiles } from "@/lib/operator/workflows/serve";
+import { getAllProducts } from "@/lib/server/catalog";
+import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
-export default function OperatorServePage() {
-  return <OperatorPlaceholder title="Serve a customer" line="This will let you sell over the counter, fast." />;
+export default async function OperatorServePage() {
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
+  const products = await getAllProducts(branchId);
+  const tiles = buildServeTiles(products.filter((product) => product.isAvailable));
+
+  return (
+    <div data-testid="operator-serve-page">
+      <OperatorServeFlow tiles={tiles} />
+    </div>
+  );
 }
