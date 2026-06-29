@@ -1,4 +1,5 @@
-import { OperatorChecklist } from "@/app/operator/_components/operator-checklist";
+import { OperatorChecklist, type NumberPrefill } from "@/app/operator/_components/operator-checklist";
+import { getOpeningFloatDefault } from "@/lib/server/operator-defaults";
 import { getTodaysChecklistState } from "@/lib/server/ops-capture";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
@@ -6,7 +7,18 @@ export const dynamic = "force-dynamic";
 
 export default async function OperatorOpenPage() {
   const { branchId } = await requireStaffContext("manager", { branchScoped: true });
-  const state = await getTodaysChecklistState(branchId, "opening");
+  const [state, floatDefault] = await Promise.all([
+    getTodaysChecklistState(branchId, "opening"),
+    getOpeningFloatDefault(branchId),
+  ]);
+
+  // Confirm-don't-ask: prefill the opening float from the last opening float so the
+  // operator confirms "£50?" instead of typing it again. Never silently saved — the
+  // value sits in an editable field that still needs an explicit "Save".
+  const numberPrefills: Record<string, NumberPrefill> =
+    floatDefault.valueGbp !== null
+      ? { float_ready: { value: floatDefault.valueGbp, hint: `Use yesterday's float: £${floatDefault.valueGbp}?`, source: floatDefault.source } }
+      : {};
 
   return (
     <div data-testid="operator-open-page">
@@ -21,6 +33,7 @@ export default async function OperatorOpenPage() {
           initialSessionId={state.sessionId}
           initialSummary={state.summary}
           initialReceipt={state.receipt}
+          numberPrefills={numberPrefills}
         />
       </div>
     </div>
