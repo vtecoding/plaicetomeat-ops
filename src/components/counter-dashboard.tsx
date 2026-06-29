@@ -241,7 +241,8 @@ function CounterOrderCard({
   const urgency = getOrderUrgency(order, pickupWindow);
   const nextActions = getNextOrderActions(order.status);
   const smsState = getSmsBadgeState(order.readySmsSentAt, order.smsFailureReason, order.smsStatus);
-  const phoneHref = `tel:${order.customerPhone.replace(/[^\d+]/g, "")}`;
+  // Walk-in counter sales have no customer/phone — show a plain label, no call link.
+  const phoneHref = order.customerPhone ? `tel:${order.customerPhone.replace(/[^\d+]/g, "")}` : null;
 
   return (
     <article
@@ -263,10 +264,12 @@ function CounterOrderCard({
               </Badge>
             )}
           </div>
-          <p className="font-semibold text-[#5c5148]">{order.customerName}</p>
-          <a className="mt-1 block text-sm font-bold text-[#0f5132]" href={phoneHref}>
-            {formatPhone(order.customerPhone)}
-          </a>
+          <p className="font-semibold text-[#5c5148]">{order.customerName ?? "Counter sale"}</p>
+          {phoneHref && order.customerPhone && (
+            <a className="mt-1 block text-sm font-bold text-[#0f5132]" href={phoneHref}>
+              {formatPhone(order.customerPhone)}
+            </a>
+          )}
         </div>
         <SmsBadge state={smsState} />
       </div>

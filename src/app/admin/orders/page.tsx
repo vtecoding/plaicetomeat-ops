@@ -34,7 +34,7 @@ export default async function AdminOrdersPage() {
           {orders.map((order) => (
             <div key={order.id} className="grid gap-3 border-b border-[var(--line)] p-4 last:border-b-0 md:grid-cols-5">
               <p className="font-bold">{order.orderRef}</p>
-              <p>{order.customerName}</p>
+              <p>{order.customerName ?? "Counter sale"}</p>
               <Badge tone="blue">{order.status}</Badge>
               <p>{order.items.length} items</p>
               <p className="font-bold">{formatCurrency(order.subtotal)}</p>

@@ -30,7 +30,7 @@ export default async function CounterOrderDetailPage({ params }: { params: Promi
           <Badge tone="blue">{order.status}</Badge>
           <h1 className="mt-4 text-4xl font-black">{order.orderRef}</h1>
           <p className="mt-2 text-[#6c5e52]">
-            {order.customerName} - {formatDisplayDate(order.pickupDate)} - Pickup window
+            {order.customerName ?? "Counter sale"} - {formatDisplayDate(order.pickupDate)} - Pickup window
           </p>
 
           <div className="mt-6 divide-y divide-[#eee5d8] rounded-lg border border-[#eee5d8]">

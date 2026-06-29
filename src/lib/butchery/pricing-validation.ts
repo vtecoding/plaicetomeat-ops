@@ -118,6 +118,30 @@ export function buildSystemRecommendation(input: {
 }
 
 /**
+ * Resolve the system's recommendation for ONE cut from the carcass assumptions.
+ *
+ * Server-authoritative: the pricing-validation action calls this so it can recompute
+ * PTM's own yield/cost/price/margin snapshot from the butcher's inputs, and never has
+ * to trust system figures echoed back by the client. Returns null when the species is
+ * unknown, the carcass inputs are invalid, or the cut is not a saleable cut.
+ */
+export function resolveSystemCut(input: {
+  species: SpeciesId;
+  cutId: string;
+  carcassWeightKg: number;
+  carcassCost: number;
+  daysHung?: number;
+}): SystemCutRecommendation | null {
+  const rows = buildSystemRecommendation({
+    species: input.species,
+    carcassWeightKg: input.carcassWeightKg,
+    carcassCost: input.carcassCost,
+    daysHung: input.daysHung,
+  });
+  return rows?.find((row) => row.cutId === input.cutId) ?? null;
+}
+
+/**
  * Price variance of the butcher's figure vs the system's, as a percentage. Mirrors
  * the server-side formula in record_pricing_validation so the UI preview matches the
  * stored value. Positive = butcher prices higher than the system.

@@ -97,6 +97,35 @@ describe("operations intelligence", () => {
     expect(result.topCustomers[0]?.averageOrderValue).toBe(17.5);
   });
 
+  // Phase 2 information elimination: a walk-in counter sale has no customer (null name
+  // and phone). It must never be grouped as a customer — previously every counter sale
+  // collapsed onto one fake phone ('07000000000') and surfaced as a phantom "regular".
+  it("excludes walk-in counter sales (no name or phone) from customer intelligence", () => {
+    const now = new Date("2026-06-30T10:00:00Z");
+    const result = buildCustomerIntelligence(
+      [
+        // One real online regular who has lapsed.
+        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-01T10:00:00Z", items: ["Lamb Shoulder"] },
+        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-08T10:00:00Z", items: ["Lamb Shoulder"] },
+        { customerName: "Aisha", customerPhone: "1", subtotal: 20, createdAt: "2026-05-15T10:00:00Z", items: ["Lamb Shoulder"] },
+        // Many walk-in counter sales — distinct visits, all with no customer identity.
+        { customerName: null, customerPhone: null, subtotal: 12, createdAt: "2026-06-26T10:00:00Z" },
+        { customerName: null, customerPhone: null, subtotal: 8, createdAt: "2026-06-27T10:00:00Z" },
+        { customerName: null, customerPhone: null, subtotal: 25, createdAt: "2026-06-28T10:00:00Z" },
+        { customerName: null, customerPhone: null, subtotal: 9, createdAt: "2026-06-29T10:00:00Z" },
+      ],
+      now,
+    );
+
+    // Only the named online customer is tracked; the four walk-ins neither collapse
+    // into one fake regular nor appear individually.
+    expect(result.topCustomers).toHaveLength(1);
+    expect(result.topCustomers[0]?.customerName).toBe("Aisha");
+    expect(result.firstTimeCustomers).toBe(0);
+    expect(result.repeatCustomers).toBe(1);
+    expect(result.lapsedRegulars.map((c) => c.customerName)).toEqual(["Aisha"]);
+  });
+
   it("flags a regular who has gone quiet, not occasional or still-active buyers", () => {
     const now = new Date("2026-06-30T10:00:00Z");
     const result = buildCustomerIntelligence(
