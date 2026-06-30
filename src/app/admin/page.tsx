@@ -394,12 +394,12 @@ function buildInsightPanels(
       content: (
         <>
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Best performers</p>
-          {intelligence.productPerformance.best.slice(0, 3).map((product) => (
-            <StatLine key={`best-${product.productName}`} label={product.productName} value={formatNullableCurrency(product.grossProfit)} />
+          {intelligence.productPerformance.best.slice(0, 3).map((product, index) => (
+            <StatLine key={`best-${product.productId ?? product.productName}-${index}`} label={product.productName} value={formatNullableCurrency(product.grossProfit)} />
           ))}
           <p className="mt-4 text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Worst performers</p>
-          {intelligence.productPerformance.worst.slice(0, 3).map((product) => (
-            <StatLine key={`worst-${product.productName}`} label={product.productName} value={formatNullableCurrency(product.grossProfit)} />
+          {intelligence.productPerformance.worst.slice(0, 3).map((product, index) => (
+            <StatLine key={`worst-${product.productId ?? product.productName}-${index}`} label={product.productName} value={formatNullableCurrency(product.grossProfit)} />
           ))}
         </>
       ),

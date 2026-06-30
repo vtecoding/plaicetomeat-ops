@@ -101,8 +101,10 @@ export type Order = {
   id: string;
   branchId: string;
   orderRef: string;
-  customerName: string;
-  customerPhone: string;
+  // Null for walk-in counter sales, which have no customer. Online orders always
+  // carry real, validated contact details.
+  customerName: string | null;
+  customerPhone: string | null;
   customerEmail: string | null;
   status: OrderStatus;
   pickupWindowId: string | null;

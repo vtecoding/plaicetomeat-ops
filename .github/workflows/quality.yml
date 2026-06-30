@@ -23,5 +23,11 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      # PTM Engineering Constitution — the static architectural invariants (truth,
+      # firewalls, route protection, owner-brain compliance, …). These guards already
+      # existed; this gate makes them enforced on every PR instead of run by hand. DB-
+      # and app-dependent guards run in database-security.yml / application-e2e.yml.
+      - name: Architecture invariants (static tier)
+        run: pnpm architecture:check
       - run: pnpm build
       - run: pnpm audit:bundle -- --dry-run

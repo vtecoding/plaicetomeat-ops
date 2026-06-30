@@ -155,6 +155,8 @@ function SpeciesSection({
               key={row.cutId}
               species={species}
               system={row}
+              carcassWeightKg={Number(weight)}
+              carcassCost={Number(cost)}
               saved={records.get(keyFor(species, row.cutId)) ?? null}
               butcherName={butcherName}
               onSaved={onSaved}
@@ -169,12 +171,16 @@ function SpeciesSection({
 function CutRow({
   species,
   system,
+  carcassWeightKg,
+  carcassCost,
   saved,
   butcherName,
   onSaved,
 }: {
   species: SpeciesId;
   system: SystemCutRecommendation;
+  carcassWeightKg: number;
+  carcassCost: number;
   saved: PricingValidationRecord | null;
   butcherName: string;
   onSaved: (record: PricingValidationRecord) => void;
@@ -208,11 +214,8 @@ function CutRow({
     const res = await recordPricingValidation({
       species,
       cutId: system.cutId,
-      cutName: system.cutName,
-      systemYieldPct: system.yieldPct,
-      systemCostPerKg: system.costPerKgSaleable,
-      systemPricePerKg: system.suggestedPricePerKg,
-      systemMarginPct: system.marginPct,
+      carcassWeightKg,
+      carcassCost,
       butcherYieldPct: yieldNum,
       butcherPricePerKg: priceNum,
       decision,

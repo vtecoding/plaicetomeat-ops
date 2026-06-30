@@ -1,6 +1,6 @@
 # V15.3 · Morning Briefing Engine — Operator-Journey Proof
 
-Generated: 2026-06-10T22:47:08.046Z
+Generated: 2026-06-30T18:29:48.360Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test · viewport: 1366×1000
 
 A real start-of-day journey against the running app. Screenshot in
@@ -9,23 +9,23 @@ A real start-of-day journey against the running app. Screenshot in
 ## The briefing the owner read
 
 - **Yesterday:** YESTERDAY
-Yesterday traded steadily, with a little stock wasted.
+Yesterday was steady, with no waste recorded.
 - **Today:** TODAY
-One thing needs a quick look today. A couple more to check below.
+A supplier certificate needs attention today. A couple more to check below.
 - **You can ignore:** YOU CAN IGNORE
 Everything else can wait — the list below has what matters.
 
-Briefing length: **31 words** (limit 100). Actions length: 47 words.
+Briefing length: **29 words** (limit 100). Actions length: 40 words.
 
 ## Checks
 
 - PASS: operator signs in — http://127.0.0.1:3001/admin/today
 - PASS: morning briefing is present — found
 - PASS: three sections present and non-empty — Y:y T:y I:y
-- PASS: briefing sits above Do Now — briefing top=188px, Do Now top=389px
-- PASS: briefing + Do Now read without scrolling (above the fold) — Do Now bottom=861px (viewport 1000px)
+- PASS: briefing sits above Do Now — briefing top=310px, Do Now top=512px
+- PASS: briefing + Do Now read without scrolling (above the fold) — Do Now bottom=984px (viewport 1000px)
 - PASS: no metric / number / percentage in the briefing — clean
 - PASS: no confidence / ranking / score language in the briefing — clean
-- PASS: briefing within the 100-word limit — 31 words (target 40–80, max 100)
-- PASS: briefing is shorter than the actions — briefing 31 words vs actions 47 words
+- PASS: briefing within the 100-word limit — 29 words (target 40–80, max 100)
+- PASS: briefing is shorter than the actions — briefing 29 words vs actions 40 words
 - PASS: briefing does not contradict Do Now — consistent

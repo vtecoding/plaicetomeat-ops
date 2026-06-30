@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { createOwnerAlert, simpleText } from "@/app/actions/operator/escalation";
 import type { OpsStepState } from "@/lib/ops-capture/types";
 import { log } from "@/lib/server/observability/log";
 import { incrementMetric } from "@/lib/server/observability/metrics";
@@ -115,6 +116,39 @@ export async function completeChecklist(input: { sessionId: string }): Promise<A
   }
   revalidateOps();
   return { ok: true, message: "All done.", id: String(data) };
+}
+
+// F8: when an operator taps "I can't do this — tell the owner" on a step they
+// cannot complete, raise an owner escalation. This does NOT mark the step done —
+// the completion guard still blocks closing if a required reading is missing.
+// Temperature steps escalate as critical; everything else as a warning.
+const CRITICAL_STEP_KEYS = new Set(["fridge_temp", "fridges_closed"]);
+
+export async function escalateChecklistStep(input: {
+  branchId: string;
+  kind: "opening" | "closing";
+  stepKey: string;
+  stepTitle: string;
+}): Promise<ActionResult> {
+  const ctx = await resolveStaffContext("manager", { branchScoped: true });
+  if (!ctx.ok) return { ok: false, message: ctx.message };
+
+  const stepKey = simpleText(input.stepKey, 80) ?? "";
+  const stepTitle = simpleText(input.stepTitle, 120) ?? "a checklist step";
+  if (!stepKey) return { ok: false, message: "Could not tell the owner." };
+
+  const critical = CRITICAL_STEP_KEYS.has(stepKey);
+  await createOwnerAlert({
+    branchId: ctx.branchId,
+    profileId: ctx.profile.id,
+    kind: "operator_checklist_help",
+    summary: `Operator needs help: ${stepTitle}.`,
+    entityRef: `${ctx.branchId}:${input.kind}:${stepKey}:${new Date().toISOString().slice(0, 10)}`,
+    severity: critical ? "critical" : "warning",
+    metadata: { kind: input.kind, stepKey, stepTitle },
+  });
+
+  return { ok: true, message: "Owner told." };
 }
 
 export async function recordStockCountLine(input: {

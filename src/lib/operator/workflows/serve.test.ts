@@ -47,4 +47,26 @@ describe("buildServeTiles", () => {
     });
     expect(tiles.at(-1)).toMatchObject({ id: "other", label: "Other", productId: null });
   });
+
+  // F6 (T4): the weight flow must never resolve an each/box product to a tile.
+  it("never resolves an each/box product to a serve tile", () => {
+    const tiles = buildServeTiles([
+      product({ id: "whole", name: "Whole Chicken", unitType: "each" }),
+      product({ id: "boxbeef", name: "Beef Box", unitType: "box" }),
+    ]);
+
+    // Each/box products exist, but no tile is allowed to point at one.
+    expect(tiles.find((tile) => tile.id === "chicken")?.productId).toBeNull();
+    expect(tiles.find((tile) => tile.id === "beef")?.productId).toBeNull();
+    expect(tiles.every((tile) => tile.productId !== "whole" && tile.productId !== "boxbeef")).toBe(true);
+  });
+
+  it("prefers the kg product even when an each product matches the same word", () => {
+    const tiles = buildServeTiles([
+      product({ id: "whole", name: "Whole Chicken", unitType: "each", sortOrder: 0 }),
+      product({ id: "diced", name: "Chicken Diced", unitType: "kg", sortOrder: 9 }),
+    ]);
+
+    expect(tiles.find((tile) => tile.id === "chicken")?.productId).toBe("diced");
+  });
 });
