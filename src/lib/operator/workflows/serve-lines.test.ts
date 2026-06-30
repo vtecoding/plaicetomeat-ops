@@ -1,0 +1,78 @@
+import { describe, expect, it } from "vitest";
+
+import { resolveServeLines, type ServeProductLite } from "@/lib/operator/workflows/serve-lines";
+
+function kgProduct(id: string, price: number): ServeProductLite {
+  return { id, name: `Product ${id}`, unit_type: "kg", price_per_unit: price };
+}
+
+function eachProduct(id: string, price: number): ServeProductLite {
+  return { id, name: `Whole ${id}`, unit_type: "each", price_per_unit: price };
+}
+
+function mapOf(...products: ServeProductLite[]) {
+  return new Map(products.map((p) => [p.id, p]));
+}
+
+describe("resolveServeLines", () => {
+  // F5 / T3
+  it("rejects a custom line with no price", () => {
+    const res = resolveServeLines([{ productId: null, name: "Other", quantityKg: 0.5, priceGbp: null }], mapOf());
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/price/i);
+  });
+
+  it("rejects a custom line priced at £0", () => {
+    const res = resolveServeLines([{ productId: null, name: "Other", quantityKg: 0.5, priceGbp: 0 }], mapOf());
+    expect(res.ok).toBe(false);
+  });
+
+  it("rejects a custom line with a negative price", () => {
+    const res = resolveServeLines([{ productId: null, name: "Other", quantityKg: 0.5, priceGbp: -3 }], mapOf());
+    expect(res.ok).toBe(false);
+  });
+
+  it("rejects a custom line with a non-numeric / NaN price", () => {
+    const res = resolveServeLines([{ productId: null, name: "Other", quantityKg: 0.5, priceGbp: Number.NaN }], mapOf());
+    expect(res.ok).toBe(false);
+  });
+
+  it("rejects an absurd custom price above the cap", () => {
+    const res = resolveServeLines([{ productId: null, name: "Other", quantityKg: 0.5, priceGbp: 999999 }], mapOf());
+    expect(res.ok).toBe(false);
+  });
+
+  it("accepts a valid custom line and records the entered pounds as the line total", () => {
+    const res = resolveServeLines([{ productId: null, name: "Goat curry cut", quantityKg: 0.5, priceGbp: 7.5 }], mapOf());
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.lines[0].total).toBe(7.5);
+      expect(res.lines[0].needsCheck).toBe(true);
+      // quantity * unit_price stays consistent with the total
+      expect(Math.round(res.lines[0].quantity * res.lines[0].price * 100) / 100).toBe(7.5);
+    }
+  });
+
+  // F6 / T4
+  it("rejects an each product in the weight flow", () => {
+    const res = resolveServeLines(
+      [{ productId: "whole", name: null, quantityKg: 1, priceGbp: null }],
+      mapOf(eachProduct("whole", 6)),
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/each/i);
+  });
+
+  it("prices a kg product per kg and flags no owner check", () => {
+    const res = resolveServeLines(
+      [{ productId: "breast", name: null, quantityKg: 2, priceGbp: null }],
+      mapOf(kgProduct("breast", 9)),
+    );
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.lines[0].total).toBe(18);
+      expect(res.lines[0].unit).toBe("kg");
+      expect(res.lines[0].needsCheck).toBe(false);
+    }
+  });
+});
