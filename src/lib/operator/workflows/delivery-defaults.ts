@@ -5,30 +5,30 @@
  * history usually predicts them. This helper turns those questions into a suggestion
  * the operator confirms or corrects. It NEVER invents truth: every value it returns is
  * drawn from real prior deliveries (or, for expiry, a conservative shorter-dated safe
- * default), it always carries its provenance, and a low-confidence field returns null
+ * default), it always carries its provenance, and a field it cannot predict returns null
  * so the flow falls back to asking normally.
  */
 import { storageChoiceFromLabel, type ExpiryChoice, type StorageChoice } from "./stock";
 
-export type DefaultConfidence = "high" | "medium" | "none";
+// Operator-surface rule (verify-operator-firewall): the low-tech operator layer carries
+// no internal ranking vocabulary. A default is either present (the operator confirms it)
+// or absent (we ask) — `source` carries the richer provenance for the audit trail, so no
+// certainty level is needed or wanted here.
 
 export type SupplierDefault = {
   value: string | null; // supplier id
   label: string | null; // supplier name (for operator copy)
   source: "last_used" | "most_frequent" | "only_active" | null;
-  confidence: DefaultConfidence;
 };
 
 export type StorageDefault = {
   value: StorageChoice | null;
   source: "last_used" | "product_default" | "branch_default" | null;
-  confidence: DefaultConfidence;
 };
 
 export type ExpiryDefault = {
   value: ExpiryChoice | null;
   source: "product_shelf_life" | "last_pattern" | "safe_default" | null;
-  confidence: DefaultConfidence;
 };
 
 export type DeliveryDefaults = {
@@ -84,13 +84,12 @@ export function resolveDeliveryDefaults(input: {
   const mostRecent = productHistory[0];
 
   // ---- Supplier: last used → most frequent → only active → none ----
-  let supplier: SupplierDefault = { value: null, label: null, source: null, confidence: "none" };
+  let supplier: SupplierDefault = { value: null, label: null, source: null };
   if (mostRecent?.supplierId && nameById.has(mostRecent.supplierId)) {
     supplier = {
       value: mostRecent.supplierId,
       label: nameById.get(mostRecent.supplierId) ?? null,
       source: "last_used",
-      confidence: "high",
     };
   } else {
     const counts = new Map<string, number>();
@@ -101,26 +100,26 @@ export function resolveDeliveryDefaults(input: {
     }
     const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
     if (top) {
-      supplier = { value: top[0], label: nameById.get(top[0]) ?? null, source: "most_frequent", confidence: "medium" };
+      supplier = { value: top[0], label: nameById.get(top[0]) ?? null, source: "most_frequent" };
     } else if (input.suppliers.length === 1) {
       const only = input.suppliers[0]!;
-      supplier = { value: only.id, label: only.name, source: "only_active", confidence: "medium" };
+      supplier = { value: only.id, label: only.name, source: "only_active" };
     }
   }
 
   // ---- Storage: last used for this product → none (no product/branch defaults in schema) ----
-  let storage: StorageDefault = { value: null, source: null, confidence: "none" };
+  let storage: StorageDefault = { value: null, source: null };
   const lastStorageEntry = productHistory.find((entry) => entry.storageLabel != null);
   const storageChoice = lastStorageEntry ? storageChoiceFromLabel(lastStorageEntry.storageLabel) : null;
   if (storageChoice && storageChoice !== "not_sure") {
-    storage = { value: storageChoice, source: "last_used", confidence: "high" };
+    storage = { value: storageChoice, source: "last_used" };
   }
 
   // ---- Expiry: last pattern (if it maps to a quick choice) → conservative safe default ----
-  let expiry: ExpiryDefault = { value: SAFE_DEFAULT_EXPIRY, source: "safe_default", confidence: "none" };
+  let expiry: ExpiryDefault = { value: SAFE_DEFAULT_EXPIRY, source: "safe_default" };
   if (mostRecent) {
     const patternChoice = expiryChoiceFromGap(daysBetween(mostRecent.receivedDate, mostRecent.expiryDate));
-    if (patternChoice) expiry = { value: patternChoice, source: "last_pattern", confidence: "medium" };
+    if (patternChoice) expiry = { value: patternChoice, source: "last_pattern" };
   }
 
   return { supplier, storage, expiry };

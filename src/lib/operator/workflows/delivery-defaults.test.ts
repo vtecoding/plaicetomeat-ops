@@ -33,7 +33,7 @@ describe("resolveDeliveryDefaults — supplier", () => {
         entry({ productId: "chicken", supplierId: "pak", receivedDate: "2026-06-10" }),
       ],
     });
-    expect(defaults.supplier).toMatchObject({ value: "abc", label: "ABC Meats", source: "last_used", confidence: "high" });
+    expect(defaults.supplier).toMatchObject({ value: "abc", label: "ABC Meats", source: "last_used" });
   });
 
   it("uses the most frequent supplier when the latest delivery recorded none", () => {
@@ -47,7 +47,7 @@ describe("resolveDeliveryDefaults — supplier", () => {
         entry({ productId: "chicken", supplierId: "abc", receivedDate: "2026-06-15" }),
       ],
     });
-    expect(defaults.supplier).toMatchObject({ value: "pak", source: "most_frequent", confidence: "medium" });
+    expect(defaults.supplier).toMatchObject({ value: "pak", source: "most_frequent" });
   });
 
   it("uses the only active supplier when exactly one exists and there is no history", () => {
@@ -56,12 +56,12 @@ describe("resolveDeliveryDefaults — supplier", () => {
       suppliers: [{ id: "pak", name: "Pak Halal" }],
       history: [],
     });
-    expect(defaults.supplier).toMatchObject({ value: "pak", source: "only_active", confidence: "medium" });
+    expect(defaults.supplier).toMatchObject({ value: "pak", source: "only_active" });
   });
 
   it("returns no supplier default when ambiguous (no history, several suppliers)", () => {
     const defaults = resolveDeliveryDefaults({ productId: "beef", suppliers: SUPPLIERS, history: [] });
-    expect(defaults.supplier).toMatchObject({ value: null, source: null, confidence: "none" });
+    expect(defaults.supplier).toMatchObject({ value: null, source: null });
     expect(hasConfidentSupplier(defaults)).toBe(false);
   });
 });
@@ -76,7 +76,7 @@ describe("resolveDeliveryDefaults — storage", () => {
         entry({ productId: "chicken", storageLabel: "Fridge", receivedDate: "2026-06-10" }),
       ],
     });
-    expect(defaults.storage).toMatchObject({ value: "freezer", source: "last_used", confidence: "high" });
+    expect(defaults.storage).toMatchObject({ value: "freezer", source: "last_used" });
   });
 
   it("returns no storage default when history only has unknown locations", () => {
@@ -85,7 +85,7 @@ describe("resolveDeliveryDefaults — storage", () => {
       suppliers: SUPPLIERS,
       history: [entry({ productId: "chicken", storageLabel: "Not sure" })],
     });
-    expect(defaults.storage).toMatchObject({ value: null, confidence: "none" });
+    expect(defaults.storage).toMatchObject({ value: null });
   });
 });
 
@@ -96,7 +96,7 @@ describe("resolveDeliveryDefaults — expiry", () => {
       suppliers: SUPPLIERS,
       history: [entry({ productId: "chicken", receivedDate: "2026-06-25", expiryDate: "2026-06-27" })], // +2 days
     });
-    expect(defaults.expiry).toMatchObject({ value: "two_days", source: "last_pattern", confidence: "medium" });
+    expect(defaults.expiry).toMatchObject({ value: "two_days", source: "last_pattern" });
   });
 
   it("falls back to the conservative safe default (tomorrow) when there is no usable pattern", () => {
@@ -105,7 +105,7 @@ describe("resolveDeliveryDefaults — expiry", () => {
       suppliers: SUPPLIERS,
       history: [entry({ productId: "chicken", receivedDate: "2026-06-25", expiryDate: "2026-07-30" })], // far out → not a quick choice
     });
-    expect(defaults.expiry).toMatchObject({ value: "tomorrow", source: "safe_default", confidence: "none" });
+    expect(defaults.expiry).toMatchObject({ value: "tomorrow", source: "safe_default" });
   });
 
   it("uses the safe default for a brand-new product with no history", () => {

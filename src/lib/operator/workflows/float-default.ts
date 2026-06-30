@@ -13,10 +13,11 @@
  */
 export type FloatDefaultSource = "last_close" | "last_open" | "branch_default";
 
+// A default is present or absent (`source` records its provenance). No certainty level —
+// operator surfaces carry no scoring vocabulary (verify-operator-firewall).
 export type FloatDefault = {
   valueGbp: number | null;
   source: FloatDefaultSource | null;
-  confidence: "high" | "medium" | "none";
 };
 
 function usable(value: number | null | undefined): value is number {
@@ -28,8 +29,8 @@ export function resolveOpeningFloatDefault(input: {
   lastOpenFloatGbp: number | null;
   branchDefaultFloatGbp: number | null;
 }): FloatDefault {
-  if (usable(input.lastCloseFloatGbp)) return { valueGbp: input.lastCloseFloatGbp, source: "last_close", confidence: "high" };
-  if (usable(input.lastOpenFloatGbp)) return { valueGbp: input.lastOpenFloatGbp, source: "last_open", confidence: "high" };
-  if (usable(input.branchDefaultFloatGbp)) return { valueGbp: input.branchDefaultFloatGbp, source: "branch_default", confidence: "medium" };
-  return { valueGbp: null, source: null, confidence: "none" };
+  if (usable(input.lastCloseFloatGbp)) return { valueGbp: input.lastCloseFloatGbp, source: "last_close" };
+  if (usable(input.lastOpenFloatGbp)) return { valueGbp: input.lastOpenFloatGbp, source: "last_open" };
+  if (usable(input.branchDefaultFloatGbp)) return { valueGbp: input.branchDefaultFloatGbp, source: "branch_default" };
+  return { valueGbp: null, source: null };
 }
