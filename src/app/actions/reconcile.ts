@@ -39,6 +39,12 @@ async function resolveAlert(branchId: string, alertId: string): Promise<boolean>
   return Boolean(data?.id);
 }
 
+/** Undo a claim when the follow-on write fails, so the item returns to the tray. */
+async function reopenAlert(branchId: string, alertId: string): Promise<void> {
+  const supabase = createSupabaseServiceClient();
+  await supabase.from("owner_alerts").update({ resolved_at: null }).eq("id", alertId).eq("branch_id", branchId);
+}
+
 /**
  * Class A — real reconciliation. Writes the true invoice cost onto the delivery's batch
  * via the controlled RPC (margin/COGS are derived on read, so this is the recompute),
@@ -55,23 +61,33 @@ export async function resolveDeliveryCost(input: {
 
   const cost = Number(input.invoiceCost);
   if (!Number.isFinite(cost) || cost <= 0) return { ok: false, message: "Enter the invoice cost." };
+  const rounded = Math.round(cost * 100) / 100;
 
-  // Goes through the SECURITY DEFINER RPC under the manager's own JWT (auth.uid()), which
-  // enforces branch authority and validation — the truth-table lock forbids a direct write.
+  // Claim the alert FIRST (compare-and-swap on resolved_at). If it was already
+  // reconciled since the tray loaded — e.g. someone else added the cost — stop here and
+  // never silently overwrite. Same stale-update protection as the stock-count path.
+  const claimed = await resolveAlert(auth.branchId, input.alertId);
+  if (!claimed) return { ok: false, message: "This was already reconciled." };
+
+  // Only now write the cost, through the SECURITY DEFINER RPC under the manager's own JWT
+  // (auth.uid()) — the truth-table lock forbids a direct write. If the write fails, undo
+  // the claim so the item returns to the tray rather than vanishing with no cost saved.
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("admin_set_delivery_cost", {
     p_batch_id: input.batchId,
-    p_invoice_cost: Math.round(cost * 100) / 100,
+    p_invoice_cost: rounded,
   });
-  if (error) return { ok: false, message: "Could not save the cost. Please try again." };
+  if (error) {
+    await reopenAlert(auth.branchId, input.alertId);
+    return { ok: false, message: "Could not save the cost. Please try again." };
+  }
 
-  await resolveAlert(auth.branchId, input.alertId);
   await emitAuditLog({
     eventType: "inventory_reconciliation_issue",
     targetType: "owner_alert",
     targetId: input.alertId,
     branchId: auth.branchId,
-    metadata: { resolved: true, kind: "operator_delivery_cost_pending", batchId: input.batchId, invoiceCost: Math.round(cost * 100) / 100 },
+    metadata: { resolved: true, kind: "operator_delivery_cost_pending", batchId: input.batchId, invoiceCost: rounded },
     systemReason: "owner_reconcile",
   });
 
