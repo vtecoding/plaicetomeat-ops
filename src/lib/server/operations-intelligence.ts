@@ -17,6 +17,8 @@ import { buildWeightedBatchCostMap, resolveInventoryCost } from "@/lib/domain/co
 import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 import { getDemoOrders } from "@/lib/data/demo";
 import { getProductCostMap } from "@/lib/server/catalog";
+import { buildProductMargins } from "@/lib/domain/margin-erosion";
+import { getAllProducts } from "@/lib/server/catalog";
 import { getInventoryBatches, getSuppliers } from "@/lib/server/compliance-inventory";
 import { allowDemoFallback } from "@/lib/server/runtime-truth";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
@@ -62,11 +64,19 @@ function toNum(value: string | number | null, fallback = 0) {
 }
 
 export async function getOperationsIntelligence(branchId: string, now = new Date()) {
-  const [suppliers, batches, productCostMap] = await Promise.all([
+  const [suppliers, batches, productCostMap, products] = await Promise.all([
     getSuppliers(branchId),
     getInventoryBatches(branchId),
     getProductCostMap(branchId),
+    getAllProducts(branchId),
   ]);
+
+  // Margin erosion (the silent leak): each kg product's price vs its current/prior batch
+  // cost. Pure detection happens in the action engine; here we just shape the inputs.
+  const marginErosion = buildProductMargins(
+    products.filter((product) => product.unitType === "kg").map((product) => ({ id: product.id, name: product.name, pricePerKg: product.pricePerUnit })),
+    batches.map((batch) => ({ productId: batch.productId, costPerKg: batch.costPerKg, receivedDate: batch.receivedDate })),
+  );
   const expiry = buildExpiryCommandCentre(
     batches
       .filter((batch) => batch.status === "active")
@@ -241,6 +251,7 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
       worst: productPerformance.worst,
       highestWasteDrag: productPerformance.highestWasteDrag,
     },
+    marginErosion,
     customers: customerIntelligence,
     basket,
     compliance,
