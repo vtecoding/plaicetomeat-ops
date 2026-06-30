@@ -26,6 +26,8 @@
     "playwright:hosted": "node scripts/run-playwright.mjs hosted",
     "release:report": "node scripts/release-report.mjs",
     "audit:bundle": "node scripts/audit-bundle.mjs",
+    "architecture:check": "node scripts/architecture-check.mjs",
+    "architecture:check:all": "node scripts/architecture-check.mjs --tier=all",
     "verify:pricing-validation-integrity": "node scripts/verify-pricing-validation-integrity.mjs",
     "verify:pricing-validation": "pnpm verify:pricing-validation-integrity",
     "report:butcher-signoff": "node scripts/butcher-signoff-report.mjs",
@@ -44,7 +46,9 @@
     "verify:intelligence-firewall": "node scripts/verify-intelligence-firewall.mjs",
     "verify:owner-brain-compliance": "node scripts/verify-owner-brain-compliance.mjs",
     "verify:operator-firewall": "node scripts/verify-operator-firewall.mjs",
-    "verify:operator-route-lock": "node scripts/verify-operator-route-lock.mjs"
+    "verify:operator-route-lock": "node scripts/verify-operator-route-lock.mjs",
+    "verify:truth-table-lock": "node scripts/verify-truth-table-lock.mjs",
+    "verify:required-compliance": "node scripts/verify-required-compliance.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
