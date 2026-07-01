@@ -16,6 +16,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
+    "seed:dev": "node scripts/seed-dev.mjs",
+    "architecture:check": "node scripts/architecture-check.mjs",
     "playwright": "node scripts/run-playwright.mjs full",
     "playwright:smoke": "node scripts/run-playwright.mjs smoke",
     "playwright:v3": "node scripts/run-playwright.mjs v3",
@@ -35,6 +37,7 @@
     "probe:v14": "node scripts/audit-probe-v14.mjs",
     "verify:operator-language": "node scripts/verify-operator-language.mjs",
     "verify:operator-journeys": "node scripts/verify-operator-journeys.mjs",
+    "verify:seeded-logins": "node scripts/verify-seeded-logins.mjs",
     "verify:action-compression": "node scripts/verify-action-compression.mjs",
     "verify:today-os": "node scripts/verify-today-os.mjs",
     "verify:one-tap-actions": "node scripts/verify-one-tap-actions.mjs",
@@ -44,7 +47,10 @@
     "verify:intelligence-firewall": "node scripts/verify-intelligence-firewall.mjs",
     "verify:owner-brain-compliance": "node scripts/verify-owner-brain-compliance.mjs",
     "verify:operator-firewall": "node scripts/verify-operator-firewall.mjs",
-    "verify:operator-route-lock": "node scripts/verify-operator-route-lock.mjs"
+    "verify:operator-route-lock": "node scripts/verify-operator-route-lock.mjs",
+    "verify:required-compliance": "node scripts/verify-compliance-integrity.mjs",
+    "verify:truth-table-lock": "node scripts/verify-operational-truth.mjs",
+    "dad:usability": "node scripts/audit-dad-usability.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

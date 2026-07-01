@@ -37,7 +37,7 @@ export default async function PurchasingPage({
         <ActionContext from={firstParam(sp.from)} doParam={firstParam(sp.do)} focus={focus} why={firstParam(sp.why)} />
 
         <Masthead
-          back={<BackLink href="/admin">Back to dashboard</BackLink>}
+          back={<BackLink href="/admin">Back to shop detail</BackLink>}
           eyebrow="Purchasing & Stock Planning"
           title="What should I order?"
           subtitle={`Only items that need a decision are shown here. Generated ${plan.generatedDate}.`}

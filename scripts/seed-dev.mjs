@@ -5,6 +5,9 @@
 import { createClient } from "@supabase/supabase-js";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321";
+const ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5Nn0.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 const SERVICE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ??
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
@@ -16,6 +19,10 @@ const SEED_BATCH_A = "00000000-0000-4000-8000-000000000601";
 export const TEST_PASSWORD = "PlaiceTest123!";
 
 const supabase = createClient(URL, SERVICE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+const authProbe = createClient(URL, ANON_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
@@ -249,6 +256,53 @@ async function restoreSeedBatch() {
   console.log("  seed inventory batch restored");
 }
 
+async function verifySeededFixtures() {
+  console.log("Verifying seeded auth/profile fixtures...");
+  const activeUsers = USERS.filter((spec) => spec.is_active !== false);
+
+  for (const spec of USERS) {
+    const user = await findUserByEmail(spec.email);
+    if (!user) throw new Error(`auth user missing: ${spec.email}`);
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id,email,role,branch_id,is_active,operator_mode,branch:branches(id,slug,is_active)")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) throw new Error(`profile missing for auth user: ${spec.email}`);
+    if (profile.email !== spec.email) throw new Error(`profile email mismatch for ${spec.email}`);
+    if (profile.role !== spec.role) throw new Error(`profile role mismatch for ${spec.email}`);
+    if (profile.branch_id !== spec.branch_id) throw new Error(`profile branch mismatch for ${spec.email}`);
+    if (profile.is_active !== (spec.is_active ?? true)) throw new Error(`profile active flag mismatch for ${spec.email}`);
+    if (profile.operator_mode !== (spec.operator_mode ?? false)) {
+      throw new Error(`profile operator_mode mismatch for ${spec.email}`);
+    }
+    if (!profile.branch?.id || profile.branch.is_active !== true) {
+      throw new Error(`active branch missing for ${spec.email}`);
+    }
+  }
+
+  for (const spec of activeUsers) {
+    const { error } = await authProbe.auth.signInWithPassword({
+      email: spec.email,
+      password: TEST_PASSWORD,
+    });
+    if (error) throw new Error(`password verification failed for ${spec.email}: ${error.message}`);
+    await authProbe.auth.signOut();
+  }
+
+  const { error: wrongPasswordError } = await authProbe.auth.signInWithPassword({
+    email: "owner@ptm.test",
+    password: "WrongPlaiceTest123!",
+  });
+  if (!wrongPasswordError) {
+    throw new Error("wrong password unexpectedly succeeded for owner@ptm.test");
+  }
+
+  console.log("  auth users, profile links, branches, and passwords verified");
+}
+
 async function main() {
   console.log("Seeding auth users...");
   await ensureBranchB();
@@ -259,6 +313,7 @@ async function main() {
   await seedOrders();
   await clearOpsSessions();
   await restoreSeedBatch();
+  await verifySeededFixtures();
   console.log("Done. Test password for all users:", TEST_PASSWORD);
 }
 

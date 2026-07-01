@@ -29,7 +29,7 @@ export default async function CuttingGuidePage() {
     <PageFrame>
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <Masthead
-          back={<BackLink href="/admin">Back to dashboard</BackLink>}
+          back={<BackLink href="/admin">Back to shop detail</BackLink>}
           eyebrow="Cutting & Pricing Guide"
           title="What's a whole animal worth?"
           subtitle="Pick an animal, enter what arrived, then check the estimate against what you actually cut. Stock should only be added after the real weights are confirmed."

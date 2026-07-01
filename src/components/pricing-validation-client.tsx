@@ -41,7 +41,7 @@ const VERDICT_LABEL: Record<SignoffVerdict, string> = {
   INCOMPLETE: "Not finished",
 };
 
-const VARIANCE_TONE = { aligned: "green", minor: "amber", major: "red", unknown: "neutral" } as const;
+const DIFFERENCE_TONE = { aligned: "green", minor: "amber", major: "red", unknown: "neutral" } as const;
 
 export function PricingValidationClient({ initialRecords }: { initialRecords: PricingValidationRecord[] }) {
   const router = useRouter();
@@ -120,6 +120,7 @@ function SpeciesSection({
   const initial = defaultCarcassInput(species);
   const [weight, setWeight] = useState(String(initial.carcassWeightKg));
   const [cost, setCost] = useState(String(initial.carcassCost));
+  const [open, setOpen] = useState(false);
 
   const systemRows = useMemo(() => {
     const w = Number(weight);
@@ -130,7 +131,21 @@ function SpeciesSection({
 
   return (
     <section className="rounded-lg border border-[#ded6ca] bg-white p-5" data-testid={`species-${species}`}>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <button
+        type="button"
+        className="flex min-h-16 w-full flex-wrap items-center justify-between gap-4 text-left"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span>
+          <span className="block text-xl font-black">{speciesLabel(species)}</span>
+          <span className="mt-1 block text-sm font-semibold text-[#6c5e52]">Open to change carcass figures and sign off cuts</span>
+        </span>
+        <span className="text-sm font-bold text-[#0f5132]">{open ? "Close" : "Open"}</span>
+      </button>
+
+      {open && (
+        <>
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-[#eee5d8] pt-5">
         <h2 className="text-xl font-black">{speciesLabel(species)}</h2>
         <div className="flex flex-wrap items-end gap-3">
           <div className="grid gap-1">
@@ -146,7 +161,7 @@ function SpeciesSection({
 
       {systemRows === null ? (
         <p className="mt-4 rounded-lg border border-[#f0c66e] bg-[#fff6df] p-3 text-sm text-[#5a3900]">
-          Enter a valid carcass weight and cost to see the system recommendation.
+          Enter a valid carcass weight and cost to see the suggested prices.
         </p>
       ) : (
         <div className="mt-4 space-y-3">
@@ -161,6 +176,8 @@ function SpeciesSection({
             />
           ))}
         </div>
+      )}
+        </>
       )}
     </section>
   );
@@ -260,6 +277,8 @@ function CutRow({
         <Stat label="Target margin" value={`${round(system.marginPct * 100, 0)}%`} />
       </dl>
 
+      <details className="mt-4 rounded-lg border border-[#ded6ca] bg-white p-3">
+        <summary className="cursor-pointer list-none text-sm font-bold text-[#0f5132]">Open and sign off this cut</summary>
       <div className="mt-4 grid gap-3 sm:grid-cols-[repeat(2,minmax(0,7rem))_auto_1fr]">
         <div className="grid gap-1">
           <label className="text-xs font-semibold text-[#6c5e52]" htmlFor={`${species}-${system.cutId}-by`}>Butcher yield %</label>
@@ -270,9 +289,9 @@ function CutRow({
           <Input id={`${species}-${system.cutId}-bp`} type="number" step="0.01" inputMode="decimal" value={butcherPrice} onChange={(e) => setButcherPrice(e.target.value)} disabled={busy} />
         </div>
         <div className="grid gap-1">
-          <span className="text-xs font-semibold text-[#6c5e52]">Variance</span>
+          <span className="text-xs font-semibold text-[#6c5e52]">Difference</span>
           <span className="flex h-9 items-center" data-testid={`variance-${species}-${system.cutId}`}>
-            <Badge tone={VARIANCE_TONE[band]}>{variance === null ? "—" : `${variance > 0 ? "+" : ""}${variance}%`}</Badge>
+            <Badge tone={DIFFERENCE_TONE[band]}>{variance === null ? "—" : `${variance > 0 ? "+" : ""}${variance}%`}</Badge>
           </span>
         </div>
         <div className="grid gap-1">
@@ -299,6 +318,7 @@ function CutRow({
           {busy ? "Saving…" : "Save verdict"}
         </Button>
       </div>
+      </details>
     </div>
   );
 }

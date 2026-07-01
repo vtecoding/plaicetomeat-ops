@@ -65,7 +65,7 @@ export async function recordPricingValidation(input: {
     p_butcher_name: input.butcherName ?? null,
   });
 
-  if (error) return { ok: false, message: safeMessage(error.message, "Could not save this validation.") };
+  if (error) return { ok: false, message: safeMessage(error.message, "Could not save this sign-off.") };
   revalidatePath("/admin/validation/pricing");
-  return { ok: true, message: "Validation saved.", id: String(data) };
+  return { ok: true, message: "Sign-off saved.", id: String(data) };
 }

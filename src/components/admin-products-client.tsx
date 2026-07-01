@@ -220,6 +220,7 @@ function ProductRow({
   const [price, setPrice] = useState(String(product.pricePerUnit));
   const [stockStatus, setStockStatus] = useState<string>(product.stockStatus);
   const [available, setAvailable] = useState(product.isAvailable);
+  const [editing, setEditing] = useState(false);
 
   function saveDetails() {
     startTransition(async () => {
@@ -267,6 +268,28 @@ function ProductRow({
       <h3 data-testid="product-row-name" className="mb-3 text-lg font-black">
         {product.name}
       </h3>
+      <div className="flex flex-wrap items-center gap-3 text-sm text-[#6c5e52]">
+        <span className="font-bold text-[#241f1a]">{formatCurrency(product.pricePerUnit)}</span>
+        <span>per {product.unitType}</span>
+        <span
+          data-testid="product-availability-state"
+          className={
+            "rounded-full px-3 py-1 text-xs font-bold " +
+            (available ? "bg-[#e6efe9] text-[#0f5132]" : "bg-[#fde8e6] text-[#b42318]")
+          }
+        >
+          {available ? "Available" : "Unavailable"}
+        </span>
+      </div>
+      <button
+        type="button"
+        className="mt-4 min-h-11 rounded-lg border border-[#d6cdc0] bg-[#fbfaf7] px-4 text-sm font-bold text-[#0f5132] transition hover:bg-white"
+        onClick={() => setEditing((value) => !value)}
+      >
+        {editing ? "Close edit controls" : "Open edit controls"}
+      </button>
+      {editing && (
+        <div className="mt-4 rounded-lg border border-[#eee5d8] bg-[#fbfaf7] p-3">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-semibold">
           Name
@@ -336,20 +359,13 @@ function ProductRow({
           >
             {available ? "Mark unavailable" : "Mark available"}
           </Button>
-          <span
-            data-testid="product-availability-state"
-            className={
-              "rounded-full px-3 py-1 text-xs font-bold " +
-              (available ? "bg-[#e6efe9] text-[#0f5132]" : "bg-[#fde8e6] text-[#b42318]")
-            }
-          >
-            {available ? "Available" : "Unavailable"}
-          </span>
         </div>
         <Button type="button" data-testid="product-save" disabled={isPending} onClick={saveDetails}>
           {isPending ? "Saving…" : "Save changes"}
         </Button>
       </div>
+        </div>
+      )}
     </article>
   );
 }

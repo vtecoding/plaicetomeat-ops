@@ -1,0 +1,104 @@
+{
+  "base": "http://127.0.0.1:3100",
+  "startedAt": "2026-07-01T12:39:04.226Z",
+  "logins": {
+    "owner": {
+      "ok": true,
+      "finalUrl": "http://127.0.0.1:3100/admin/today",
+      "body": "P\nPlaiceToMeat\n426 Birmingham Road, Wylde Green\nCounter\nFood safety\nToday\nShop detail\nShop view\nOlivia Owner\nSign out\n\nTODAY · WED, 1 JUL 2026\n\nWhat needs you today\nOWNER AWAY IS OFF\nNo opening saved yet\n3 sales, 0 photos, 0 owner checks.\nReview\nYOUR MORNING BRIEFING\nYESTERDAY\nYesterday was quiet — no sales went through.\nTODAY\nA supplier certificate needs attention today. A couple more to check below.\nYOU CAN IGNORE\nEverything else can wait — the list below has what matters.\nDo now\n3 THINGS\n\nabout 10 minutes, one thing at a time\n\nWalk me through it\n1\n\nExpired Cert Meats certificate is expired\n\nCould stop you selling that meat — and risks customer trust\n\n2\n\nVerification Pending Foods certificate needs renewal\n\nCould stop you selling that meat — and risks customer trust\n\n3\n\nSell Chicken Breast Fillets first\n\n£93 at stake right now\n\nLater\n\nCan wait — open if you want a look\n\n5\n\nFOR REFERENCE\n\nYour week at a glance · 25 Jun – 1 Jul\n\nMORE\n\nOwner Away\n\nCheck the shop while out\n\nOpen the shop",
+      "consoleMessages": [
+        {
+          "type": "info",
+          "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+        },
+        {
+          "type": "log",
+          "text": "[Fast Refresh] rebuilding"
+        },
+        {
+          "type": "log",
+          "text": "[Fast Refresh] done in 136ms"
+        }
+      ]
+    },
+    "manager": {
+      "ok": true,
+      "finalUrl": "http://127.0.0.1:3100/admin/today",
+      "body": "P\nPlaiceToMeat\n426 Birmingham Road, Wylde Green\nCounter\nFood safety\nToday\nShop detail\nShop view\nMara Manager\nSign out\n\nTODAY · WED, 1 JUL 2026\n\nWhat needs you today\nYOUR MORNING BRIEFING\nYESTERDAY\nYesterday was quiet — no sales went through.\nTODAY\nA supplier certificate needs attention today. A couple more to check below.\nYOU CAN IGNORE\nEverything else can wait — the list below has what matters.\nDo now\n3 THINGS\n\nabout 10 minutes, one thing at a time\n\nWalk me through it\n1\n\nExpired Cert Meats certificate is expired\n\nCould stop you selling that meat — and risks customer trust\n\n2\n\nVerification Pending Foods certificate needs renewal\n\nCould stop you selling that meat — and risks customer trust\n\n3\n\nSell Chicken Breast Fillets first\n\n£93 at stake right now\n\nLater\n\nCan wait — open if you want a look\n\n5\n\nFOR REFERENCE\n\nYour week at a glance · 25 Jun – 1 Jul\n\nMORE\n\nOpen the shop\n\nMorning checklist\n\nClose the shop\n\nEnd-of-day checklist\n\nStock count\n\nCount what's really there\n\nCounter\n\nServe and p",
+      "consoleMessages": [
+        {
+          "type": "info",
+          "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+        },
+        {
+          "type": "log",
+          "text": "[Fast Refresh] rebuilding"
+        },
+        {
+          "type": "log",
+          "text": "[Fast Refresh] done in 132ms"
+        },
+        {
+          "type": "log",
+          "text": "[Fast Refresh] rebuilding"
+        },
+        {
+          "type": "log",
+          "text": "[Fast Refresh] done in 162ms"
+        }
+      ]
+    },
+    "staff": {
+      "ok": true,
+      "finalUrl": "http://127.0.0.1:3100/counter",
+      "body": "P\nPlaiceToMeat\n426 Birmingham Road, Wylde Green\nCounter\nFood safety\nShop view\nSam Staff\nSign out\n\nTABLET COUNTER VIEW\n\nOrders\nLive — new orders appear on their own\nRefresh\nTurn off auto-updates\nIncoming\n1\n\nPTM-2026-90001\n\nAisha Khan\n\n07700 900 111\nNo text needed\n\nLunchtime\n\n12:00 - 13:30\n\nOverdue\n\nReceived 4 min ago\n\n1 item - £24.98\n\n1 kg Chicken Breast Fillets\n\nSTAFF NOTES (INTERNAL) · 0\n\nAdd note\nStart Prep\nCancel\nPrepping\n1\n\nPTM-2026-90002\n\nImran Patel\n\n07700 900 222\nNo text needed\n\nLunchtime\n\n12:00 - 13:30\n\nOverdue\n\nStarted 4 min ago\n\n1 item - £35.00\n\n1 kg Chicken Breast Fillets\n\nSTAFF NOTES (INTERNAL) · 0\n\nAdd note\nMark Ready\nCancel\nReady\n1\n\nPTM-2026-90003\n\nSarah Mahmood\n\n07700 900 333\nNo text needed\n\nLunchtime\n\n12:00 - 13:30\n\nOverdue\n\nReady 4 min ago\n\n1 item - £18.49\n\n1 kg Chicken Breast Fillets\n\nSTAFF NOTES (INTERNAL) · 0\n\nAdd note\nCall the customer — no real text was sent.\nCollected\nCancel\nCollected\n0",
+      "consoleMessages": [
+        {
+          "type": "info",
+          "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+        },
+        {
+          "type": "log",
+          "text": "[Fast Refresh] rebuilding"
+        },
+        {
+          "type": "log",
+          "text": "[Fast Refresh] done in 130ms"
+        }
+      ]
+    },
+    "operator_mode": {
+      "ok": true,
+      "finalUrl": "http://127.0.0.1:3100/operator",
+      "body": "PLAICETOMEAT\n\nHello, Gul\n\nSign out\nWhat would you like to do?\nOpen Shop\nStart the day\nServe Customer\nSell over the counter\nStock / Delivery\nArrived, ran out, or waste\nPaper Photo\nHalal, supplier, or fridge\nClose Shop\nFinish the day\nHelp / Call Owner\nTell owner / go home",
+      "consoleMessages": [
+        {
+          "type": "info",
+          "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+        },
+        {
+          "type": "log",
+          "text": "[Fast Refresh] rebuilding"
+        },
+        {
+          "type": "log",
+          "text": "[Fast Refresh] done in 129ms"
+        }
+      ]
+    }
+  },
+  "preconditions": {
+    "architectureCheck": "not run by this script; command availability is captured by operator notes"
+  },
+  "finishedAt": "2026-07-01T12:43:42.826Z",
+  "routeCount": 56,
+  "screenshotCount": 168,
+  "seeds": {
+    "slug": "chicken-breast-fillets",
+    "orderRef": "PTM-2026-90003",
+    "id": "4e48e914-6f9d-40a7-a699-71172d3933e2",
+    "publicAccessId": "b9c36916-8811-4866-98da-a473cb19987e",
+    "playbookSlug": "butcher-words",
+    "todayId": "action-system-realtime-degraded"
+  }
+}

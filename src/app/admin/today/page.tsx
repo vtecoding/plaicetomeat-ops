@@ -491,7 +491,7 @@ function MoreDetail({ isOwner }: { isOwner: boolean }) {
     { href: "/admin/close", label: "Close the shop", detail: "End-of-day checklist", icon: Sunset, testid: "close-shop-link" },
     { href: "/admin/stock-count", label: "Stock count", detail: "Count what's really there", icon: ClipboardCheck, testid: "stock-count-link" },
     { href: "/counter", label: "Counter", detail: "Serve and prepare orders", icon: LayoutDashboard },
-    { href: "/admin", label: "Business Insights", detail: "Review the business — numbers & trends", icon: TrendingUp, testid: "business-insights-link" },
+    { href: "/admin", label: "Shop detail", detail: "Check money, stock and orders", icon: TrendingUp, testid: "business-insights-link" },
     { href: "/admin/playbooks", label: "Playbooks", detail: "How to do each job", icon: BookOpen },
     { href: "/admin/guide", label: "Help & guide", detail: "Quick how-to and dry run", icon: BookOpen },
     { href: "/admin/setup", label: "Setup checklist", detail: "Get ready to open", icon: ListChecks },

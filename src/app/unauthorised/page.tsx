@@ -30,16 +30,16 @@ export default function UnauthorisedPage() {
 
           <div className="mt-6 grid gap-3">
             <Link
-              href="/"
+              href="/admin/today"
               className="inline-flex h-11 items-center justify-center rounded-full bg-[#0f5132] px-4 text-sm font-bold text-white transition hover:bg-[#0c4128]"
             >
-              Back to the home page
+              Go back to Today
             </Link>
             <Link
-              href="/login"
+              href="/"
               className="inline-flex h-11 items-center justify-center rounded-full border border-[#d6cdc0] bg-white px-4 text-sm font-bold text-[#0f5132] transition hover:bg-[#f3efe8]"
             >
-              Sign in with a different account
+              Tell owner / go home
             </Link>
           </div>
 

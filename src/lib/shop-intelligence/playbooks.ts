@@ -56,7 +56,7 @@ export const PLAYBOOKS = {
   "reading-your-briefing": {
     slug: "reading-your-briefing",
     title: "Reading your briefing",
-    summary: "How to use the morning briefing and trust its confidence levels.",
+    summary: "How to use the morning briefing and judge how well-backed it is.",
   },
 } as const satisfies Record<string, Playbook>;
 

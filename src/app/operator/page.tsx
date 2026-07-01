@@ -92,7 +92,7 @@ export default async function OperatorHomePage() {
         <HelpCircle className="h-8 w-8 shrink-0 text-[var(--clay)]" aria-hidden />
         <span>
           <span className="block text-xl font-semibold">Help / Call Owner</span>
-          <span className="block text-base text-[var(--muted)]">Something&rsquo;s wrong</span>
+          <span className="block text-base text-[var(--muted)]">Tell owner / go home</span>
         </span>
       </Link>
     </div>

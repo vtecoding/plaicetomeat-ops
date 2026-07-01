@@ -155,18 +155,18 @@ export const PLAYBOOK_CONTENT: Record<PlaybookSlug, PlaybookContent> = {
   },
   "reading-your-briefing": {
     ...PLAYBOOKS["reading-your-briefing"],
-    intro: "How to use the morning briefing, the health score and the confidence levels.",
+    intro: "How to use the morning briefing, the shop check and the proof behind it.",
     whenItMatters: "The briefing is the shop talking to you. Knowing how much to trust it keeps you in control — it only ever suggests, you decide.",
     steps: [
       "Read the headline first: it tells you how many things genuinely need attention today.",
       "Work the attention list top to bottom — it's already in priority order.",
       "For each item, read Why, what happens If ignored, and the suggested Do-this step.",
-      "Check the confidence: 'High confidence' is well-backed; 'Early signal' means take it with a pinch of salt.",
-      "Glance at the health score to see which habit needs work this week.",
+      "Check the proof: 'Well backed' has solid shop records; 'Early view' means take it with a pinch of salt.",
+      "Glance at the shop check to see which habit needs work this week.",
     ],
     watchFor: [
       "The system never changes stock, prices or orders by itself. Every suggestion waits for you.",
-      "Low confidence isn't a bug — it's honesty about thin data. More records make it sharper.",
+      "An early view is not a bug — it is honesty about thin records. More records make it sharper.",
     ],
   },
 };

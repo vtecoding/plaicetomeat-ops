@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { BookOpen, CheckCircle2, Lightbulb, ShieldCheck, Sparkles } from "lucide-react";
 
 import {
-  CONFIDENCE_LABEL,
   INTEL_AREA_LABEL,
   type DataBasis,
   type Finding,
@@ -39,6 +38,12 @@ const CONFIDENCE_TONE: Record<IntelConfidence, "green" | "amber" | "neutral"> = 
   low: "neutral",
 };
 
+const TRUST_LABEL: Record<IntelConfidence, string> = {
+  high: "Well backed",
+  medium: "Some checks needed",
+  low: "Early view",
+};
+
 const BAND_TONE: Record<HealthCategory["band"], "green" | "amber" | "red" | "neutral"> = {
   strong: "green",
   fair: "amber",
@@ -53,7 +58,7 @@ export function BusinessInsightsSections({ intel }: { intel: ShopIntelligence })
   return (
     <>
       {/* Operational health score. */}
-      <Section eyebrow="Business health" title="How the shop is doing" badge={<HealthHeadline health={intel.health} />}>
+      <Section eyebrow="Shop check" title="How the shop is doing" badge={<HealthHeadline health={intel.health} />}>
         <div className="grid gap-3 sm:grid-cols-2" data-testid="health-score">
           {intel.health.categories.map((category) => (
             <HealthBar key={category.key} category={category} />
@@ -98,7 +103,7 @@ export function BusinessInsightsSections({ intel }: { intel: ShopIntelligence })
       )}
 
       {/* This week — management report. */}
-      <Section eyebrow="Management report" title={`This week · ${intel.weekly.rangeLabel}`}>
+      <Section eyebrow="This week" title={dadText(intel.weekly.rangeLabel)}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="weekly-report">
           <ReportStat label="Revenue" value={intel.weekly.revenue === null ? "Building up" : formatCurrency(intel.weekly.revenue)} />
           <ReportStat label="Top product" value={intel.weekly.topProduct ?? "No data yet"} />
@@ -120,15 +125,15 @@ export function BusinessInsightsSections({ intel }: { intel: ShopIntelligence })
       </Section>
 
       {/* Confidence explainer. */}
-      <Section eyebrow="How much to trust this" title="Confidence">
+      <Section eyebrow="How much to trust this" title="Proof behind this">
         <div className="rounded-xl border border-[#ece2d5] bg-[#fbfaf7] p-4" data-testid="confidence-banner">
           <div className="flex flex-wrap items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-[#0f5132]" aria-hidden />
             <ConfidenceChip basis={intel.confidence} />
           </div>
-          <p className="mt-2 text-sm font-semibold text-[#3f372f]">{intel.confidence.summary}</p>
+          <p className="mt-2 text-sm font-semibold text-[#3f372f]">{dadText(intel.confidence.summary)}</p>
           {intel.confidence.points.length > 0 && (
-            <p className="mt-1 text-sm text-[#6c5e52]">Based on: {intel.confidence.points.join(" · ")}</p>
+            <p className="mt-1 text-sm text-[#6c5e52]">Based on: {intel.confidence.points.map(dadText).join(" · ")}</p>
           )}
           <Link
             href="/admin/playbooks/reading-your-briefing"
@@ -162,27 +167,27 @@ function FindingCard({ finding, subtle = false }: { finding: Finding; subtle?: b
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {subtle && <Sparkles className="h-4 w-4 text-[#8b5e00]" aria-hidden />}
-          <h3 className="text-base font-black text-[#241f1a]">{finding.finding}</h3>
+          <h3 className="text-base font-black text-[#241f1a]">{dadText(finding.finding)}</h3>
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-[#eee7db] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.06em] text-[#6c5e52]">
-            {INTEL_AREA_LABEL[finding.area]}
+            {dadText(INTEL_AREA_LABEL[finding.area])}
           </span>
           <SeverityBadge severity={finding.severity} />
         </div>
       </div>
 
       <dl className="mt-3 grid gap-2 text-sm">
-        <ExplainRow term="Why" detail={finding.explanation} />
-        <ExplainRow term="If ignored" detail={finding.consequence} />
-        <ExplainRow term="Do this" detail={finding.recommendedAction} accent />
+        <ExplainRow term="Why" detail={dadText(finding.explanation)} />
+        <ExplainRow term="If ignored" detail={dadText(finding.consequence)} />
+        <ExplainRow term="Do this" detail={dadText(finding.recommendedAction)} accent />
       </dl>
 
       {finding.metrics.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {finding.metrics.map((metric) => (
             <span key={metric.label} className="rounded-lg bg-white/70 px-2.5 py-1 text-xs font-semibold text-[#5c5148] ring-1 ring-[#ece2d5]">
-              {metric.label}: <span className="font-black text-[#241f1a]">{metric.value}</span>
+              {dadText(metric.label)}: <span className="font-black text-[#241f1a]">{dadText(metric.value)}</span>
             </span>
           ))}
         </div>
@@ -190,14 +195,14 @@ function FindingCard({ finding, subtle = false }: { finding: Finding; subtle?: b
 
       <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-[#ece2d5] pt-3">
         <ConfidenceChip basis={finding.basis} />
-        <span className="text-xs text-[#6c5e52]">{finding.basis.summary}</span>
+        <span className="text-xs text-[#6c5e52]">{dadText(finding.basis.summary)}</span>
         {finding.playbook && (
           <Link
             href={`/admin/playbooks/${finding.playbook.slug}`}
             className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-[#0f5132] underline-offset-2 hover:underline"
           >
             <BookOpen className="h-3.5 w-3.5" aria-hidden />
-            How to: {finding.playbook.title}
+            How to: {dadText(finding.playbook.title)}
           </Link>
         )}
       </div>
@@ -277,7 +282,7 @@ function HealthBar({ category }: { category: HealthCategory }) {
           />
         )}
       </div>
-      <p className="mt-1.5 text-xs text-[#6c5e52]">{category.detail}</p>
+        <p className="mt-1.5 text-xs text-[#6c5e52]">{dadText(category.detail)}</p>
     </div>
   );
 }
@@ -289,7 +294,7 @@ function ChipRow({ label, tone, items }: { label: string; tone: "green" | "red";
       <div className="mt-2 flex flex-wrap gap-2">
         {items.map((item) => (
           <span key={item} className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[#3f372f] ring-1 ring-[#ece2d5]">
-            {item}
+            {dadText(item)}
           </span>
         ))}
       </div>
@@ -301,7 +306,7 @@ function ReportStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-[#ece2d5] bg-[#fbfaf7] p-4">
       <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">{label}</p>
-      <p className="mt-1 text-lg font-black text-[#241f1a]">{value}</p>
+      <p className="mt-1 text-lg font-black text-[#241f1a]">{dadText(value)}</p>
     </div>
   );
 }
@@ -355,7 +360,23 @@ function ConfidenceChip({ basis }: { basis: DataBasis }) {
         tone === "neutral" && "bg-[#eee7db] text-[#6c5e52]",
       )}
     >
-      {CONFIDENCE_LABEL[basis.confidence]}
+      {TRUST_LABEL[basis.confidence]}
     </span>
   );
+}
+
+function dadText(value: string) {
+  return value
+    .replace(/\bconfidence\b/gi, "proof")
+    .replace(/\bhealth score\b/gi, "shop check")
+    .replace(/\bscore\b/gi, "check")
+    .replace(/\bvariance\b/gi, "difference")
+    .replace(/\bvalidation\b/gi, "sign-off")
+    .replace(/\bmetrics?\b/gi, "numbers")
+    .replace(/\bsignals?\b/gi, "signs")
+    .replace(/\binsights?\b/gi, "notes")
+    .replace(/\banalytics\b/gi, "review")
+    .replace(/\bdata quality\b/gi, "record check")
+    .replace(/\bentities\b/gi, "items")
+    .replace(/\bentity\b/gi, "item");
 }

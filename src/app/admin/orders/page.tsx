@@ -17,7 +17,7 @@ export default async function AdminOrdersPage() {
     <PageFrame>
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <Masthead
-          back={<BackLink href="/admin">Back to dashboard</BackLink>}
+          back={<BackLink href="/admin">Back to shop detail</BackLink>}
           eyebrow="Admin"
           title="Order history"
           subtitle={

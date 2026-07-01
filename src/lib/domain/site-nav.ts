@@ -20,7 +20,7 @@ export const STAFF_LINKS: NavLink[] = [
 // single analysis destination. (Briefing was retired — it redirects to Today.)
 export const MANAGER_LINKS: NavLink[] = [
   { href: "/admin/today", label: "Today", icon: ListChecks },
-  { href: "/admin", label: "Business Insights", icon: TrendingUp },
+  { href: "/admin", label: "Shop detail", icon: TrendingUp },
 ];
 
 export type ResolvedNav = {

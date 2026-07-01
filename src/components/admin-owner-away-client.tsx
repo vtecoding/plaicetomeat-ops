@@ -58,7 +58,7 @@ export function AdminOwnerAwayClient({ summary }: { summary: OwnerAwaySummary })
 
       {!summary.configured && (
         <div className="mt-4 rounded-lg border border-[#f0c66e] bg-[#fff8e6] p-4 text-sm font-semibold text-[#5a3900]">
-          Live database credentials are not configured, so this page cannot load the shop signals.
+          Live database credentials are not configured, so this page cannot load the shop checks.
         </div>
       )}
 

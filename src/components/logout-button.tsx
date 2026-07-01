@@ -14,7 +14,7 @@ export function LogoutButton() {
   return (
     <div className="flex flex-col items-end gap-1">
       <form action={formAction}>
-        <Button type="submit" variant="outline" size="sm" disabled={isPending}>
+        <Button type="submit" variant="outline" size="sm" className="min-h-11" disabled={isPending}>
           <LogOut className="h-4 w-4" aria-hidden />
           {isPending ? "Signing out..." : "Sign out"}
         </Button>

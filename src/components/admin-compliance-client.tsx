@@ -72,7 +72,7 @@ export function AdminComplianceClient({ branchId, suppliers }: { branchId: strin
       )}
 
       <section className="mt-6 rounded-lg border border-[var(--line)] bg-white p-5">
-        <h2 className="text-lg font-semibold">Compliance Dashboard</h2>
+        <h2 className="text-lg font-semibold">Supplier checks</h2>
         <p className="mt-1 text-sm text-[#6c5e52]">
           Supplier status: <strong>{health}</strong>.
         </p>

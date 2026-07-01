@@ -86,9 +86,9 @@ export default async function AdminPage() {
     <PageFrame>
       <main className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid="owner-dashboard">
         <Masthead
-          eyebrow="Business Insights"
-          title="Review the business"
-          subtitle={`Historical analysis — money, stock, waste, margin, customers and certificates. For today's jobs, use Today. · ${formatDisplayDate(metrics.date)}`}
+          eyebrow="Shop detail"
+          title="Check the shop"
+          subtitle={`Money, stock, waste, margin, customers and certificates. For today's jobs, use Today. · ${formatDisplayDate(metrics.date)}`}
           actions={
             <Link
               href="/admin/today"
@@ -116,13 +116,28 @@ export default async function AdminPage() {
           </div>
         </section>
 
-        {/* Shop-intelligence analysis migrated from the retired Briefing. */}
-        <BusinessInsightsSections intel={intel} />
+        <details className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+            <span>
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">Shop check</span>
+              <span className="mt-1 block text-xl font-semibold">Open the weekly review</span>
+            </span>
+            <span className="text-sm font-semibold text-[#0f5132]">Open</span>
+          </summary>
+          <div className="mt-5 border-t border-[#eee4d8] pt-1">
+            <BusinessInsightsSections intel={intel} />
+          </div>
+        </details>
 
-        <section id="business-insights" className="mt-6" aria-label="Business insights">
+        <details id="business-insights" className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Shop detail">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+            <span>
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">The detail</span>
+              <span className="mt-1 block text-xl font-semibold">Open what to watch</span>
+            </span>
+            <span className="text-sm font-semibold text-[#0f5132]">Open</span>
+          </summary>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">The detail</p>
-            <h2 className="mt-1 text-xl font-semibold">What should I watch?</h2>
             <p className="mt-1 text-sm text-[#6c5e52]">Stock, buying, margin, waste, customers and certificates.</p>
           </div>
 
@@ -152,27 +167,33 @@ export default async function AdminPage() {
               </IntelligencePanel>
             ))}
           </div>
-        </section>
+        </details>
 
-        <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Analysis tools">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">Dig deeper</p>
-            <h2 className="mt-1 text-xl font-semibold">Analysis tools</h2>
-            <p className="mt-1 text-sm text-[#6c5e52]">Buying, pricing, products, stock and history.</p>
-          </div>
+        <details className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Shop tools">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+            <span>
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">Shop tools</span>
+              <span className="mt-1 block text-xl font-semibold">Open buying, pricing and stock</span>
+            </span>
+            <span className="text-sm font-semibold text-[#0f5132]">Open</span>
+          </summary>
+          <p className="mt-3 text-sm text-[#6c5e52]">Buying, pricing, products, stock and history.</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {analysisToolLinks.map((item) => (
               <QuickActionCard key={item.href} {...item} />
             ))}
           </div>
-        </section>
+        </details>
 
-        <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="More tools">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">More tools</p>
-            <h2 className="mt-1 text-xl font-semibold">Admin links</h2>
-            <p className="mt-1 text-sm text-[#6c5e52]">The rest of the admin surface stays one tap away.</p>
-          </div>
+        <details className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="More shop tools">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+            <span>
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">More tools</span>
+              <span className="mt-1 block text-xl font-semibold">Open the rest</span>
+            </span>
+            <span className="text-sm font-semibold text-[#0f5132]">Open</span>
+          </summary>
+          <p className="mt-3 text-sm text-[#6c5e52]">Settings, closed days and support checks.</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {moreToolLinks
               .filter((item) => !item.ownerOnly || profile.role === "owner")
@@ -180,7 +201,7 @@ export default async function AdminPage() {
                 <QuickActionCard key={item.href} href={item.href} label={item.label} detail={item.detail} icon={item.icon} />
               ))}
           </div>
-        </section>
+        </details>
       </main>
 
       <MobileActionBar />

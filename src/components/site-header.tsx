@@ -26,7 +26,7 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--paper)]/85 backdrop-blur-md">
-      <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
         <Link href="/" className="group flex min-w-0 items-center gap-3">
           <BrandSeal />
           <span className="min-w-0">
@@ -37,7 +37,7 @@ export async function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label={shopView ? "Staff tools" : "Shop"}>
+        <nav className="hidden min-w-0 flex-wrap items-center justify-end gap-1 md:flex" aria-label={shopView ? "Staff tools" : "Shop"}>
           {primary.map((link) => (
             <Button key={link.href} asChild variant="ghost" size="sm">
               <Link href={link.href}>
@@ -59,7 +59,7 @@ export async function SiteHeader() {
           )}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {profile ? (
             <>
               <Badge tone="green" className="hidden sm:inline-flex">
@@ -83,7 +83,7 @@ export async function SiteHeader() {
 
 export function PageFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <SiteHeader />
       {children}
     </div>

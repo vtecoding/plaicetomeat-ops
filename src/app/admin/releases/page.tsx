@@ -16,7 +16,7 @@ export default async function AdminReleasesPage() {
     <PageFrame>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <Masthead
-          back={<BackLink href="/admin">Back to dashboard</BackLink>}
+          back={<BackLink href="/admin">Back to shop detail</BackLink>}
           eyebrow="Release governance"
           title="Deployment Ledger"
           subtitle="Every release records gates, migration status, hosted smoke, and post-deploy verification before it is complete."
