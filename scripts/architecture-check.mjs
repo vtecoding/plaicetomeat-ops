@@ -38,16 +38,16 @@ import process from "node:process";
  */
 const GUARDS = [
   // ── static: pure source / migration scans, no running services ──
-  { id: "truth-table-lock", principle: "Truth", tier: "static", script: "scripts/verify-truth-table-lock.mjs", what: "ledger & truth-table RLS lock — nothing bypasses the ledger" },
-  { id: "required-compliance", principle: "Compliance", tier: "static", script: "scripts/verify-required-compliance.mjs", what: "required temperature/compliance evidence enforced" },
   { id: "owner-brain-compliance", principle: "Decisions", tier: "static", script: "scripts/verify-owner-brain-compliance.mjs", what: "owner decision surfaces stay action-only (DO_NOW_MAX, no metrics)" },
   { id: "intelligence-firewall", principle: "Firewall", tier: "static", script: "scripts/verify-intelligence-firewall.mjs", what: "owner scoring internals never reach the UI" },
   { id: "operator-firewall", principle: "Firewall", tier: "static", script: "scripts/verify-operator-firewall.mjs", what: "operator surface carries no ranking/analytics vocabulary" },
   { id: "surface-convergence", principle: "Convergence", tier: "static", script: "scripts/verify-surface-convergence.mjs", what: "one surface per job — no competing duplicate screens" },
   { id: "operator-language", principle: "Language", tier: "static", script: "scripts/verify-operator-language.mjs", what: "operator copy stays plain, jargon-free" },
-  { id: "pricing-validation-integrity", principle: "Integrity", tier: "static", script: "scripts/verify-pricing-validation-integrity.mjs", what: "pricing validation recomputed server-side, not client-trusted" },
 
   // ── db: need a reachable Supabase ──
+  { id: "truth-table-lock", principle: "Truth", tier: "db", script: "scripts/verify-truth-table-lock.mjs", what: "ledger & truth-table RLS lock — nothing bypasses the ledger" },
+  { id: "required-compliance", principle: "Compliance", tier: "db", script: "scripts/verify-required-compliance.mjs", what: "required temperature/compliance evidence enforced" },
+  { id: "pricing-validation-integrity", principle: "Integrity", tier: "db", script: "scripts/verify-pricing-validation-integrity.mjs", what: "pricing validation recomputed server-side, not client-trusted" },
   { id: "disaster-recovery", principle: "Recovery", tier: "db", script: "scripts/verify-disaster-recovery.mjs", what: "backup/restore schema & objects exist" },
   { id: "disaster-recovery-integrity", principle: "Security", tier: "db", script: "scripts/verify-disaster-recovery-integrity.mjs", what: "recovery RPCs deny anonymous access" },
 
