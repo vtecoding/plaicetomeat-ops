@@ -8,6 +8,7 @@ on:
 jobs:
   migration-upgrade:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -21,9 +22,20 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: npx supabase start
+      - name: Write local Supabase env
+        run: |
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+            echo "SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+            echo "STAFF_SESSION_SECRET=ci-local-staff-session-secret-000000000001"
+            echo "ORDER_ACCESS_SECRET=ci-local-order-access-secret-000000000001"
+          } > .env.local
       - run: node scripts/seed-dev.mjs
       - run: node scripts/verify-v11-migrations.mjs
-      - run: pnpm release:report
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm playwright:smoke
         env:
-          RELEASE_REPORT_MODE: local
-          MIGRATION_DRIFT_CHECK_MODE: local
+          PLAYWRIGHT_RETRIES: "0"
+          PLAYWRIGHT_SKIP_BUILD: "true"

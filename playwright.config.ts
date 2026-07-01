@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const port = process.env.PORT ?? '3100';
 const baseURL = process.env.NEXT_PUBLIC_APP_URL ?? `http://127.0.0.1:${port}`;
 const usesLocalServer = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(baseURL);
+const retries = Number.parseInt(process.env.PLAYWRIGHT_RETRIES ?? '', 10);
 
 export default defineConfig({
   testDir: 'tests',
@@ -12,7 +13,7 @@ export default defineConfig({
   // Specs share one local Supabase database and a fixed set of seeded orders, so
   // they must run serially to avoid cross-spec state contamination.
   workers: 1,
-  retries: process.env.CI ? 2 : 0,
+  retries: Number.isFinite(retries) ? retries : process.env.CI ? 2 : 0,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
     baseURL,
