@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveServeLines, type ServeProductLite } from "@/lib/operator/workflows/serve-lines";
+import {
+  resolveServeLines,
+  serveRepairDecision,
+  serveSubtotal,
+  type ServeProductLite,
+} from "@/lib/operator/workflows/serve-lines";
 
 function kgProduct(id: string, price: number): ServeProductLite {
   return { id, name: `Product ${id}`, unit_type: "kg", price_per_unit: price };
@@ -74,5 +79,57 @@ describe("resolveServeLines", () => {
       expect(res.lines[0].unit).toBe("kg");
       expect(res.lines[0].needsCheck).toBe(false);
     }
+  });
+});
+
+// N1 regression: a first attempt can persist the order header and fail before the
+// item rows land. The retry must never collect a header-only order (money recorded
+// with no lines and no depletion) and must never silently change money.
+describe("serveRepairDecision", () => {
+  const base = { persistedSubtotal: 18, resolvedSubtotal: 18 };
+
+  it("proceeds when the order already has item rows", () => {
+    expect(serveRepairDecision({ ...base, status: "incoming", itemCount: 2 })).toBe("proceed");
+  });
+
+  it("proceeds when the order is already terminal (collected/cancelled)", () => {
+    expect(serveRepairDecision({ ...base, status: "collected", itemCount: 0 })).toBe("proceed");
+    expect(serveRepairDecision({ ...base, status: "cancelled", itemCount: 0 })).toBe("proceed");
+  });
+
+  it("repairs a header-only order when the retry resolves to the same subtotal", () => {
+    expect(serveRepairDecision({ ...base, status: "incoming", itemCount: 0 })).toBe("insert-items");
+  });
+
+  it("tolerates float representation but not real money differences", () => {
+    expect(
+      serveRepairDecision({ status: "incoming", itemCount: 0, persistedSubtotal: 18.0000001, resolvedSubtotal: 18 }),
+    ).toBe("insert-items");
+  });
+
+  it("escalates a header-only order when the retry's money differs", () => {
+    expect(
+      serveRepairDecision({ status: "incoming", itemCount: 0, persistedSubtotal: 18, resolvedSubtotal: 17.5 }),
+    ).toBe("escalate");
+  });
+
+  it("escalates when the persisted subtotal is unreadable", () => {
+    expect(
+      serveRepairDecision({ status: "incoming", itemCount: 0, persistedSubtotal: Number.NaN, resolvedSubtotal: 18 }),
+    ).toBe("escalate");
+  });
+});
+
+describe("serveSubtotal", () => {
+  it("sums line totals to clean 2dp money", () => {
+    const res = resolveServeLines(
+      [
+        { productId: "breast", name: null, quantityKg: 0.3, priceGbp: null },
+        { productId: null, name: "Other", quantityKg: 0.5, priceGbp: 7.5 },
+      ],
+      mapOf(kgProduct("breast", 9.99)),
+    );
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(serveSubtotal(res.lines)).toBe(10.5);
   });
 });

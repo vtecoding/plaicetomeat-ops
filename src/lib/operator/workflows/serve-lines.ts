@@ -37,6 +37,37 @@ export function validCustomPrice(value: number | null): value is number {
   return value != null && Number.isFinite(value) && value > 0 && value <= MAX_CUSTOM_PRICE_GBP;
 }
 
+export function serveSubtotal(lines: ResolvedServeLine[]): number {
+  return Math.round(lines.reduce((sum, line) => sum + line.total, 0) * 100) / 100;
+}
+
+/**
+ * Decide how a RETRY of a serve run must treat an order row that already exists for
+ * this runId. First attempts can persist the order header and then fail before the
+ * item rows land; blindly collecting on retry would record money (orders.subtotal)
+ * with no lines and no stock depletion. So:
+ *   - "proceed"       — items exist, or the order is already terminal: safe to collect.
+ *   - "insert-items"  — header-only order and this retry resolves to the SAME subtotal:
+ *                       write the missing item rows first, then collect.
+ *   - "escalate"      — header-only order but the retry's lines resolve to a DIFFERENT
+ *                       subtotal: never silently change money — hand it to the owner.
+ */
+export type ServeRepairDecision = "proceed" | "insert-items" | "escalate";
+
+export function serveRepairDecision(input: {
+  status: "incoming" | "prepping" | "ready" | "collected" | "cancelled";
+  itemCount: number;
+  persistedSubtotal: number;
+  resolvedSubtotal: number;
+}): ServeRepairDecision {
+  if (input.status === "collected" || input.status === "cancelled") return "proceed";
+  if (input.itemCount > 0) return "proceed";
+  const persisted = Math.round(input.persistedSubtotal * 100);
+  const resolved = Math.round(input.resolvedSubtotal * 100);
+  if (Number.isFinite(persisted) && persisted === resolved) return "insert-items";
+  return "escalate";
+}
+
 function money(value: string | number) {
   return typeof value === "number" ? value : Number(value);
 }

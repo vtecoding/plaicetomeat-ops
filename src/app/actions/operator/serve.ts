@@ -11,7 +11,12 @@ import {
   simpleText,
   type OperatorActionResult,
 } from "@/app/actions/operator/escalation";
-import { resolveServeLines } from "@/lib/operator/workflows/serve-lines";
+import {
+  resolveServeLines,
+  serveRepairDecision,
+  serveSubtotal,
+  type ResolvedServeLine,
+} from "@/lib/operator/workflows/serve-lines";
 import { emitAuditLog } from "@/lib/server/audit";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient, createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
@@ -126,6 +131,75 @@ async function collectOrder(order: OrderRow): Promise<{ ok: true } | { ok: false
   return { ok: true };
 }
 
+function toItemRows(orderLines: ResolvedServeLine[], branchId: string, orderId: string) {
+  return orderLines.map((line) => ({
+    branch_id: branchId,
+    order_id: orderId,
+    product_id: line.product?.id ?? null,
+    product_name_snapshot: line.name,
+    quantity: line.quantity,
+    unit_type: line.unit,
+    unit_price_snapshot: line.price,
+    line_total: line.total,
+    staff_notes: line.needsCheck ? "Owner check needed." : null,
+  }));
+}
+
+/**
+ * A first attempt can persist the order header and then fail before the item rows
+ * land. Collecting that order on retry would record money with no lines and no
+ * stock depletion. Repair before collection: if the order has no items, write them
+ * (same-subtotal retries only — money is never silently changed).
+ */
+async function repairMissingItems(
+  order: OrderRow,
+  orderLines: ResolvedServeLine[],
+  auth: { branchId: string; profileId: string },
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const supabase = createSupabaseServiceClient();
+
+  const { count, error: countError } = await supabase
+    .from("order_items")
+    .select("id", { count: "exact", head: true })
+    .eq("order_id", order.id);
+  if (countError) return { ok: false, message: "Try again." };
+
+  const { data: row, error: rowError } = await supabase
+    .from("orders")
+    .select("subtotal")
+    .eq("id", order.id)
+    .single<{ subtotal: string | number }>();
+  if (rowError || !row) return { ok: false, message: "Try again." };
+
+  const decision = serveRepairDecision({
+    status: order.status,
+    itemCount: count ?? 0,
+    persistedSubtotal: Number(row.subtotal),
+    resolvedSubtotal: serveSubtotal(orderLines),
+  });
+
+  if (decision === "proceed") return { ok: true };
+
+  if (decision === "insert-items") {
+    const { error: itemError } = await supabase
+      .from("order_items")
+      .insert(toItemRows(orderLines, auth.branchId, order.id));
+    if (itemError) return { ok: false, message: "Try again." };
+    return { ok: true };
+  }
+
+  // escalate: header-only order whose retry resolves to different money.
+  await createOwnerAlert({
+    branchId: auth.branchId,
+    profileId: auth.profileId,
+    kind: "operator_sale_check_needed",
+    summary: "A shop sale did not save cleanly and needs the owner.",
+    entityRef: `${order.id}:repair`,
+    metadata: { orderId: order.id, orderRef: order.order_ref, reason: "retry_subtotal_mismatch" },
+  });
+  return { ok: false, message: "This did not save. Do not enter it again. The owner has been told." };
+}
+
 async function getAfterCare(orderId: string) {
   const supabase = createSupabaseServiceClient();
   const { data } = await supabase
@@ -161,22 +235,6 @@ export async function saveSimpleSale(input: {
   const lines = cleanLines(input.lines);
   if (lines.length === 0) return { ok: false, message: "What did they buy?" };
 
-  const existing = await getExistingByRun(input.runId);
-  if (existing) {
-    const collected = await collectOrder(existing);
-    if (!collected.ok) return collected;
-    await saveOperatorRun({
-      runId: input.runId,
-      branchId: auth.branchId,
-      profileId: auth.profileId,
-      workflow: "serve",
-      status: "completed",
-      steps: { lines, payKind },
-      resultRef: `order:${existing.id}`,
-    });
-    return { ok: true, message: "Saved.", id: existing.id };
-  }
-
   const supabase = createSupabaseServiceClient();
   const ids = [...new Set(lines.map((line) => line.productId).filter(Boolean))] as string[];
   const products = ids.length
@@ -193,11 +251,29 @@ export async function saveSimpleSale(input: {
   if (!resolved.ok) return { ok: false, message: resolved.message };
   const orderLines = resolved.lines;
 
+  const existing = await getExistingByRun(input.runId);
+  if (existing) {
+    const repaired = await repairMissingItems(existing, orderLines, auth);
+    if (!repaired.ok) return repaired;
+    const collected = await collectOrder(existing);
+    if (!collected.ok) return collected;
+    await saveOperatorRun({
+      runId: input.runId,
+      branchId: auth.branchId,
+      profileId: auth.profileId,
+      workflow: "serve",
+      status: "completed",
+      steps: { lines, payKind },
+      resultRef: `order:${existing.id}`,
+    });
+    return { ok: true, message: "Saved.", id: existing.id };
+  }
+
   const date = todayIso();
   const orderRef = await nextRef(auth.branchId, date);
   if (!orderRef) return { ok: false, message: "Try again." };
 
-  const subtotal = orderLines.reduce((sum, line) => sum + line.total, 0);
+  const subtotal = serveSubtotal(orderLines);
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
@@ -226,19 +302,7 @@ export async function saveSimpleSale(input: {
     return { ok: false, message: "Try again." };
   }
 
-  const itemRows = orderLines.map((line) => ({
-    branch_id: auth.branchId,
-    order_id: order.id,
-    product_id: line.product?.id ?? null,
-    product_name_snapshot: line.name,
-    quantity: line.quantity,
-    unit_type: line.unit,
-    unit_price_snapshot: line.price,
-    line_total: line.total,
-    staff_notes: line.needsCheck ? "Owner check needed." : null,
-  }));
-
-  const { error: itemError } = await supabase.from("order_items").insert(itemRows);
+  const { error: itemError } = await supabase.from("order_items").insert(toItemRows(orderLines, auth.branchId, order.id));
   if (itemError) return { ok: false, message: "Try again." };
 
   await supabase.from("order_status_events").insert({
