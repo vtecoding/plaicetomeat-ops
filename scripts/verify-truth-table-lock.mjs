@@ -178,6 +178,53 @@ async function main() {
   ({ data: o } = await admin.from("orders").select("status").eq("id", orderId).single());
   check("controlled RPC transition_order_status still works", !tErr && o.status === "prepping", tErr ? tErr.message : `status=${o.status}`);
 
+  // --- phase 3: products direct price UPDATE must be rejected ---
+  await manager.from("products").update({ price_per_unit: 1 }).eq("id", productId);
+  let { data: p } = await admin.from("products").select("price_per_unit").eq("id", productId).single();
+  check("products.price_per_unit direct UPDATE rejected", Number(p.price_per_unit) === 10, `price=${p.price_per_unit}`);
+
+  // --- phase 3: controlled price RPC still works AND emits price_changed audit ---
+  const { error: priceErr } = await manager.rpc("admin_update_product_price", {
+    p_product_id: productId,
+    p_price: 12.5,
+  });
+  ({ data: p } = await admin.from("products").select("price_per_unit").eq("id", productId).single());
+  check(
+    "controlled RPC admin_update_product_price still works",
+    !priceErr && Number(p.price_per_unit) === 12.5,
+    priceErr ? priceErr.message : `price=${p.price_per_unit}`,
+  );
+  const { data: priceAudit } = await admin
+    .from("audit_logs")
+    .select("id")
+    .eq("event_type", "price_changed")
+    .eq("target_id", productId)
+    .limit(1);
+  check("price change through the RPC is audited (price_changed)", (priceAudit?.length ?? 0) > 0);
+
+  // --- phase 3: inventory_waste_events direct INSERT must be rejected ---
+  const ghostWaste = crypto.randomUUID();
+  await manager.from("inventory_waste_events").insert({
+    id: ghostWaste,
+    batch_id: batchId,
+    product_id: productId,
+    waste_kg: 1,
+    reason: "spoilage",
+  });
+  const { data: gw } = await admin.from("inventory_waste_events").select("id").eq("id", ghostWaste).maybeSingle();
+  check("inventory_waste_events direct INSERT rejected", gw === null);
+
+  // --- phase 3: order_status_events direct INSERT must be rejected ---
+  const ghostEvent = crypto.randomUUID();
+  await manager.from("order_status_events").insert({
+    id: ghostEvent,
+    branch_id: BRANCH,
+    order_id: orderId,
+    status: "collected",
+  });
+  const { data: ge } = await admin.from("order_status_events").select("id").eq("id", ghostEvent).maybeSingle();
+  check("order_status_events direct INSERT rejected (state history can't be forged)", ge === null);
+
   // cleanup
   await admin.from("orders").delete().eq("id", orderId);
   await admin.from("inventory_batches").delete().eq("id", batchId);
