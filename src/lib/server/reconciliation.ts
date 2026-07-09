@@ -2,7 +2,10 @@ import "server-only";
 
 import { batchIdFromCostRef, RECONCILE_KIND_LIST, reconcileSpecFor } from "@/lib/domain/reconciliation";
 import { wasteReasonLabel, type WasteReasonChoice } from "@/lib/operator/workflows/waste";
+import { emitAuditLog } from "@/lib/server/audit";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
+
+type ServiceClient = ReturnType<typeof createSupabaseServiceClient>;
 
 export type ReconcileItem = {
   alertId: string;
@@ -37,6 +40,64 @@ function isUuid(value: unknown): value is string {
 }
 
 /**
+ * Owner visibility of a cost gap must derive from the batch STATE, not from the
+ * success of one alert insert at delivery time. Operator Mode creates delivery
+ * batches at cost 0 (batch_number 'OP-…') and raises a cost-pending alert; if that
+ * single write failed, the cost-0 batch would be invisible to this tray and COGS
+ * would stay quietly wrong. Recreate any missing open alert from the batches
+ * themselves before reading the tray.
+ */
+async function healMissingCostAlerts(supabase: ServiceClient, branchId: string): Promise<void> {
+  const { data: batches } = await supabase
+    .from("inventory_batches")
+    .select("id, product:products(name)")
+    .eq("branch_id", branchId)
+    .eq("invoice_cost", 0)
+    .like("batch_number", "OP-%");
+  if (!batches || batches.length === 0) return;
+
+  const refs = batches.map((batch) => `${batch.id}:cost`);
+  const { data: open } = await supabase
+    .from("owner_alerts")
+    .select("entity_ref")
+    .eq("branch_id", branchId)
+    .in("entity_ref", refs)
+    .is("resolved_at", null);
+  const openRefs = new Set((open ?? []).map((row) => String(row.entity_ref)));
+
+  for (const batch of batches) {
+    const ref = `${batch.id}:cost`;
+    if (openRefs.has(ref)) continue;
+
+    type NameRow = { name: string | null };
+    const productName = first(batch.product as NameRow | NameRow[] | null)?.name ?? "A delivery";
+    const { data: created } = await supabase
+      .from("owner_alerts")
+      .insert({
+        branch_id: branchId,
+        severity: "warning",
+        kind: "operator_delivery_cost_pending",
+        summary: `${productName} has no cost recorded — add the invoice cost.`,
+        entity_ref: ref,
+        created_by: null,
+      })
+      .select("id")
+      .single<{ id: string }>();
+
+    if (created?.id) {
+      await emitAuditLog({
+        eventType: "inventory_reconciliation_issue",
+        targetType: "owner_alert",
+        targetId: created.id,
+        branchId,
+        metadata: { kind: "operator_delivery_cost_pending", batchId: batch.id, selfHealed: true },
+        systemReason: "reconcile_self_heal",
+      });
+    }
+  }
+}
+
+/**
  * The open reconciliation backlog for a branch: the low-urgency owner alerts, hydrated
  * with just enough to clear each in place. Filtered to severity 'warning' so an urgent
  * (critical) alert can never be swept into the tray.
@@ -44,6 +105,8 @@ function isUuid(value: unknown): value is string {
 export async function getReconciliationItems(branchId: string): Promise<ReconcileTray> {
   if (!hasSupabaseServiceEnv()) return EMPTY;
   const supabase = createSupabaseServiceClient();
+
+  await healMissingCostAlerts(supabase, branchId);
 
   const { data: alerts } = await supabase
     .from("owner_alerts")
