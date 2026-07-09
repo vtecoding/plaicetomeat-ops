@@ -43,10 +43,13 @@ const GUARDS = [
   { id: "operator-firewall", principle: "Firewall", tier: "static", script: "scripts/verify-operator-firewall.mjs", what: "operator surface carries no ranking/analytics vocabulary" },
   { id: "surface-convergence", principle: "Convergence", tier: "static", script: "scripts/verify-surface-convergence.mjs", what: "one surface per job — no competing duplicate screens" },
   { id: "operator-language", principle: "Language", tier: "static", script: "scripts/verify-operator-language.mjs", what: "operator copy stays plain, jargon-free" },
+  { id: "rls-coverage", principle: "Security", tier: "static", script: "scripts/verify-rls-coverage.mjs", what: "every migrated table enables row level security (no fail-open new tables)" },
+  { id: "operational-truth", principle: "Truth", tier: "static", script: "scripts/verify-operational-truth.mjs", what: "failures render as honest truth states, never demo data or fake empties" },
 
   // ── db: need a reachable Supabase ──
   { id: "truth-table-lock", principle: "Truth", tier: "db", script: "scripts/verify-truth-table-lock.mjs", what: "ledger & truth-table RLS lock — nothing bypasses the ledger" },
   { id: "required-compliance", principle: "Compliance", tier: "db", script: "scripts/verify-required-compliance.mjs", what: "required temperature/compliance evidence enforced" },
+  { id: "compliance-integrity", principle: "Compliance", tier: "db", script: "scripts/verify-compliance-integrity.mjs", what: "temperature log RPCs hardened — no forgeable or fabricated evidence" },
   { id: "pricing-validation-integrity", principle: "Integrity", tier: "db", script: "scripts/verify-pricing-validation-integrity.mjs", what: "pricing validation recomputed server-side, not client-trusted" },
   { id: "disaster-recovery", principle: "Recovery", tier: "db", script: "scripts/verify-disaster-recovery.mjs", what: "backup/restore schema & objects exist" },
   { id: "disaster-recovery-integrity", principle: "Security", tier: "db", script: "scripts/verify-disaster-recovery-integrity.mjs", what: "recovery RPCs deny anonymous access" },

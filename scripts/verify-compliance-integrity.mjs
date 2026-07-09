@@ -49,9 +49,13 @@ async function sessionClient(email) {
   return client;
 }
 
+// The compliance RPCs key the daily log off the DATABASE's CURRENT_DATE (UTC in the
+// local stack and CI). Using the runner's LOCAL date here made the guard flaky for any
+// runner not on UTC: reset cleaned the wrong day and the assertions read a stale log.
+// Always speak the database's date. (Runs that straddle midnight UTC can still flake;
+// re-run if that one-in-a-day window is hit.)
 function today() {
-  const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  return new Date().toISOString().slice(0, 10);
 }
 
 async function resetToday() {
@@ -145,7 +149,11 @@ async function main() {
 
   // 9. direct table insert by authenticated staff is denied (write hole closed)
   {
-    const { data: logRow } = await service.from("compliance_logs").select("id").eq("branch_id", BRANCH_A).eq("log_date", today()).single();
+    const { data: logRow } = await service.from("compliance_logs").select("id").eq("branch_id", BRANCH_A).eq("log_date", today()).maybeSingle();
+    if (!logRow) {
+      check("today's compliance log exists for the direct-write probe", false, "no log row found");
+      process.exit(1);
+    }
     const r = await staffA.from("compliance_readings").insert({
       branch_id: BRANCH_A,
       compliance_log_id: logRow.id,
