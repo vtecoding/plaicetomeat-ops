@@ -1,0 +1,1501 @@
+[
+  {
+    "slug": "home",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "home-default-mobile.png",
+    "route": "/",
+    "status": 200,
+    "finalUrl": "/",
+    "notes": []
+  },
+  {
+    "slug": "home",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "home-default-tablet.png",
+    "route": "/",
+    "status": 200,
+    "finalUrl": "/",
+    "notes": []
+  },
+  {
+    "slug": "home",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "home-default-desktop.png",
+    "route": "/",
+    "status": 200,
+    "finalUrl": "/",
+    "notes": []
+  },
+  {
+    "slug": "shop",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "shop-default-mobile.png",
+    "route": "/shop",
+    "status": 200,
+    "finalUrl": "/shop",
+    "notes": []
+  },
+  {
+    "slug": "shop",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "shop-default-tablet.png",
+    "route": "/shop",
+    "status": 200,
+    "finalUrl": "/shop",
+    "notes": []
+  },
+  {
+    "slug": "shop",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "shop-default-desktop.png",
+    "route": "/shop",
+    "status": 200,
+    "finalUrl": "/shop",
+    "notes": []
+  },
+  {
+    "slug": "basket",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "basket-default-mobile.png",
+    "route": "/basket",
+    "status": 200,
+    "finalUrl": "/basket",
+    "notes": []
+  },
+  {
+    "slug": "basket",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "basket-default-tablet.png",
+    "route": "/basket",
+    "status": 200,
+    "finalUrl": "/basket",
+    "notes": []
+  },
+  {
+    "slug": "basket",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "basket-default-desktop.png",
+    "route": "/basket",
+    "status": 200,
+    "finalUrl": "/basket",
+    "notes": []
+  },
+  {
+    "slug": "checkout",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "checkout-default-mobile.png",
+    "route": "/checkout",
+    "status": 200,
+    "finalUrl": "/checkout",
+    "notes": []
+  },
+  {
+    "slug": "checkout",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "checkout-default-tablet.png",
+    "route": "/checkout",
+    "status": 200,
+    "finalUrl": "/checkout",
+    "notes": []
+  },
+  {
+    "slug": "checkout",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "checkout-default-desktop.png",
+    "route": "/checkout",
+    "status": 200,
+    "finalUrl": "/checkout",
+    "notes": []
+  },
+  {
+    "slug": "halal-promise",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "halal-promise-default-mobile.png",
+    "route": "/our-halal-promise",
+    "status": 200,
+    "finalUrl": "/our-halal-promise",
+    "notes": []
+  },
+  {
+    "slug": "halal-promise",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "halal-promise-default-tablet.png",
+    "route": "/our-halal-promise",
+    "status": 200,
+    "finalUrl": "/our-halal-promise",
+    "notes": []
+  },
+  {
+    "slug": "halal-promise",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "halal-promise-default-desktop.png",
+    "route": "/our-halal-promise",
+    "status": 200,
+    "finalUrl": "/our-halal-promise",
+    "notes": []
+  },
+  {
+    "slug": "privacy",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "privacy-default-mobile.png",
+    "route": "/privacy",
+    "status": 200,
+    "finalUrl": "/privacy",
+    "notes": []
+  },
+  {
+    "slug": "privacy",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "privacy-default-tablet.png",
+    "route": "/privacy",
+    "status": 200,
+    "finalUrl": "/privacy",
+    "notes": []
+  },
+  {
+    "slug": "privacy",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "privacy-default-desktop.png",
+    "route": "/privacy",
+    "status": 200,
+    "finalUrl": "/privacy",
+    "notes": []
+  },
+  {
+    "slug": "login",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "login-default-mobile.png",
+    "route": "/login",
+    "status": 200,
+    "finalUrl": "/login",
+    "notes": []
+  },
+  {
+    "slug": "login",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "login-default-tablet.png",
+    "route": "/login",
+    "status": 200,
+    "finalUrl": "/login",
+    "notes": []
+  },
+  {
+    "slug": "login",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "login-default-desktop.png",
+    "route": "/login",
+    "status": 200,
+    "finalUrl": "/login",
+    "notes": []
+  },
+  {
+    "slug": "unauthorised",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "unauthorised-default-mobile.png",
+    "route": "/unauthorised",
+    "status": 200,
+    "finalUrl": "/unauthorised",
+    "notes": []
+  },
+  {
+    "slug": "unauthorised",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "unauthorised-default-tablet.png",
+    "route": "/unauthorised",
+    "status": 200,
+    "finalUrl": "/unauthorised",
+    "notes": []
+  },
+  {
+    "slug": "unauthorised",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "unauthorised-default-desktop.png",
+    "route": "/unauthorised",
+    "status": 200,
+    "finalUrl": "/unauthorised",
+    "notes": []
+  },
+  {
+    "slug": "order-lookup",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "order-lookup-default-mobile.png",
+    "route": "/order/lookup",
+    "status": 200,
+    "finalUrl": "/order/lookup",
+    "notes": []
+  },
+  {
+    "slug": "order-lookup",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "order-lookup-default-tablet.png",
+    "route": "/order/lookup",
+    "status": 200,
+    "finalUrl": "/order/lookup",
+    "notes": []
+  },
+  {
+    "slug": "order-lookup",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "order-lookup-default-desktop.png",
+    "route": "/order/lookup",
+    "status": 200,
+    "finalUrl": "/order/lookup",
+    "notes": []
+  },
+  {
+    "slug": "auth-update-password",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "auth-update-password-default-mobile.png",
+    "route": "/auth/update-password",
+    "status": 200,
+    "finalUrl": "/auth/update-password",
+    "notes": []
+  },
+  {
+    "slug": "auth-update-password",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "auth-update-password-default-tablet.png",
+    "route": "/auth/update-password",
+    "status": 200,
+    "finalUrl": "/auth/update-password",
+    "notes": []
+  },
+  {
+    "slug": "auth-update-password",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "auth-update-password-default-desktop.png",
+    "route": "/auth/update-password",
+    "status": 200,
+    "finalUrl": "/auth/update-password",
+    "notes": []
+  },
+  {
+    "slug": "product-detail",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "product-detail-default-mobile.png",
+    "route": "/product/probe-kg-4vf186c7",
+    "status": 200,
+    "finalUrl": "/product/probe-kg-4vf186c7",
+    "notes": []
+  },
+  {
+    "slug": "product-detail",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "product-detail-default-tablet.png",
+    "route": "/product/probe-kg-4vf186c7",
+    "status": 200,
+    "finalUrl": "/product/probe-kg-4vf186c7",
+    "notes": []
+  },
+  {
+    "slug": "product-detail",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "product-detail-default-desktop.png",
+    "route": "/product/probe-kg-4vf186c7",
+    "status": 200,
+    "finalUrl": "/product/probe-kg-4vf186c7",
+    "notes": []
+  },
+  {
+    "slug": "order-detail",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "order-detail-default-mobile.png",
+    "route": "/order/PTM-2026-90001",
+    "status": 200,
+    "finalUrl": "/order/lookup?ref=PTM-2026-90001",
+    "notes": []
+  },
+  {
+    "slug": "order-detail",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "order-detail-default-tablet.png",
+    "route": "/order/PTM-2026-90001",
+    "status": 200,
+    "finalUrl": "/order/lookup?ref=PTM-2026-90001",
+    "notes": []
+  },
+  {
+    "slug": "order-detail",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "order-detail-default-desktop.png",
+    "route": "/order/PTM-2026-90001",
+    "status": 200,
+    "finalUrl": "/order/lookup?ref=PTM-2026-90001",
+    "notes": []
+  },
+  {
+    "slug": "order-cancel",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "order-cancel-default-mobile.png",
+    "route": "/order/PTM-2026-90001/cancel",
+    "status": 200,
+    "finalUrl": "/order/lookup?ref=PTM-2026-90001",
+    "notes": []
+  },
+  {
+    "slug": "order-cancel",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "order-cancel-default-tablet.png",
+    "route": "/order/PTM-2026-90001/cancel",
+    "status": 200,
+    "finalUrl": "/order/lookup?ref=PTM-2026-90001",
+    "notes": []
+  },
+  {
+    "slug": "order-cancel",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "order-cancel-default-desktop.png",
+    "route": "/order/PTM-2026-90001/cancel",
+    "status": 200,
+    "finalUrl": "/order/lookup?ref=PTM-2026-90001",
+    "notes": []
+  },
+  {
+    "slug": "operator-home",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "operator-home-default-mobile.png",
+    "route": "/operator",
+    "status": 200,
+    "finalUrl": "/operator",
+    "notes": []
+  },
+  {
+    "slug": "operator-home",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "operator-home-default-tablet.png",
+    "route": "/operator",
+    "status": 200,
+    "finalUrl": "/operator",
+    "notes": []
+  },
+  {
+    "slug": "operator-home",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "operator-home-default-desktop.png",
+    "route": "/operator",
+    "status": 200,
+    "finalUrl": "/operator",
+    "notes": []
+  },
+  {
+    "slug": "operator-open",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "operator-open-default-mobile.png",
+    "route": "/operator/open",
+    "status": 200,
+    "finalUrl": "/operator/open",
+    "notes": []
+  },
+  {
+    "slug": "operator-open",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "operator-open-default-tablet.png",
+    "route": "/operator/open",
+    "status": 200,
+    "finalUrl": "/operator/open",
+    "notes": []
+  },
+  {
+    "slug": "operator-open",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "operator-open-default-desktop.png",
+    "route": "/operator/open",
+    "status": 200,
+    "finalUrl": "/operator/open",
+    "notes": []
+  },
+  {
+    "slug": "operator-serve",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "operator-serve-default-mobile.png",
+    "route": "/operator/serve",
+    "status": 200,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  },
+  {
+    "slug": "operator-serve",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "operator-serve-default-tablet.png",
+    "route": "/operator/serve",
+    "status": 200,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  },
+  {
+    "slug": "operator-serve",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "operator-serve-default-desktop.png",
+    "route": "/operator/serve",
+    "status": 200,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  },
+  {
+    "slug": "operator-stock",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "operator-stock-default-mobile.png",
+    "route": "/operator/stock",
+    "status": 200,
+    "finalUrl": "/operator/stock",
+    "notes": []
+  },
+  {
+    "slug": "operator-stock",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "operator-stock-default-tablet.png",
+    "route": "/operator/stock",
+    "status": 200,
+    "finalUrl": "/operator/stock",
+    "notes": []
+  },
+  {
+    "slug": "operator-stock",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "operator-stock-default-desktop.png",
+    "route": "/operator/stock",
+    "status": 200,
+    "finalUrl": "/operator/stock",
+    "notes": []
+  },
+  {
+    "slug": "operator-waste",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "operator-waste-default-mobile.png",
+    "route": "/operator/waste",
+    "status": 200,
+    "finalUrl": "/operator/waste",
+    "notes": []
+  },
+  {
+    "slug": "operator-waste",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "operator-waste-default-tablet.png",
+    "route": "/operator/waste",
+    "status": 200,
+    "finalUrl": "/operator/waste",
+    "notes": []
+  },
+  {
+    "slug": "operator-waste",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "operator-waste-default-desktop.png",
+    "route": "/operator/waste",
+    "status": 200,
+    "finalUrl": "/operator/waste",
+    "notes": []
+  },
+  {
+    "slug": "operator-certificate",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "operator-certificate-default-mobile.png",
+    "route": "/operator/certificate",
+    "status": 200,
+    "finalUrl": "/operator/certificate",
+    "notes": []
+  },
+  {
+    "slug": "operator-certificate",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "operator-certificate-default-tablet.png",
+    "route": "/operator/certificate",
+    "status": 200,
+    "finalUrl": "/operator/certificate",
+    "notes": []
+  },
+  {
+    "slug": "operator-certificate",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "operator-certificate-default-desktop.png",
+    "route": "/operator/certificate",
+    "status": 200,
+    "finalUrl": "/operator/certificate",
+    "notes": []
+  },
+  {
+    "slug": "operator-close",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "operator-close-default-mobile.png",
+    "route": "/operator/close",
+    "status": 200,
+    "finalUrl": "/operator/close",
+    "notes": []
+  },
+  {
+    "slug": "operator-close",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "operator-close-default-tablet.png",
+    "route": "/operator/close",
+    "status": 200,
+    "finalUrl": "/operator/close",
+    "notes": []
+  },
+  {
+    "slug": "operator-close",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "operator-close-default-desktop.png",
+    "route": "/operator/close",
+    "status": 200,
+    "finalUrl": "/operator/close",
+    "notes": []
+  },
+  {
+    "slug": "operator-help",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "operator-help-default-mobile.png",
+    "route": "/operator/help",
+    "status": 200,
+    "finalUrl": "/operator/help",
+    "notes": []
+  },
+  {
+    "slug": "operator-help",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "operator-help-default-tablet.png",
+    "route": "/operator/help",
+    "status": 200,
+    "finalUrl": "/operator/help",
+    "notes": []
+  },
+  {
+    "slug": "operator-help",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "operator-help-default-desktop.png",
+    "route": "/operator/help",
+    "status": 200,
+    "finalUrl": "/operator/help",
+    "notes": []
+  },
+  {
+    "slug": "admin-hub",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-hub-default-mobile.png",
+    "route": "/admin",
+    "status": 200,
+    "finalUrl": "/admin",
+    "notes": [
+      "console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. best-Probe Chicken",
+      "console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. best-Probe Chicken"
+    ]
+  },
+  {
+    "slug": "admin-hub",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-hub-default-tablet.png",
+    "route": "/admin",
+    "status": 200,
+    "finalUrl": "/admin",
+    "notes": [
+      "console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. best-Probe Chicken",
+      "console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. best-Probe Chicken"
+    ]
+  },
+  {
+    "slug": "admin-hub",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-hub-default-desktop.png",
+    "route": "/admin",
+    "status": 200,
+    "finalUrl": "/admin",
+    "notes": [
+      "console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. best-Probe Chicken",
+      "console: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. best-Probe Chicken"
+    ]
+  },
+  {
+    "slug": "admin-today",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-today-default-mobile.png",
+    "route": "/admin/today",
+    "status": 200,
+    "finalUrl": "/admin/today",
+    "notes": []
+  },
+  {
+    "slug": "admin-today",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-today-default-tablet.png",
+    "route": "/admin/today",
+    "status": 200,
+    "finalUrl": "/admin/today",
+    "notes": []
+  },
+  {
+    "slug": "admin-today",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-today-default-desktop.png",
+    "route": "/admin/today",
+    "status": 200,
+    "finalUrl": "/admin/today",
+    "notes": []
+  },
+  {
+    "slug": "admin-today-walk",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-today-walk-default-mobile.png",
+    "route": "/admin/today/walk",
+    "status": 200,
+    "finalUrl": "/admin/today/walk",
+    "notes": []
+  },
+  {
+    "slug": "admin-today-walk",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-today-walk-default-tablet.png",
+    "route": "/admin/today/walk",
+    "status": 200,
+    "finalUrl": "/admin/today/walk",
+    "notes": []
+  },
+  {
+    "slug": "admin-today-walk",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-today-walk-default-desktop.png",
+    "route": "/admin/today/walk",
+    "status": 200,
+    "finalUrl": "/admin/today/walk",
+    "notes": []
+  },
+  {
+    "slug": "admin-inventory",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-inventory-default-mobile.png",
+    "route": "/admin/inventory",
+    "status": 200,
+    "finalUrl": "/admin/inventory",
+    "notes": []
+  },
+  {
+    "slug": "admin-inventory",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-inventory-default-tablet.png",
+    "route": "/admin/inventory",
+    "status": 200,
+    "finalUrl": "/admin/inventory",
+    "notes": []
+  },
+  {
+    "slug": "admin-inventory",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-inventory-default-desktop.png",
+    "route": "/admin/inventory",
+    "status": 200,
+    "finalUrl": "/admin/inventory",
+    "notes": []
+  },
+  {
+    "slug": "admin-purchasing",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-purchasing-default-mobile.png",
+    "route": "/admin/purchasing",
+    "status": 200,
+    "finalUrl": "/admin/purchasing",
+    "notes": []
+  },
+  {
+    "slug": "admin-purchasing",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-purchasing-default-tablet.png",
+    "route": "/admin/purchasing",
+    "status": 200,
+    "finalUrl": "/admin/purchasing",
+    "notes": []
+  },
+  {
+    "slug": "admin-purchasing",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-purchasing-default-desktop.png",
+    "route": "/admin/purchasing",
+    "status": 200,
+    "finalUrl": "/admin/purchasing",
+    "notes": []
+  },
+  {
+    "slug": "admin-stock-count",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-stock-count-default-mobile.png",
+    "route": "/admin/stock-count",
+    "status": 200,
+    "finalUrl": "/admin/stock-count",
+    "notes": []
+  },
+  {
+    "slug": "admin-stock-count",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-stock-count-default-tablet.png",
+    "route": "/admin/stock-count",
+    "status": 200,
+    "finalUrl": "/admin/stock-count",
+    "notes": []
+  },
+  {
+    "slug": "admin-stock-count",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-stock-count-default-desktop.png",
+    "route": "/admin/stock-count",
+    "status": 200,
+    "finalUrl": "/admin/stock-count",
+    "notes": []
+  },
+  {
+    "slug": "admin-compliance",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-compliance-default-mobile.png",
+    "route": "/admin/compliance",
+    "status": 200,
+    "finalUrl": "/admin/compliance",
+    "notes": []
+  },
+  {
+    "slug": "admin-compliance",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-compliance-default-tablet.png",
+    "route": "/admin/compliance",
+    "status": 200,
+    "finalUrl": "/admin/compliance",
+    "notes": []
+  },
+  {
+    "slug": "admin-compliance",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-compliance-default-desktop.png",
+    "route": "/admin/compliance",
+    "status": 200,
+    "finalUrl": "/admin/compliance",
+    "notes": []
+  },
+  {
+    "slug": "admin-orders",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-orders-default-mobile.png",
+    "route": "/admin/orders",
+    "status": 200,
+    "finalUrl": "/admin/orders",
+    "notes": []
+  },
+  {
+    "slug": "admin-orders",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-orders-default-tablet.png",
+    "route": "/admin/orders",
+    "status": 200,
+    "finalUrl": "/admin/orders",
+    "notes": []
+  },
+  {
+    "slug": "admin-orders",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-orders-default-desktop.png",
+    "route": "/admin/orders",
+    "status": 200,
+    "finalUrl": "/admin/orders",
+    "notes": []
+  },
+  {
+    "slug": "admin-products",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-products-default-mobile.png",
+    "route": "/admin/products",
+    "status": 200,
+    "finalUrl": "/admin/products",
+    "notes": []
+  },
+  {
+    "slug": "admin-products",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-products-default-tablet.png",
+    "route": "/admin/products",
+    "status": 200,
+    "finalUrl": "/admin/products",
+    "notes": []
+  },
+  {
+    "slug": "admin-products",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-products-default-desktop.png",
+    "route": "/admin/products",
+    "status": 200,
+    "finalUrl": "/admin/products",
+    "notes": []
+  },
+  {
+    "slug": "admin-settings",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-settings-default-mobile.png",
+    "route": "/admin/settings",
+    "status": 200,
+    "finalUrl": "/admin/settings",
+    "notes": []
+  },
+  {
+    "slug": "admin-settings",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-settings-default-tablet.png",
+    "route": "/admin/settings",
+    "status": 200,
+    "finalUrl": "/admin/settings",
+    "notes": []
+  },
+  {
+    "slug": "admin-settings",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-settings-default-desktop.png",
+    "route": "/admin/settings",
+    "status": 200,
+    "finalUrl": "/admin/settings",
+    "notes": []
+  },
+  {
+    "slug": "admin-audit",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-audit-default-mobile.png",
+    "route": "/admin/audit",
+    "status": 200,
+    "finalUrl": "/admin/audit",
+    "notes": []
+  },
+  {
+    "slug": "admin-audit",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-audit-default-tablet.png",
+    "route": "/admin/audit",
+    "status": 200,
+    "finalUrl": "/admin/audit",
+    "notes": []
+  },
+  {
+    "slug": "admin-audit",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-audit-default-desktop.png",
+    "route": "/admin/audit",
+    "status": 200,
+    "finalUrl": "/admin/audit",
+    "notes": []
+  },
+  {
+    "slug": "admin-releases",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-releases-default-mobile.png",
+    "route": "/admin/releases",
+    "status": 200,
+    "finalUrl": "/admin/releases",
+    "notes": []
+  },
+  {
+    "slug": "admin-releases",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-releases-default-tablet.png",
+    "route": "/admin/releases",
+    "status": 200,
+    "finalUrl": "/admin/releases",
+    "notes": []
+  },
+  {
+    "slug": "admin-releases",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-releases-default-desktop.png",
+    "route": "/admin/releases",
+    "status": 200,
+    "finalUrl": "/admin/releases",
+    "notes": []
+  },
+  {
+    "slug": "admin-away",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-away-default-mobile.png",
+    "route": "/admin/away",
+    "status": 200,
+    "finalUrl": "/admin/away",
+    "notes": []
+  },
+  {
+    "slug": "admin-away",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-away-default-tablet.png",
+    "route": "/admin/away",
+    "status": 200,
+    "finalUrl": "/admin/away",
+    "notes": []
+  },
+  {
+    "slug": "admin-away",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-away-default-desktop.png",
+    "route": "/admin/away",
+    "status": 200,
+    "finalUrl": "/admin/away",
+    "notes": []
+  },
+  {
+    "slug": "admin-briefing",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-briefing-default-mobile.png",
+    "route": "/admin/briefing",
+    "status": 200,
+    "finalUrl": "/admin/today",
+    "notes": [
+      "Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n\n- A server/client branch `if (typeof window !== 'undefined')`.\n- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n- Date formatting in a user's locale which doesn't match the server.\n- External changing data without sending a snapshot of it along with the HTML.\n- Invalid HTML tag nesting.\n\nIt can also happen if the client has a browser extension installed which messes with the HTML before React loaded.\n\nhttps://react.dev/link/hydration-mismatch\n\n  ...\n    <SegmentStateProvider>\n      <RenderFromTemplateContext>\n        <ScrollAndFocusHandler segmentPath={[...]}>\n          <InnerScrollAndFocusHandler segmentPath={[...]} focusAndScrollRef={{apply:false, ...}}>\n            <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>\n              <LoadingBoundary loading={null}>\n                <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>\n                  <RedirectBoundary>\n                    <RedirectErrorBoundary router={{...}}>\n                      <InnerLayoutRouter url=\"/admin/today\" tree={[...]} cacheNode={{lazyData:null, ...}} ...>\n                        <SegmentViewNode type=\"page\" pagePath=\"admin/toda...\">\n                          <SegmentTrieNode>\n                          <TodayPage>\n                            <PageFrame>\n+                             <div className=\"min-h-screen\">\n-                             <header\n-                               className=\"sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--paper)]/85 backdr...\"\n-                             >\n                        ...\n                      ...\n            ...\n      ...\n"
+    ]
+  },
+  {
+    "slug": "admin-briefing",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-briefing-default-tablet.png",
+    "route": "/admin/briefing",
+    "status": 200,
+    "finalUrl": "/admin/today",
+    "notes": [
+      "Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n\n- A server/client branch `if (typeof window !== 'undefined')`.\n- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n- Date formatting in a user's locale which doesn't match the server.\n- External changing data without sending a snapshot of it along with the HTML.\n- Invalid HTML tag nesting.\n\nIt can also happen if the client has a browser extension installed which messes with the HTML before React loaded.\n\nhttps://react.dev/link/hydration-mismatch\n\n  ...\n    <SegmentStateProvider>\n      <RenderFromTemplateContext>\n        <ScrollAndFocusHandler segmentPath={[...]}>\n          <InnerScrollAndFocusHandler segmentPath={[...]} focusAndScrollRef={{apply:false, ...}}>\n            <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>\n              <LoadingBoundary loading={null}>\n                <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>\n                  <RedirectBoundary>\n                    <RedirectErrorBoundary router={{...}}>\n                      <InnerLayoutRouter url=\"/admin/today\" tree={[...]} cacheNode={{lazyData:null, ...}} ...>\n                        <SegmentViewNode type=\"page\" pagePath=\"admin/toda...\">\n                          <SegmentTrieNode>\n                          <TodayPage>\n                            <PageFrame>\n+                             <div className=\"min-h-screen\">\n-                             <header\n-                               className=\"sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--paper)]/85 backdr...\"\n-                             >\n                        ...\n                      ...\n            ...\n      ...\n"
+    ]
+  },
+  {
+    "slug": "admin-briefing",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-briefing-default-desktop.png",
+    "route": "/admin/briefing",
+    "status": 200,
+    "finalUrl": "/admin/today",
+    "notes": [
+      "Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n\n- A server/client branch `if (typeof window !== 'undefined')`.\n- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n- Date formatting in a user's locale which doesn't match the server.\n- External changing data without sending a snapshot of it along with the HTML.\n- Invalid HTML tag nesting.\n\nIt can also happen if the client has a browser extension installed which messes with the HTML before React loaded.\n\nhttps://react.dev/link/hydration-mismatch\n\n  ...\n    <SegmentStateProvider>\n      <RenderFromTemplateContext>\n        <ScrollAndFocusHandler segmentPath={[...]}>\n          <InnerScrollAndFocusHandler segmentPath={[...]} focusAndScrollRef={{apply:false, ...}}>\n            <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>\n              <LoadingBoundary loading={null}>\n                <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>\n                  <RedirectBoundary>\n                    <RedirectErrorBoundary router={{...}}>\n                      <InnerLayoutRouter url=\"/admin/today\" tree={[...]} cacheNode={{lazyData:null, ...}} ...>\n                        <SegmentViewNode type=\"page\" pagePath=\"admin/toda...\">\n                          <SegmentTrieNode>\n                          <TodayPage>\n                            <PageFrame>\n+                             <div className=\"min-h-screen\">\n-                             <header\n-                               className=\"sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--paper)]/85 backdr...\"\n-                             >\n                        ...\n                      ...\n            ...\n      ...\n"
+    ]
+  },
+  {
+    "slug": "admin-evidence",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-evidence-default-mobile.png",
+    "route": "/admin/evidence",
+    "status": 200,
+    "finalUrl": "/admin/evidence",
+    "notes": []
+  },
+  {
+    "slug": "admin-evidence",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-evidence-default-tablet.png",
+    "route": "/admin/evidence",
+    "status": 200,
+    "finalUrl": "/admin/evidence",
+    "notes": []
+  },
+  {
+    "slug": "admin-evidence",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-evidence-default-desktop.png",
+    "route": "/admin/evidence",
+    "status": 200,
+    "finalUrl": "/admin/evidence",
+    "notes": []
+  },
+  {
+    "slug": "admin-guide",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-guide-default-mobile.png",
+    "route": "/admin/guide",
+    "status": 200,
+    "finalUrl": "/admin/guide",
+    "notes": []
+  },
+  {
+    "slug": "admin-guide",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-guide-default-tablet.png",
+    "route": "/admin/guide",
+    "status": 200,
+    "finalUrl": "/admin/guide",
+    "notes": []
+  },
+  {
+    "slug": "admin-guide",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-guide-default-desktop.png",
+    "route": "/admin/guide",
+    "status": 200,
+    "finalUrl": "/admin/guide",
+    "notes": []
+  },
+  {
+    "slug": "admin-cutting-guide",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-cutting-guide-default-mobile.png",
+    "route": "/admin/cutting-guide",
+    "status": 200,
+    "finalUrl": "/admin/cutting-guide",
+    "notes": []
+  },
+  {
+    "slug": "admin-cutting-guide",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-cutting-guide-default-tablet.png",
+    "route": "/admin/cutting-guide",
+    "status": 200,
+    "finalUrl": "/admin/cutting-guide",
+    "notes": []
+  },
+  {
+    "slug": "admin-cutting-guide",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-cutting-guide-default-desktop.png",
+    "route": "/admin/cutting-guide",
+    "status": 200,
+    "finalUrl": "/admin/cutting-guide",
+    "notes": []
+  },
+  {
+    "slug": "admin-setup",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-setup-default-mobile.png",
+    "route": "/admin/setup",
+    "status": 200,
+    "finalUrl": "/admin/setup",
+    "notes": []
+  },
+  {
+    "slug": "admin-setup",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-setup-default-tablet.png",
+    "route": "/admin/setup",
+    "status": 200,
+    "finalUrl": "/admin/setup",
+    "notes": []
+  },
+  {
+    "slug": "admin-setup",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-setup-default-desktop.png",
+    "route": "/admin/setup",
+    "status": 200,
+    "finalUrl": "/admin/setup",
+    "notes": []
+  },
+  {
+    "slug": "admin-playbooks",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-playbooks-default-mobile.png",
+    "route": "/admin/playbooks",
+    "status": 200,
+    "finalUrl": "/admin/playbooks",
+    "notes": []
+  },
+  {
+    "slug": "admin-playbooks",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-playbooks-default-tablet.png",
+    "route": "/admin/playbooks",
+    "status": 200,
+    "finalUrl": "/admin/playbooks",
+    "notes": []
+  },
+  {
+    "slug": "admin-playbooks",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-playbooks-default-desktop.png",
+    "route": "/admin/playbooks",
+    "status": 200,
+    "finalUrl": "/admin/playbooks",
+    "notes": []
+  },
+  {
+    "slug": "admin-pickup-windows",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-pickup-windows-default-mobile.png",
+    "route": "/admin/pickup-windows",
+    "status": 200,
+    "finalUrl": "/admin/pickup-windows",
+    "notes": []
+  },
+  {
+    "slug": "admin-pickup-windows",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-pickup-windows-default-tablet.png",
+    "route": "/admin/pickup-windows",
+    "status": 200,
+    "finalUrl": "/admin/pickup-windows",
+    "notes": []
+  },
+  {
+    "slug": "admin-pickup-windows",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-pickup-windows-default-desktop.png",
+    "route": "/admin/pickup-windows",
+    "status": 200,
+    "finalUrl": "/admin/pickup-windows",
+    "notes": []
+  },
+  {
+    "slug": "admin-shop-closures",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-shop-closures-default-mobile.png",
+    "route": "/admin/shop-closures",
+    "status": 200,
+    "finalUrl": "/admin/shop-closures",
+    "notes": []
+  },
+  {
+    "slug": "admin-shop-closures",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-shop-closures-default-tablet.png",
+    "route": "/admin/shop-closures",
+    "status": 200,
+    "finalUrl": "/admin/shop-closures",
+    "notes": []
+  },
+  {
+    "slug": "admin-shop-closures",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-shop-closures-default-desktop.png",
+    "route": "/admin/shop-closures",
+    "status": 200,
+    "finalUrl": "/admin/shop-closures",
+    "notes": []
+  },
+  {
+    "slug": "admin-validation-pricing",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-validation-pricing-default-mobile.png",
+    "route": "/admin/validation/pricing",
+    "status": 200,
+    "finalUrl": "/admin/validation/pricing",
+    "notes": []
+  },
+  {
+    "slug": "admin-validation-pricing",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-validation-pricing-default-tablet.png",
+    "route": "/admin/validation/pricing",
+    "status": 200,
+    "finalUrl": "/admin/validation/pricing",
+    "notes": []
+  },
+  {
+    "slug": "admin-validation-pricing",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-validation-pricing-default-desktop.png",
+    "route": "/admin/validation/pricing",
+    "status": 200,
+    "finalUrl": "/admin/validation/pricing",
+    "notes": []
+  },
+  {
+    "slug": "counter",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "counter-default-mobile.png",
+    "route": "/counter",
+    "status": 200,
+    "finalUrl": "/counter",
+    "notes": []
+  },
+  {
+    "slug": "counter",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "counter-default-tablet.png",
+    "route": "/counter",
+    "status": 200,
+    "finalUrl": "/counter",
+    "notes": []
+  },
+  {
+    "slug": "counter",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "counter-default-desktop.png",
+    "route": "/counter",
+    "status": 200,
+    "finalUrl": "/counter",
+    "notes": []
+  },
+  {
+    "slug": "counter-compliance",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "counter-compliance-default-mobile.png",
+    "route": "/counter/compliance",
+    "status": 200,
+    "finalUrl": "/counter/compliance",
+    "notes": []
+  },
+  {
+    "slug": "counter-compliance",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "counter-compliance-default-tablet.png",
+    "route": "/counter/compliance",
+    "status": 200,
+    "finalUrl": "/counter/compliance",
+    "notes": []
+  },
+  {
+    "slug": "counter-compliance",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "counter-compliance-default-desktop.png",
+    "route": "/counter/compliance",
+    "status": 200,
+    "finalUrl": "/counter/compliance",
+    "notes": []
+  },
+  {
+    "slug": "admin-today-decision",
+    "viewport": "n/a",
+    "state": "default",
+    "file": "(skipped)",
+    "route": "?",
+    "status": null,
+    "finalUrl": null,
+    "notes": [
+      "no seeded data to resolve param"
+    ]
+  },
+  {
+    "slug": "admin-playbook-detail",
+    "viewport": "375px mobile",
+    "state": "default",
+    "file": "admin-playbook-detail-default-mobile.png",
+    "route": "/admin/playbooks/butcher-words",
+    "status": 200,
+    "finalUrl": "/admin/playbooks/butcher-words",
+    "notes": []
+  },
+  {
+    "slug": "admin-playbook-detail",
+    "viewport": "768px tablet",
+    "state": "default",
+    "file": "admin-playbook-detail-default-tablet.png",
+    "route": "/admin/playbooks/butcher-words",
+    "status": 200,
+    "finalUrl": "/admin/playbooks/butcher-words",
+    "notes": []
+  },
+  {
+    "slug": "admin-playbook-detail",
+    "viewport": "1440px desktop",
+    "state": "default",
+    "file": "admin-playbook-detail-default-desktop.png",
+    "route": "/admin/playbooks/butcher-words",
+    "status": 200,
+    "finalUrl": "/admin/playbooks/butcher-words",
+    "notes": []
+  },
+  {
+    "slug": "counter-order-detail",
+    "viewport": "n/a",
+    "state": "default",
+    "file": "(skipped)",
+    "route": "?",
+    "status": null,
+    "finalUrl": null,
+    "notes": [
+      "no seeded data to resolve param"
+    ]
+  },
+  {
+    "slug": "operator-serve-flow",
+    "viewport": "375px mobile",
+    "state": "1-empty-what-bought",
+    "file": "operator-serve-flow-1-empty-what-bought-mobile.png",
+    "route": "/operator/serve",
+    "status": null,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  },
+  {
+    "slug": "operator-serve-flow",
+    "viewport": "375px mobile",
+    "state": "2-how-much",
+    "file": "operator-serve-flow-2-how-much-mobile.png",
+    "route": "/operator/serve",
+    "status": null,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  },
+  {
+    "slug": "operator-serve-flow",
+    "viewport": "375px mobile",
+    "state": "3-add-more",
+    "file": "operator-serve-flow-3-add-more-mobile.png",
+    "route": "/operator/serve",
+    "status": null,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  },
+  {
+    "slug": "operator-serve-flow",
+    "viewport": "375px mobile",
+    "state": "4-how-paid",
+    "file": "operator-serve-flow-4-how-paid-mobile.png",
+    "route": "/operator/serve",
+    "status": null,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  },
+  {
+    "slug": "operator-serve-flow",
+    "viewport": "768px tablet",
+    "state": "1-empty-what-bought",
+    "file": "operator-serve-flow-1-empty-what-bought-tablet.png",
+    "route": "/operator/serve",
+    "status": null,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  },
+  {
+    "slug": "operator-serve-flow",
+    "viewport": "768px tablet",
+    "state": "2-how-much",
+    "file": "operator-serve-flow-2-how-much-tablet.png",
+    "route": "/operator/serve",
+    "status": null,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  },
+  {
+    "slug": "operator-serve-flow",
+    "viewport": "768px tablet",
+    "state": "3-add-more",
+    "file": "operator-serve-flow-3-add-more-tablet.png",
+    "route": "/operator/serve",
+    "status": null,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  },
+  {
+    "slug": "operator-serve-flow",
+    "viewport": "768px tablet",
+    "state": "4-how-paid",
+    "file": "operator-serve-flow-4-how-paid-tablet.png",
+    "route": "/operator/serve",
+    "status": null,
+    "finalUrl": "/operator/serve",
+    "notes": []
+  }
+]

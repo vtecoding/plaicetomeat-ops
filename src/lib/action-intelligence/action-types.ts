@@ -1,3 +1,5 @@
+import type { ProductMargin } from "@/lib/domain/margin-erosion";
+
 export type ActionCategory = "stock" | "waste" | "margin" | "customer" | "basket" | "compliance" | "system";
 export type ActionGroup = "urgent" | "money_saving" | "stock" | "compliance" | "customer_growth";
 export type ActionSeverity = "info" | "warning" | "urgent";
@@ -42,6 +44,8 @@ export type ActionEngineInput = {
       grossProfit: number | null;
     } | null;
   };
+  /** Per-product price + current/prior cost, for the silent margin-erosion signal. */
+  marginErosion?: ProductMargin[];
   customers: {
     firstTimeCustomers: number;
     repeatCustomers: number;

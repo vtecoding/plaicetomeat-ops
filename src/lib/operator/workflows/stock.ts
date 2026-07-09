@@ -20,6 +20,17 @@ export function storageLabel(id: StorageChoice | null | undefined) {
   return STORAGE_CHOICES.find((choice) => choice.id === id)?.label ?? "Not sure";
 }
 
+/** Reverse of storageLabel: map a stored location label back to a choice id (for defaults). */
+export function storageChoiceFromLabel(label: string | null | undefined): StorageChoice | null {
+  if (!label) return null;
+  const match = STORAGE_CHOICES.find((choice) => choice.label.toLowerCase() === label.trim().toLowerCase());
+  return match ? match.id : null;
+}
+
+export function expiryLabel(id: ExpiryChoice | null | undefined) {
+  return EXPIRY_CHOICES.find((choice) => choice.id === id)?.label ?? "Not sure";
+}
+
 export function expiryDateFromChoice(choice: ExpiryChoice, now = new Date()) {
   const days = choice === "tomorrow" ? 1 : choice === "two_days" ? 2 : 0;
   const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + days));

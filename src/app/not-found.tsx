@@ -1,45 +1,33 @@
-import type { Metadata } from "next";
 import Link from "next/link";
-import { SearchX } from "lucide-react";
+import { Compass, Home } from "lucide-react";
 
-import { PageFrame } from "@/components/site-header";
+// Friendly catch-all for bad routes / unknown ids (notFound()). Renders inside
+// the root layout, so design tokens are available. Calm, big tap targets, always
+// a way back — never the raw Next.js 404.
 
-export const metadata: Metadata = {
-  title: "This could not be found",
-  robots: { index: false, follow: false },
-};
-
-export default function NotFoundPage() {
+export default function NotFound() {
   return (
-    <PageFrame>
-      <main className="mx-auto flex max-w-lg flex-col px-4 py-16 sm:px-6">
-        <section className="rounded-lg border border-[#ded6ca] bg-white p-6 shadow-sm">
-          <div className="flex items-start gap-3">
-            <SearchX className="mt-0.5 h-7 w-7 shrink-0 text-[#92510a]" aria-hidden />
-            <div>
-              <h1 className="text-2xl font-black">This could not be found</h1>
-              <p className="mt-2 text-sm leading-6 text-[#6c5e52]">
-                The link may be old, or the item may have been removed.
-              </p>
-            </div>
-          </div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--paper)] px-5 py-10 text-center text-[var(--ink)]">
+      <div data-testid="not-found" className="flex w-full max-w-sm flex-col items-center gap-6">
+        <span className="flex h-20 w-20 items-center justify-center rounded-full bg-[var(--brand-50)]">
+          <Compass className="h-10 w-10 text-[var(--brand)]" aria-hidden />
+        </span>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <Link
-              href="/admin/today"
-              className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#0f5132] px-4 text-center text-sm font-bold leading-tight text-white transition hover:bg-[#0c4128]"
-            >
-              Go back to Today
-            </Link>
-            <Link
-              href="/"
-              className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#d6cdc0] bg-white px-4 text-center text-sm font-bold leading-tight text-[#0f5132] transition hover:bg-[#f3efe8]"
-            >
-              Tell owner / go home
-            </Link>
-          </div>
-        </section>
-      </main>
-    </PageFrame>
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-[-0.01em]">We can&rsquo;t find that</h1>
+          <p className="mt-2 text-lg text-[var(--muted)]">
+            That page or item isn&rsquo;t here. Let&rsquo;s get you back.
+          </p>
+        </div>
+
+        <Link
+          href="/operator"
+          className="flex min-h-[64px] w-full items-center justify-center gap-3 rounded-2xl border border-[var(--brand)] bg-[var(--brand-50)] px-6 text-xl font-semibold text-[var(--brand-700)] shadow-sm transition active:scale-[0.99]"
+        >
+          <Home className="h-7 w-7" aria-hidden />
+          Go to start
+        </Link>
+      </div>
+    </div>
   );
 }

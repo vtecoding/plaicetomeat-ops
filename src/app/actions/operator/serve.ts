@@ -11,6 +11,7 @@ import {
   simpleText,
   type OperatorActionResult,
 } from "@/app/actions/operator/escalation";
+import { resolveServeLines } from "@/lib/operator/workflows/serve-lines";
 import { emitAuditLog } from "@/lib/server/audit";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient, createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
@@ -21,6 +22,10 @@ type ServeLineInput = {
   productId?: string | null;
   name?: string | null;
   quantityKg: number;
+  // F5: pounds the customer paid for a custom ("Other") line that resolves to no
+  // known product. Required for those lines; ignored for matched products (which
+  // are priced from the catalogue).
+  priceGbp?: number | null;
 };
 
 type ProductRow = {
@@ -52,10 +57,6 @@ function todayIso() {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
 }
 
-function money(value: string | number) {
-  return typeof value === "number" ? value : Number(value);
-}
-
 function cleanPay(value: string): PayKind | null {
   return value === "cash" || value === "card" ? value : null;
 }
@@ -67,6 +68,7 @@ function cleanLines(lines: ServeLineInput[]) {
       productId: isUuid(line.productId) ? line.productId! : null,
       name: simpleText(line.name, 80),
       quantityKg: Number(line.quantityKg),
+      priceGbp: line.priceGbp == null ? null : Number(line.priceGbp),
     }))
     .filter((line) => Number.isFinite(line.quantityKg) && line.quantityKg > 0 && line.quantityKg <= 50);
 }
@@ -184,22 +186,12 @@ export async function saveSimpleSale(input: {
   if (products.error) return { ok: false, message: "Try again." };
 
   const byId = new Map((products.data as ProductRow[]).map((product) => [product.id, product]));
-  const orderLines = lines.map((line) => {
-    const product = line.productId ? byId.get(line.productId) ?? null : null;
-    const name = product?.name ?? line.name ?? "Other";
-    const unit = product?.unit_type ?? "kg";
-    const price = product ? money(product.price_per_unit) : 0;
-    const total = Math.round(line.quantityKg * price * 100) / 100;
-    return {
-      product,
-      name,
-      unit,
-      price,
-      total,
-      quantity: line.quantityKg,
-      needsCheck: !product,
-    };
-  });
+
+  // F5/F6: resolve + validate lines through the shared pure helper. Rejects any
+  // each/box product (weight flow only) and any custom line without a real price.
+  const resolved = resolveServeLines(lines, byId);
+  if (!resolved.ok) return { ok: false, message: resolved.message };
+  const orderLines = resolved.lines;
 
   const date = todayIso();
   const orderRef = await nextRef(auth.branchId, date);
@@ -211,8 +203,11 @@ export async function saveSimpleSale(input: {
     .insert({
       branch_id: auth.branchId,
       order_ref: orderRef,
-      customer_name: "Shop sale",
-      customer_phone: "07000000000",
+      // A walk-in counter sale has no customer. Store no identity rather than the old
+      // fiction ('Shop sale' / '07000000000') — see the phase2 phantom-customer
+      // migration. Stock/audit/money key off branch+order, not the customer.
+      customer_name: null,
+      customer_phone: null,
       status: "incoming",
       pickup_date: date,
       subtotal,

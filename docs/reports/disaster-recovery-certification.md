@@ -1,106 +1,48 @@
-# BACKUP_CERTIFIED + RECOVERY_CERTIFIED — V13.4 sealed
+LOCAL TEST DATA ONLY
+NOT VALID FOR LAUNCH CERTIFICATION
 
-> **Verdict**: BACKUP_CERTIFIED + RECOVERY_CERTIFIED
-> **Date**: 2026-06-08T14:42:23.992Z
-> **Environment**: PRODUCTION
-> **Drill type**: REAL PRODUCTION RECOVERY DRILL
+# Disaster Recovery Certification - V13.3
 
-## What was proven
+## Recovery Summary
 
-V13.4 built a free-tier backup system (GitHub Actions + AES-256-GCM encrypted archives)
-to replace the Supabase Free Plan which has no automated backups.
+- environment: LOCAL
+- drill type: TEST
+- operator: Mara Manager <manager@ptm.test>
+- timestamp: 2026-06-30T17:32:21.163184+00:00
+- restore completed: 2026-06-30T17:32:21.198+00:00
 
-This report certifies that:
+## Backup Evidence
 
-1. **A production backup was taken** — encrypted archive at
-   `backups/plaicetomeat-production-20260608-141916/plaicetomeat-production-20260608-141916.backup.enc`
+- artifact: local-test-backup-evidence.json
+- backup size: 937 bytes
+- checksum: 692ee4d2b4100f54eee84052abe1aaa8c28211548c9499ba884e4584125dc67b
+- timestamp: 2026-06-30T17:32:21.173Z
 
-2. **The backup was cryptographically verified** — 10/10 checks passed including
-   decryption with the correct key, checksum match, core tables present, and
-   BACKUP_ENVIRONMENT=PRODUCTION marker.
+## Parity Results
 
-3. **The backup was restored** to a throwaway Supabase project
-   (`https://ymwdxcduyznqjcuwrqol.supabase.co`) with no data loss.
+| Table | Source | Restored | Variance | Status |
+| --- | ---: | ---: | ---: | --- |
+| profiles | 6 | 6 | 0 | PASS |
+| orders | 140 | 140 | 0 | PASS |
+| order_items | 143 | 143 | 0 | PASS |
+| products | 135 | 135 | 0 | PASS |
+| inventory | 310 | 310 | 0 | PASS |
+| audit_logs | 1630 | 1630 | 0 | PASS |
+| compliance_logs | 2 | 2 | 0 | PASS |
+| pricing_validations | 1 | 1 | 0 | PASS |
 
-4. **Row-count parity was verified** — 68 source rows = 68 restored rows
-   across all 8 core tables.
+## Integrity Results
 
-5. **Field-level integrity was verified** — 5/5 spot-check samples matched
-   production values exactly (business-data fields; `updated_at` excluded as
-   it is a server-side housekeeping column re-written by INSERT triggers).
+| Sample | Identifier | Status |
+| --- | --- | --- |
+| latest order | 703d336a-3a11-42d4-8036-b24281034d4e | PASS |
+| oldest order | 01362f2b-a3cd-431e-85db-c30be29692e5 | PASS |
+| random order | 8c03574d-b239-4060-9d0d-8d7ff2ba1db1 | PASS |
+| latest audit event | 05bd8533-9093-486e-bf1c-a6dde0cee6ef | PASS |
+| oldest audit event | af6921de-30ea-4c69-99be-44baf28073f3 | PASS |
+| latest compliance log | 63df772c-168c-4eed-9f98-a5c9a9a1bf7f | PASS |
+| latest pricing validation | 7f659f7c-46ae-4ad3-8c0f-fe8ad01747fe | PASS |
 
-## Backup metadata
+## Final Verdict
 
-| Field | Value |
-|---|---|
-| Backup ID | `qwvlzcqmicedxhfafiar-20260608-141916` |
-| Created at | `2026-06-08T14:19:28.567Z` |
-| Source project | `qwvlzcqmicedxhfafiar` |
-| Encrypted file | `plaicetomeat-production-20260608-141916.backup.enc` |
-| Checksum | `sha256:9173b618f0c47444780f4d315accc40cfd373ab4f0fd39343db8df6878a365bf` |
-| Encryption | `aes-256-gcm-scrypt-n16384` |
-| Backup mode | `rest_api` |
-| Row count total | 68 |
-| Core tables present | profiles, orders, order_items, products, inventory_batches, audit_logs, compliance_logs, pricing_validations |
-| Missing tables | none |
-
-## Parity table
-
-| Table | Source | Restored | Result |
-|---|---:|---:|---|
-| profiles                 |      4 |        4 | ✅ PASS |
-| orders                   |      4 |        4 | ✅ PASS |
-| order_items              |      4 |        4 | ✅ PASS |
-| products                 |      9 |        9 | ✅ PASS |
-| inventory_batches        |      2 |        2 | ✅ PASS |
-| audit_logs               |     45 |       45 | ✅ PASS |
-| compliance_logs          |      0 |        0 | ✅ PASS |
-| pricing_validations      |      0 |        0 | ✅ PASS |
-| **TOTAL** | **68** | **68** | **✅ PASS** |
-
-## Integrity samples
-
-| Sample | Result |
-|---|---|
-| Latest order | ✅ PASS |
-| Oldest order | ✅ PASS |
-| Latest audit event | ✅ PASS |
-| Oldest audit event | ✅ PASS |
-| Latest product | ✅ PASS |
-
-## Restore procedure (repeatable)
-
-```
-# 1. Create a fresh throwaway Supabase project
-# 2. Decrypt + restore:
-BACKUP_FILE=<path-to-enc-file>
-BACKUP_ENCRYPTION_KEY=<key>
-RESTORED_SUPABASE_URL=<throwaway-url>
-RESTORED_SUPABASE_SERVICE_ROLE_KEY=<throwaway-key>
-SOURCE_SUPABASE_URL=<production-url>
-SOURCE_SUPABASE_SERVICE_ROLE_KEY=<production-key>
-SUPABASE_ACCESS_TOKEN=<personal-access-token>
-node scripts/restore-backup-local.mjs
-
-# 3. Verify parity:
-RECOVERY_ENVIRONMENT=PRODUCTION STRICT=1 node scripts/verify-restore-parity.mjs
-```
-
-## Known limitations (free-tier constraints)
-
-- **auth.users not backed up** — profile records are restored and cross-linked via UUID, but auth users are recreated with throwaway passwords in the restored project. In a real disaster, staff must reset passwords after restore. Business data (orders, inventory, audit logs) is fully intact.
-- **updated_at drift** — server-side update triggers may rewrite `updated_at` if restore is run multiple times. Business data columns are unaffected.
-- **Backup retention** — GitHub Actions artifacts are kept for 90 days. Quarterly drill verifies restore still works.
-- **Backup max age** — the daily backup cron runs at 02:00 UTC. Maximum data loss in a disaster is ~24 hours of transactions.
-
-## Next actions required
-
-- [ ] Set GitHub Actions secrets: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `BACKUP_ENCRYPTION_KEY`, `CANONICAL_BRANCH_ID`
-- [ ] Confirm `.github/workflows/production-backup.yml` runs successfully (green tick in Actions tab)
-- [ ] Store `BACKUP_ENCRYPTION_KEY` in team password manager
-- [ ] Schedule next quarterly restore drill: 2026-09
-
----
-
-*Generated by `scripts/generate-v134-certification.mjs`*
-*Run ID: 2026-06-08T14:42:23.992Z*
+RECOVERY CERTIFIED

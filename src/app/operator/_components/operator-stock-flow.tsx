@@ -2,17 +2,50 @@
 
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Truck } from "lucide-react";
+import { ArrowLeft, Check, Pencil, Truck } from "lucide-react";
 
 import { confirmSimpleDelivery, reportRanOut, tellOwnerAboutStock } from "@/app/actions/operator/delivery";
 import { uploadOperatorEvidence } from "@/app/actions/operator/evidence";
-import { EXPIRY_CHOICES, STORAGE_CHOICES, type ExpiryChoice, type StorageChoice } from "@/lib/operator/workflows/stock";
+import {
+  hasConfidentSupplier,
+  initialSelectionFromDefaults,
+  type DeliveryDefaults,
+} from "@/lib/operator/workflows/delivery-defaults";
+import {
+  EXPIRY_CHOICES,
+  STORAGE_CHOICES,
+  expiryLabel,
+  storageLabel,
+  type ExpiryChoice,
+  type StorageChoice,
+} from "@/lib/operator/workflows/stock";
 
 type ProductOption = { id: string; name: string; unitType: string };
 type SupplierOption = { id: string; name: string };
-type Mode = "start" | "delivery-product" | "delivery-amount" | "delivery-supplier" | "delivery-photo" | "delivery-storage" | "delivery-expiry" | "delivery-confirm" | "ranout-product" | "ranout-sure" | "ranout-confirm" | "done";
+type Mode =
+  | "start"
+  | "delivery-product"
+  | "delivery-amount"
+  | "delivery-supplier"
+  | "delivery-photo"
+  | "delivery-storage"
+  | "delivery-expiry"
+  | "delivery-review"
+  | "delivery-confirm"
+  | "ranout-product"
+  | "ranout-sure"
+  | "ranout-confirm"
+  | "done";
 
-export function OperatorStockFlow({ products, suppliers }: { products: ProductOption[]; suppliers: SupplierOption[] }) {
+export function OperatorStockFlow({
+  products,
+  suppliers,
+  deliveryDefaults,
+}: {
+  products: ProductOption[];
+  suppliers: SupplierOption[];
+  deliveryDefaults: Record<string, DeliveryDefaults>;
+}) {
   const [runId, setRunId] = useState("");
   const [mode, setMode] = useState<Mode>("start");
   const [productId, setProductId] = useState<string | null>(null);
@@ -21,8 +54,15 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
   const [notePhotoName, setNotePhotoName] = useState<string | null>(null);
   const [noteEvidenceId, setNoteEvidenceId] = useState<string | null>(null);
   const [photoSaving, setPhotoSaving] = useState(false);
-  const [storageChoice, setStorageChoice] = useState<StorageChoice>("fridge");
-  const [expiryChoice, setExpiryChoice] = useState<ExpiryChoice>("tomorrow");
+  const [storageChoice, setStorageChoice] = useState<StorageChoice | null>(null);
+  const [expiryChoice, setExpiryChoice] = useState<ExpiryChoice | null>(null);
+  // Provenance for the audit trail: where each value came from ("last_used", "safe_default",
+  // …) or "manual" once the operator corrects it. Never shown on the operator screen.
+  const [supplierSource, setSupplierSource] = useState<string | null>(null);
+  const [storageSource, setStorageSource] = useState<string | null>(null);
+  const [expirySource, setExpirySource] = useState<string | null>(null);
+  // True while a picker was opened from the review screen, so it returns there on choose.
+  const [returnToReview, setReturnToReview] = useState(false);
   const [sureRanOut, setSureRanOut] = useState(true);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,14 +85,78 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
     setNotePhotoName(null);
     setNoteEvidenceId(null);
     setPhotoSaving(false);
-    setStorageChoice("fridge");
-    setExpiryChoice("tomorrow");
+    setStorageChoice(null);
+    setExpiryChoice(null);
+    setSupplierSource(null);
+    setStorageSource(null);
+    setExpirySource(null);
+    setReturnToReview(false);
     setSureRanOut(true);
     setResult(null);
     setError(null);
   }
 
+  // Pick the product, then seed the supplier/storage/expiry suggestion from its history.
+  function chooseDeliveryProduct(id: string | null) {
+    setProductId(id);
+    const defaults = id ? deliveryDefaults[id] : undefined;
+    if (defaults) {
+      const selection = initialSelectionFromDefaults(defaults);
+      setSupplierId(selection.supplierId);
+      setStorageChoice(selection.storageChoice);
+      setExpiryChoice(selection.expiryChoice);
+      setSupplierSource(defaults.supplier.source);
+      setStorageSource(defaults.storage.source);
+      setExpirySource(defaults.expiry.source);
+    } else {
+      setSupplierId(suppliers.length === 1 ? suppliers[0]?.id ?? null : null);
+      setStorageChoice(null);
+      setExpiryChoice(null);
+      setSupplierSource(null);
+      setStorageSource(null);
+      setExpirySource(null);
+    }
+    setMode("delivery-amount");
+  }
+
+  // After the amount: if we can confidently suggest a supplier, go straight to the one-screen
+  // review; otherwise fall back to the full explicit ask (first-ever / ambiguous delivery).
+  function afterAmount() {
+    const defaults = productId ? deliveryDefaults[productId] : undefined;
+    setMode(defaults && hasConfidentSupplier(defaults) ? "delivery-review" : "delivery-supplier");
+  }
+
+  function changeFromReview(target: "delivery-supplier" | "delivery-storage" | "delivery-expiry" | "delivery-photo") {
+    setReturnToReview(true);
+    setMode(target);
+  }
+
+  function pickSupplier(id: string | null) {
+    setSupplierId(id);
+    setSupplierSource("manual");
+    setMode(returnToReview ? "delivery-review" : "delivery-photo");
+    setReturnToReview(false);
+  }
+
+  function pickStorage(choice: StorageChoice) {
+    setStorageChoice(choice);
+    setStorageSource("manual");
+    setMode(returnToReview ? "delivery-review" : "delivery-expiry");
+    setReturnToReview(false);
+  }
+
+  function pickExpiry(choice: ExpiryChoice) {
+    setExpiryChoice(choice);
+    setExpirySource("manual");
+    setMode(returnToReview ? "delivery-review" : "delivery-confirm");
+    setReturnToReview(false);
+  }
+
   function saveDelivery() {
+    if (!storageChoice || !expiryChoice) {
+      setError("Please choose where it is kept and when it goes off.");
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const res = await confirmSimpleDelivery({
@@ -63,6 +167,7 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
         expiryChoice,
         storageChoice,
         noteEvidenceId,
+        sources: { supplier: supplierSource, storage: storageSource, expiry: expirySource },
       });
       if (!res.ok) {
         setError(res.message);
@@ -121,7 +226,8 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
     }
     setNoteEvidenceId(res.id);
     setNotePhotoName(res.fileName);
-    setMode("delivery-storage");
+    setMode(returnToReview ? "delivery-review" : "delivery-storage");
+    setReturnToReview(false);
   }
 
   return (
@@ -144,15 +250,46 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
 
       {mode === "delivery-product" && (
         <Panel title="What arrived?">
-          <ProductGrid products={products} onPick={(id) => { setProductId(id); setMode("delivery-amount"); }} />
-          <BigButton onClick={() => { setProductId(null); setMode("delivery-amount"); }} label="Something else / not sure" muted />
+          <ProductGrid products={products} onPick={(id) => chooseDeliveryProduct(id)} />
+          <BigButton onClick={() => chooseDeliveryProduct(null)} label="Something else / not sure" muted />
         </Panel>
       )}
 
       {mode === "delivery-amount" && (
         <Panel title="How much arrived?" helper={product ? product.name : "If you are not sure, enter your best guess."}>
           <AmountInput value={quantity} onChange={setQuantity} unit={unit} testId="operator-delivery-quantity" />
-          <BigButton onClick={() => setMode("delivery-supplier")} label="Next" disabled={Number(quantity) <= 0} />
+          <BigButton onClick={afterAmount} label="Next" disabled={Number(quantity) <= 0} />
+        </Panel>
+      )}
+
+      {mode === "delivery-review" && (
+        <Panel title="Looks right?" helper={product ? product.name : undefined}>
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-2" data-testid="delivery-review">
+            <ReviewRow label="Amount" value={`${quantity || "0"} ${unit}`} />
+            <ReviewRow label="Supplier" value={supplier?.name ?? "Not sure"} onChange={() => changeFromReview("delivery-supplier")} />
+            <ReviewRow
+              label="Where"
+              value={storageChoice ? storageLabel(storageChoice) : "Choose"}
+              onChange={() => changeFromReview("delivery-storage")}
+            />
+            <ReviewRow
+              label="Use by"
+              value={expiryChoice ? expiryLabel(expiryChoice) : "Choose"}
+              onChange={() => changeFromReview("delivery-expiry")}
+            />
+            <ReviewRow
+              label="Photo"
+              value={noteEvidenceId ? "Added" : "None (optional)"}
+              onChange={() => changeFromReview("delivery-photo")}
+            />
+          </div>
+          <BigButton
+            onClick={saveDelivery}
+            label="Yes, add this delivery"
+            busy={isPending || !runId}
+            disabled={!storageChoice || !expiryChoice}
+          />
+          <BigButton onClick={askOwner} label="I'm not sure - tell owner" muted busy={isPending} />
         </Panel>
       )}
 
@@ -160,9 +297,9 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
         <Panel title="Who brought it?">
           <div className="grid gap-3">
             {suppliers.map((item) => (
-              <BigButton key={item.id} onClick={() => { setSupplierId(item.id); setMode("delivery-photo"); }} label={item.name} />
+              <BigButton key={item.id} onClick={() => pickSupplier(item.id)} label={item.name} />
             ))}
-            <BigButton onClick={() => { setSupplierId(null); setMode("delivery-photo"); }} label="Not sure" muted />
+            <BigButton onClick={() => pickSupplier(null)} label="Not sure" muted />
           </div>
         </Panel>
       )}
@@ -180,7 +317,16 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
               onChange={(event) => void savePhoto(event.target.files?.[0])}
             />
           </label>
-          <BigButton onClick={() => { setNotePhotoName(null); setNoteEvidenceId(null); setMode("delivery-storage"); }} label="Skip for now" muted />
+          <BigButton
+            onClick={() => {
+              setNotePhotoName(null);
+              setNoteEvidenceId(null);
+              setMode(returnToReview ? "delivery-review" : "delivery-storage");
+              setReturnToReview(false);
+            }}
+            label={returnToReview ? "Back" : "Skip for now"}
+            muted
+          />
           {photoSaving ? <p className="text-base font-semibold text-[var(--muted)]">Saving photo...</p> : null}
           {noteEvidenceId && notePhotoName ? <p className="text-base font-semibold text-[var(--muted)]">Photo saved: {notePhotoName}</p> : null}
         </Panel>
@@ -189,7 +335,7 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
       {mode === "delivery-storage" && (
         <Panel title="Where did you put it?">
           {STORAGE_CHOICES.map((choice) => (
-            <BigButton key={choice.id} onClick={() => { setStorageChoice(choice.id); setMode("delivery-expiry"); }} label={choice.label} muted={choice.id === "not_sure"} />
+            <BigButton key={choice.id} onClick={() => pickStorage(choice.id)} label={choice.label} muted={choice.id === "not_sure"} />
           ))}
         </Panel>
       )}
@@ -197,7 +343,7 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
       {mode === "delivery-expiry" && (
         <Panel title="When does it go off?">
           {EXPIRY_CHOICES.map((choice) => (
-            <BigButton key={choice.id} onClick={() => { setExpiryChoice(choice.id); setMode("delivery-confirm"); }} label={choice.label} muted={choice.id === "not_sure"} />
+            <BigButton key={choice.id} onClick={() => pickExpiry(choice.id)} label={choice.label} muted={choice.id === "not_sure"} />
           ))}
         </Panel>
       )}
@@ -209,7 +355,7 @@ export function OperatorStockFlow({ products, suppliers }: { products: ProductOp
               product?.name ?? "Product: not sure",
               `${quantity || "0"} ${unit}`,
               supplier?.name ?? "Supplier: not sure",
-              `Location: ${STORAGE_CHOICES.find((choice) => choice.id === storageChoice)?.label ?? "Not sure"}`,
+              `Location: ${storageChoice ? storageLabel(storageChoice) : "Not sure"}`,
             ]}
           />
           <BigButton onClick={saveDelivery} label="Add this delivery" busy={isPending || !runId} />
@@ -294,6 +440,28 @@ function BigButton({ label, onClick, muted, disabled, busy }: { label: string; o
     >
       {busy ? "Saving..." : label}
     </button>
+  );
+}
+
+// One line of the delivery review: a remembered value with a one-tap way to correct it.
+function ReviewRow({ label, value, onChange }: { label: string; value: string; onChange?: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-3">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold uppercase tracking-wide text-[var(--faint)]">{label}</span>
+        <span className="block text-lg font-semibold text-[var(--ink)]">{value}</span>
+      </span>
+      {onChange ? (
+        <button
+          type="button"
+          onClick={onChange}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--card)] px-4 py-2 text-base font-semibold text-[var(--brand)] transition active:scale-[0.99]"
+        >
+          <Pencil className="h-4 w-4" aria-hidden />
+          Change
+        </button>
+      ) : null}
+    </div>
   );
 }
 

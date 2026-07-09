@@ -1,6 +1,6 @@
 # V14.3 · Low-Stock & Confidence-Routing Journey Proof (Workstream C)
 
-Generated: 2026-06-09T16:53:27.354Z
+Generated: 2026-06-30T18:29:38.968Z
 App: http://127.0.0.1:3001 · Supabase: http://127.0.0.1:54321 · operator: owner@ptm.test
 
 This is a real rendered operator journey against the running app on live
@@ -8,8 +8,8 @@ data — not a unit test. Screenshots in `./screens/`.
 
 ## Live inventory-truth signals (source: inventory_confidence_monitor)
 
-- Low-confidence products on file: **27**
-  - probe kg probe-kg-p61vgmmv, probe kg probe-kg-gszz2xbg, v14.1-h proof kg, probe kg probe-kg-1iwuscv0, probe kg probe-kg-xmar72ib, probe kg probe-kg-xwsibufz, probe kg probe-kg-4vf186c7, probe kg probe-kg-acutww85, probe kg probe-kg-waox1oe7, v6.4 intake lamb leg 1780761437040, probe kg probe-kg-5r5rlidr, v6.4 intake lamb leg 1780743410075 …
+- Low-confidence products on file: **99**
+  - probe kg probe-kg-8dtst10h, probe kg probe-kg-rs2tlsnm, probe kg probe-kg-8l7pzihd, probe kg probe-kg-h4e76j67, probe kg probe-kg-p2g0crf0, probe kg probe-kg-bykuaxn4, probe kg probe-kg-s0rhc2ks, probe kg probe-kg-fdlh99zu, probe kg probe-kg-7je5auh6, probe kg probe-kg-uxwtf18b, probe kg probe-kg-xczsoqh2, probe kg probe-kg-6vtdhpbp …
 
 ## What the operator saw
 
@@ -17,11 +17,7 @@ data — not a unit test. Screenshots in `./screens/`.
 - (none in current data)
 
 ### /admin/today — count actions
-- Please count Probe kg probe-kg-biixfo34 today
-- Please count Chicken Breast Fillets soon
-- Please count Probe kg probe-kg-1iwuscv0 soon
-- Please count Probe kg probe-kg-4vf186c7 soon
-- Please count Probe kg probe-kg-biixfo34 today — hard to put a figure on yet.
+- (none surfaced in current data)
 
 ### /admin/inventory — honesty stamp
 > Collected orders are already taken off stock. No stock count recorded yet. Use Stock count to keep figures honest.
@@ -37,12 +33,12 @@ data — not a unit test. Screenshots in `./screens/`.
 
 ## Control proofs
 
-- PASS: read live inventory-truth signals — 27 low-confidence product(s) on file
+- PASS: read live inventory-truth signals — 99 low-confidence product(s) on file
 - PASS: operator signs in — http://127.0.0.1:3001/admin/today
 - PASS: purchasing page renders for operator — 0 order recommendation(s): none
 - PASS: confidence→verb contract holds on the purchasing page — no low-confidence product is told to Order
 - PASS: order advice uses plain butcher wording — 'Order … tomorrow' / '… next time'
-- PASS: TODAY shows count actions for flagged stock — Please count Probe kg probe-kg-biixfo34 today | Please count Chicken Breast Fillets soon | Please count Probe kg probe-kg-1iwuscv0 soon | Please count Probe kg probe-kg-4vf186c7 soon | Please count Probe kg probe-kg-biixfo34 today — hard to put a figure on yet.
+- PASS: TODAY shows count actions for flagged stock — none surfaced in current data
 - PASS: stock honesty stamp states V14 truth — Collected orders are already taken off stock. No stock count recorded yet. Use Stock count to keep figures honest.
 
 ## Note on synthetic scenarios

@@ -104,6 +104,9 @@ export async function confirmSimpleDelivery(input: {
   expiryChoice: ExpiryChoice;
   storageChoice: StorageChoice;
   noteEvidenceId?: string | null;
+  // Provenance of each confirm-don't-ask value ("last_used" / "safe_default" / "manual" …).
+  // Audit-only; recorded in the run steps, never affects validation or stock.
+  sources?: { supplier?: string | null; storage?: string | null; expiry?: string | null } | null;
 }): Promise<OperatorActionResult> {
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
@@ -121,6 +124,9 @@ export async function confirmSimpleDelivery(input: {
     expiryChoice: input.expiryChoice,
     storageChoice: input.storageChoice,
     noteEvidenceId,
+    supplierSource: input.sources?.supplier ?? null,
+    storageSource: input.sources?.storage ?? null,
+    expirySource: input.sources?.expiry ?? null,
   };
 
   if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -172,9 +178,18 @@ export async function confirmSimpleDelivery(input: {
     storageChoice: input.storageChoice,
     photoProvided: !!noteEvidenceId,
   });
-  const note = needsOwner
-    ? `Operator delivery needs owner check. Location: ${storageLabel(input.storageChoice)}. Note photo: ${noteEvidenceId ? "yes" : "no"}.`
-    : null;
+  // F7: Operator Mode never captures an invoice cost, so the batch is created at
+  // cost 0. Stamp every operator batch as cost-pending so it can never be mistaken
+  // for genuinely free stock, and so the owner has an explicit "add cost" task.
+  const COST_PENDING_NOTE = "Cost pending: operator delivery — owner to add the invoice cost.";
+  const note = [
+    needsOwner
+      ? `Operator delivery needs owner check. Location: ${storageLabel(input.storageChoice)}. Note photo: ${noteEvidenceId ? "yes" : "no"}.`
+      : null,
+    COST_PENDING_NOTE,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const res = await createInventoryBatch({
     branchId: auth.branchId,
@@ -214,6 +229,19 @@ export async function confirmSimpleDelivery(input: {
       summary: `${product.name} was added. Owner should check the details.`,
       entityRef: input.runId,
       metadata: { ...steps, productName: product.name, supplierName: supplier.name, batchId: res.id, evidenceLinkOk: evidenceLink?.ok ?? null },
+    });
+  }
+
+  // F7: always raise a cost-pending task for the batch (separate entityRef so it
+  // is distinct from, and survives, the optional details-check alert above).
+  if (res.id) {
+    await createOwnerAlert({
+      branchId: auth.branchId,
+      profileId: auth.profileId,
+      kind: "operator_delivery_cost_pending",
+      summary: `${product.name} was added with no cost — add the invoice cost.`,
+      entityRef: `${res.id}:cost`,
+      metadata: { reason: "cost_pending", batchId: res.id, productId: product.id, productName: product.name, quantityKg: quantity },
     });
   }
 

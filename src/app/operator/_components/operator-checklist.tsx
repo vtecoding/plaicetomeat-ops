@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, CheckCircle2 } from "lucide-react";
 
 import {
   completeChecklist,
+  escalateChecklistStep,
   recordChecklistStep,
   startOrResumeChecklist,
 } from "@/app/actions/ops-capture";
@@ -23,6 +24,9 @@ import type { ChecklistReceipt, ChecklistSummary, OpsStepState } from "@/lib/ops
 type StepRecord = { state: OpsStepState; payload: Record<string, unknown> };
 type Kind = "opening" | "closing";
 
+/** A suggested value for a number step, drawn from history, that the operator confirms. */
+export type NumberPrefill = { value: number; hint: string; source: string | null };
+
 function seedStates(summary: ChecklistSummary): Record<string, StepRecord> {
   const out: Record<string, StepRecord> = {};
   for (const step of summary.steps) {
@@ -37,12 +41,14 @@ export function OperatorChecklist({
   initialSessionId,
   initialSummary,
   initialReceipt,
+  numberPrefills,
 }: {
   branchId: string;
   kind: Kind;
   initialSessionId: string | null;
   initialSummary: ChecklistSummary;
   initialReceipt: ChecklistReceipt | null;
+  numberPrefills?: Record<string, NumberPrefill>;
 }) {
   const definition = useMemo(() => getChecklist(kind), [kind]);
   const steps = definition.steps;
@@ -54,14 +60,22 @@ export function OperatorChecklist({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<boolean>(initialReceipt !== null);
 
+  const activeIndex = steps.findIndex((step) => !states[step.key]);
+  const allHandled = activeIndex === -1;
+  const activeStep = done || allHandled ? null : steps[activeIndex];
+  const handledCount = Object.keys(states).length;
+
+  const activePrefill = activeStep ? numberPrefills?.[activeStep.key] : undefined;
+
+  // Seed the number field with a suggested value when a prefilled step opens (e.g. the
+  // opening float). The operator can edit it before saving, so nothing is silently kept.
+  useEffect(() => {
+    setNumberValue(activePrefill ? String(activePrefill.value) : "");
+  }, [activeStep?.key, activePrefill]);
+
   if (done) {
     return <Finished kind={kind} />;
   }
-
-  const activeIndex = steps.findIndex((step) => !states[step.key]);
-  const allHandled = activeIndex === -1;
-  const activeStep = allHandled ? null : steps[activeIndex];
-  const handledCount = Object.keys(states).length;
 
   async function ensureSession(): Promise<string | null> {
     if (sessionId) return sessionId;
@@ -87,7 +101,13 @@ export function OperatorChecklist({
 
     const payload: Record<string, unknown> =
       state === "done" && activeStep.input.kind === "number" && numberValue.trim() !== ""
-        ? { value: Number(numberValue) }
+        ? {
+            value: Number(numberValue),
+            // Record provenance only when the suggested value was accepted unchanged.
+            ...(activePrefill && Number(numberValue) === activePrefill.value && activePrefill.source
+              ? { source: activePrefill.source }
+              : {}),
+          }
         : {};
 
     const res = await recordChecklistStep({
@@ -106,11 +126,43 @@ export function OperatorChecklist({
 
     setStates((prev) => ({ ...prev, [activeStep.key]: { state, payload } }));
     setNumberValue("");
+
+    // F8: a critical step the operator can't do raises an owner escalation. The
+    // step is NOT counted as done — a required reading still blocks completion.
+    if (state === "skipped" && activeStep.critical) {
+      await escalateChecklistStep({
+        branchId,
+        kind,
+        stepKey: activeStep.key,
+        stepTitle: activeStep.title,
+      });
+    }
+
     setBusy(false);
+  }
+
+  // F8: required readings are numeric (fridge temperature, till counts). Any that
+  // wasn't actually entered ("Not now" / "tell the owner") blocks finishing, with
+  // a calm explanation and a one-tap way to go back and do it.
+  const readingBlockers = steps.filter(
+    (step) => step.input.kind === "number" && states[step.key] && states[step.key].state !== "done",
+  );
+
+  function redoStep(key: string) {
+    setError(null);
+    setStates((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
 
   async function finish() {
     if (!sessionId || busy) return;
+    if (readingBlockers.length > 0) {
+      setError("A temperature or till reading is still needed before this can be finished. Ask owner if unsure.");
+      return;
+    }
     setBusy(true);
     setError(null);
     const res = await completeChecklist({ sessionId });
@@ -148,6 +200,11 @@ export function OperatorChecklist({
           {activeStep.input.kind === "number" && (
             <label className="mt-5 block">
               <span className="text-base font-semibold">{activeStep.input.label}</span>
+              {activePrefill ? (
+                <span className="mt-1 block text-base font-semibold text-[var(--brand)]" data-testid="operator-step-prefill-hint">
+                  {activePrefill.hint}
+                </span>
+              ) : null}
               <span className="mt-2 flex items-center gap-3">
                 <input
                   type="number"
@@ -187,17 +244,42 @@ export function OperatorChecklist({
         </div>
       ) : (
         <div className="mt-5 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-6 text-center shadow-sm">
-          <p className="text-lg font-semibold">That&rsquo;s everything checked.</p>
-          <button
-            type="button"
-            onClick={finish}
-            disabled={busy}
-            data-testid="operator-checklist-finish"
-            className="mt-5 flex min-h-[72px] w-full items-center justify-center gap-3 rounded-2xl bg-[var(--brand)] px-6 text-xl font-semibold text-white transition active:scale-[0.99] disabled:opacity-50"
-          >
-            <Check className="h-7 w-7" aria-hidden />
-            {kind === "opening" ? "Open the shop" : "Close the shop"}
-          </button>
+          {readingBlockers.length > 0 ? (
+            <div data-testid="operator-checklist-blocked">
+              <p className="text-lg font-semibold text-[var(--clay)]">
+                Almost there — a reading is still needed.
+              </p>
+              <p className="mt-2 text-base text-[var(--muted)]">
+                {kind === "opening" ? "The shop can&rsquo;t open" : "The shop can&rsquo;t close"} until these are entered. Ask owner if unsure.
+              </p>
+              <div className="mt-5 grid gap-3">
+                {readingBlockers.map((step) => (
+                  <button
+                    key={step.key}
+                    type="button"
+                    onClick={() => redoStep(step.key)}
+                    className="flex min-h-[64px] w-full items-center justify-center rounded-2xl border-2 border-[var(--brand)] bg-[var(--brand-50)] px-6 text-lg font-semibold text-[var(--brand-700)] transition active:scale-[0.99]"
+                  >
+                    Enter: {step.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-lg font-semibold">That&rsquo;s everything checked.</p>
+              <button
+                type="button"
+                onClick={finish}
+                disabled={busy}
+                data-testid="operator-checklist-finish"
+                className="mt-5 flex min-h-[72px] w-full items-center justify-center gap-3 rounded-2xl bg-[var(--brand)] px-6 text-xl font-semibold text-white transition active:scale-[0.99] disabled:opacity-50"
+              >
+                <Check className="h-7 w-7" aria-hidden />
+                {kind === "opening" ? "Open the shop" : "Close the shop"}
+              </button>
+            </>
+          )}
         </div>
       )}
 

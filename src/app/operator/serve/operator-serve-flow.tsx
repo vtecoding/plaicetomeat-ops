@@ -13,9 +13,10 @@ type Line = {
   name: string;
   quantityKg: number;
   label: string;
+  priceGbp: number | null;
 };
 
-type Mode = "buy" | "other-name" | "amount" | "other-amount" | "add-more" | "pay" | "confirm" | "done";
+type Mode = "buy" | "other-name" | "amount" | "other-amount" | "price" | "add-more" | "pay" | "confirm" | "done";
 type PayKind = "cash" | "card";
 
 export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
@@ -24,6 +25,8 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
   const [picked, setPicked] = useState<ServeTile | null>(null);
   const [otherName, setOtherName] = useState("");
   const [grams, setGrams] = useState("");
+  const [pounds, setPounds] = useState("");
+  const [pending, setPending] = useState<{ quantityKg: number; label: string } | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [payKind, setPayKind] = useState<PayKind>("cash");
   const [result, setResult] = useState<string | null>(null);
@@ -34,7 +37,13 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
     setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
   }, []);
 
-  const summary = useMemo(() => lines.map((line) => `${line.name} ${line.label}`), [lines]);
+  const summary = useMemo(
+    () =>
+      lines.map((line) =>
+        line.priceGbp != null ? `${line.name} ${line.label} — £${line.priceGbp.toFixed(2)}` : `${line.name} ${line.label}`,
+      ),
+    [lines],
+  );
 
   function restart() {
     setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
@@ -42,6 +51,8 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
     setPicked(null);
     setOtherName("");
     setGrams("");
+    setPounds("");
+    setPending(null);
     setLines([]);
     setPayKind("cash");
     setResult(null);
@@ -54,7 +65,21 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
     setMode(tile.id === "other" ? "other-name" : "amount");
   }
 
-  function addLine(quantityKg: number, label: string) {
+  // After an amount is chosen: a matched catalogue product is priced for us and
+  // finalises straight away; a custom line (no product) must go through the price
+  // step first so it can never be saved at £0 (F5).
+  function pickAmount(quantityKg: number, label: string) {
+    if (picked?.productId) {
+      commitLine(quantityKg, label, null);
+      return;
+    }
+    setPending({ quantityKg, label });
+    setPounds("");
+    setError(null);
+    setMode("price");
+  }
+
+  function commitLine(quantityKg: number, label: string, priceGbp: number | null) {
     const name = picked?.productId ? picked.label : otherName.trim() || picked?.fallbackName || "Other";
     setLines((items) => [
       ...items,
@@ -64,11 +89,14 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
         name,
         quantityKg,
         label,
+        priceGbp,
       },
     ]);
     setPicked(null);
     setOtherName("");
     setGrams("");
+    setPounds("");
+    setPending(null);
     setMode("add-more");
   }
 
@@ -79,7 +107,17 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
       return;
     }
     setError(null);
-    addLine(value / 1000, `${value}g`);
+    pickAmount(value / 1000, `${value}g`);
+  }
+
+  function addPrice() {
+    const value = Number(pounds);
+    if (!pending || !Number.isFinite(value) || value <= 0) {
+      setError("Enter the price.");
+      return;
+    }
+    setError(null);
+    commitLine(pending.quantityKg, pending.label, Math.round(value * 100) / 100);
   }
 
   function save() {
@@ -87,7 +125,12 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
     startTransition(async () => {
       const res = await saveSimpleSale({
         runId,
-        lines: lines.map((line) => ({ productId: line.productId, name: line.name, quantityKg: line.quantityKg })),
+        lines: lines.map((line) => ({
+          productId: line.productId,
+          name: line.name,
+          quantityKg: line.quantityKg,
+          priceGbp: line.priceGbp,
+        })),
         payKind,
       });
       if (!res.ok) {
@@ -132,7 +175,7 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
       {mode === "amount" && (
         <Panel title="How much?">
           {SERVE_AMOUNT_CHOICES.map((choice) => (
-            <BigButton key={choice.id} onClick={() => addLine(choice.kg, choice.label)} label={choice.label} />
+            <BigButton key={choice.id} onClick={() => pickAmount(choice.kg, choice.label)} label={choice.label} />
           ))}
           <BigButton onClick={() => setMode("other-amount")} label="Other amount" muted />
         </Panel>
@@ -150,6 +193,31 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
             <BigButton onClick={() => setGrams("")} label="Clear" muted />
           </div>
           <BigButton onClick={addOtherAmount} label="Next" disabled={Number(grams) <= 0} />
+        </Panel>
+      )}
+
+      {mode === "price" && (
+        <Panel title="How much did they pay?">
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-center text-4xl font-semibold">
+            £{pounds || "0"}
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map((digit) => (
+              <BigButton
+                key={digit}
+                onClick={() =>
+                  setPounds((value) => {
+                    if (digit === "." && value.includes(".")) return value;
+                    const next = `${value}${digit}`;
+                    return next.length <= 7 ? next : value;
+                  })
+                }
+                label={digit}
+              />
+            ))}
+            <BigButton onClick={() => setPounds("")} label="Clear" muted />
+          </div>
+          <BigButton onClick={addPrice} label="Next" disabled={!(Number(pounds) > 0)} />
         </Panel>
       )}
 

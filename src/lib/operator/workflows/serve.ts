@@ -25,11 +25,14 @@ export const SERVE_AMOUNT_CHOICES = [
 ] as const;
 
 function tileMatchValue(product: Product, words: string[]) {
+  // F6: Operator Serve is a weight (kg) flow — amounts are entered in grams/kg
+  // and priced per kg. each/box products must NEVER resolve to a serve tile, or
+  // "1kg" would charge price-per-each and move no stock. Exclude them outright.
+  if (product.unitType !== "kg") return -1;
   const name = product.name.toLowerCase();
   const matched = words.some((word) => name.includes(word));
   if (!matched) return -1;
-  let value = 0;
-  if (product.unitType === "kg") value += 100;
+  let value = 100;
   if (product.isAvailable) value += 20;
   if (!product.requiresWeightConfirmation) value += 5;
   value -= product.sortOrder / 1000;

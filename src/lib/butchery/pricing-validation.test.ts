@@ -6,6 +6,7 @@ import {
   computeVariancePct,
   defaultCarcassInput,
   expectedCutIds,
+  resolveSystemCut,
   SPECIES_IDS,
   summariseOverallSignoff,
   summariseSpeciesVerdict,
@@ -51,6 +52,33 @@ describe("buildSystemRecommendation", () => {
 
   it("returns null for zero carcass weight (invalid breakdown)", () => {
     expect(buildSystemRecommendation({ species: "beef", carcassWeightKg: 0, carcassCost: 100 })).toBeNull();
+  });
+});
+
+// Phase 2 information elimination (Dup1): the system snapshot stored in an audit
+// record must be recomputed server-side from the butcher's carcass inputs, never
+// trusted from the client. resolveSystemCut is the seam the action uses to do that.
+describe("resolveSystemCut — server recomputes the system snapshot from inputs only", () => {
+  it("derives the exact snapshot buildSystemRecommendation produces for that cut", () => {
+    const { carcassWeightKg, carcassCost } = defaultCarcassInput("lamb");
+    const rows = buildSystemRecommendation({ species: "lamb", carcassWeightKg, carcassCost })!;
+    const target = rows[0];
+
+    const resolved = resolveSystemCut({ species: "lamb", cutId: target.cutId, carcassWeightKg, carcassCost });
+
+    // Server-derived figures equal the engine output for the same inputs — so the
+    // stored audit snapshot can never depend on a client-supplied value.
+    expect(resolved).toEqual(target);
+  });
+
+  it("returns null for an unknown cut, so a forged cutId cannot be stored", () => {
+    const { carcassWeightKg, carcassCost } = defaultCarcassInput("beef");
+    expect(resolveSystemCut({ species: "beef", cutId: "not-a-real-cut", carcassWeightKg, carcassCost })).toBeNull();
+  });
+
+  it("returns null for invalid carcass inputs (zero weight)", () => {
+    const cutId = expectedCutIds("goat")[0]!;
+    expect(resolveSystemCut({ species: "goat", cutId, carcassWeightKg: 0, carcassCost: 100 })).toBeNull();
   });
 });
 

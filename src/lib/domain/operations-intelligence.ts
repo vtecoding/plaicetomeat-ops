@@ -25,8 +25,10 @@ export type ProductPerformanceInput = {
 };
 
 export type CustomerOrderInput = {
-  customerName: string;
-  customerPhone: string;
+  // Null for walk-in counter sales — those are not a tracked customer and are
+  // excluded from customer intelligence entirely.
+  customerName: string | null;
+  customerPhone: string | null;
   subtotal: number;
   createdAt: string;
   /** Product names in this order — used to learn the customer's favourite. */
@@ -168,7 +170,12 @@ export function buildCustomerIntelligence(orders: CustomerOrderInput[], now = ne
   const grouped = new Map<string, CustomerOrderInput[]>();
 
   for (const order of orders) {
-    const key = order.customerPhone.trim() || order.customerName.trim().toLowerCase();
+    // Walk-in counter sales carry no customer identity — skip them so they never
+    // become a phantom "regular" (previously all collapsed onto one fake phone).
+    const phone = order.customerPhone?.trim() ?? "";
+    const name = order.customerName?.trim() ?? "";
+    const key = phone || name.toLowerCase();
+    if (!key) continue;
     grouped.set(key, [...(grouped.get(key) ?? []), order]);
   }
 
@@ -183,8 +190,11 @@ export function buildCustomerIntelligence(orders: CustomerOrderInput[], now = ne
     const averageGapDays = customerOrders.length > 1 ? spanDays / (customerOrders.length - 1) : Infinity;
 
     return {
-      customerName: latest.customerName,
-      customerPhone: latest.customerPhone,
+      // Survivors are grouped by a non-empty key; online customers (the only ones that
+      // can become repeat/lapsed regulars) always carry both. Coerce for the string-typed
+      // summary so walk-in nullability never leaks downstream.
+      customerName: latest.customerName ?? "",
+      customerPhone: latest.customerPhone ?? "",
       orders: customerOrders.length,
       spend: roundMoney(sum(customerOrders.map((order) => order.subtotal))),
       lastOrder: latest.createdAt,

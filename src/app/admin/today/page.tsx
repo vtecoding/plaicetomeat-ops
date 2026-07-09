@@ -24,6 +24,7 @@ import type { DataState } from "@/lib/domain/data-result";
 import { buildDayShape, buildMorningBriefing } from "@/lib/owner-brain/brain";
 import { getOperationalSnapshotV1 } from "@/lib/server/operational-snapshot";
 import { getOwnerAwaySummary, type OwnerAwaySummary } from "@/lib/server/owner-away";
+import { getReconciliationItems, type ReconcileTray } from "@/lib/server/reconciliation";
 import { requireStaffContext } from "@/lib/server/staff-context";
 import type {
   DayShape,
@@ -38,9 +39,10 @@ export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
   const { profile, branchId } = await requireStaffContext("manager", { branchScoped: true });
-  const [snapshot, ownerAway] = await Promise.all([
+  const [snapshot, ownerAway, reconcile] = await Promise.all([
     getOperationalSnapshotV1(branchId),
     profile.role === "owner" ? getOwnerAwaySummary(branchId) : Promise.resolve(null),
+    getReconciliationItems(branchId),
   ]);
   const brain = snapshot.result.data?.brain;
   const morning = snapshot.result.data?.intelligence.morning;
@@ -85,6 +87,9 @@ export default async function TodayPage() {
             {/* Everything below recedes. Later is collapsed; the weekly summary is demoted to a
                 collapsed "for reference" panel. No dashboard surface sits above Do Now. */}
             <LaterReserve actions={brain.later} />
+            {/* The reconciliation tray: low-urgency bookkeeping batched into one entry, below
+                Do Now and never competing with it. Urgent items are never swept in here. */}
+            {reconcile.count > 0 && <ReconciliationTodayPanel tray={reconcile} />}
             <SecondaryInfo weekly={brain.weekly} />
           </>
         )}
@@ -119,6 +124,32 @@ function OwnerAwayTodayPanel({ summary }: { summary: OwnerAwaySummary }) {
       </span>
       <span className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-[var(--brand)] ring-1 ring-[#c5ddd0]">
         Review
+        <ChevronRight className="h-4 w-4" aria-hidden />
+      </span>
+    </Link>
+  );
+}
+
+function ReconciliationTodayPanel({ tray }: { tray: ReconcileTray }) {
+  return (
+    <Link
+      href="/admin/reconcile"
+      className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-[var(--cream)]/40 px-5 py-4 transition hover:border-[#c5ddd0] hover:bg-white"
+      data-testid="reconcile-today-panel"
+    >
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[var(--muted)] ring-1 ring-[var(--line)]">
+          <ClipboardCheck className="h-5 w-5" aria-hidden />
+        </span>
+        <span className="min-w-0">
+          <span className="block font-display text-lg font-semibold text-[var(--ink)]">
+            {tray.count} {tray.count === 1 ? "thing" : "things"} to reconcile
+          </span>
+          <span className="block text-sm font-medium text-[var(--muted)]">A little bookkeeping the shop saved up — clear it when you have a minute.</span>
+        </span>
+      </span>
+      <span className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-4 text-sm font-semibold text-[var(--brand)] ring-1 ring-[var(--line)]">
+        Open
         <ChevronRight className="h-4 w-4" aria-hidden />
       </span>
     </Link>

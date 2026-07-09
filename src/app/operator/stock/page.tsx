@@ -1,6 +1,12 @@
 import { OperatorStockFlow } from "@/app/operator/_components/operator-stock-flow";
+import {
+  resolveDeliveryDefaults,
+  type ActiveSupplier,
+  type DeliveryDefaults,
+} from "@/lib/operator/workflows/delivery-defaults";
 import { getSuppliers } from "@/lib/server/compliance-inventory";
 import { getAllProducts } from "@/lib/server/catalog";
+import { getDeliveryHistory } from "@/lib/server/operator-defaults";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
@@ -22,8 +28,24 @@ function commonOrder(name: string) {
 
 export default async function OperatorStockPage() {
   const { branchId } = await requireStaffContext("manager", { branchScoped: true });
-  const [products, suppliers] = await Promise.all([getAllProducts(branchId), getSuppliers(branchId, { publicOnly: true })]);
+  const [products, suppliers, history] = await Promise.all([
+    getAllProducts(branchId),
+    getSuppliers(branchId, { publicOnly: true }),
+    getDeliveryHistory(branchId),
+  ]);
   const productOptions = [...products].sort((a, b) => commonOrder(a.name) - commonOrder(b.name) || a.name.localeCompare(b.name));
+
+  const activeSuppliers: ActiveSupplier[] = suppliers
+    .filter((supplier) => supplier.active)
+    .map((supplier) => ({ id: supplier.id, name: supplier.name }));
+
+  // Confirm-don't-ask: precompute the suggested supplier/storage/expiry for every product
+  // from real delivery history. Pure + cheap, so it lives here per product; the operator
+  // confirms or corrects on a single review screen instead of re-entering each time.
+  const deliveryDefaults: Record<string, DeliveryDefaults> = {};
+  for (const product of productOptions) {
+    deliveryDefaults[product.id] = resolveDeliveryDefaults({ productId: product.id, suppliers: activeSuppliers, history });
+  }
 
   return (
     <div data-testid="operator-stock-page">
@@ -38,12 +60,8 @@ export default async function OperatorStockPage() {
             name: product.name,
             unitType: product.unitType,
           }))}
-          suppliers={suppliers
-            .filter((supplier) => supplier.active)
-            .map((supplier) => ({
-              id: supplier.id,
-              name: supplier.name,
-            }))}
+          suppliers={activeSuppliers}
+          deliveryDefaults={deliveryDefaults}
         />
       </div>
     </div>
