@@ -12,6 +12,7 @@ const ROOT = process.cwd();
 
 const SURFACES = [
   "src/app/global-error.tsx",
+  "src/app/error.tsx",
   "src/app/not-found.tsx",
   "src/app/operator/error.tsx",
   "src/app/counter/error.tsx",
@@ -59,5 +60,15 @@ describe("operator-friendly failure surfaces", () => {
   it("not-found gives a calm recovery path home", () => {
     const src = readFileSync(join(ROOT, "src/app/not-found.tsx"), "utf8");
     expect(src).toContain('href="/operator"');
+  });
+
+  it("root error screen (public-facing) offers retry + a signed-out-safe way back", () => {
+    const src = readFileSync(join(ROOT, "src/app/error.tsx"), "utf8");
+    expect(src).toContain("Something went wrong");
+    expect(src).toContain("reset()");
+    expect(src).toContain('href="/"'); // works for a signed-out visitor
+    expect(src).not.toContain("error.message");
+    expect(src).not.toContain("error.stack");
+    expect(src).not.toContain("{error.digest}");
   });
 });
