@@ -1,6 +1,6 @@
 # V14.3 · Low-Stock & Confidence-Routing Journey Proof (Workstream C)
 
-Generated: 2026-06-30T18:29:38.968Z
+Generated: 2026-07-09T23:41:39.441Z
 App: http://127.0.0.1:3001 · Supabase: http://127.0.0.1:54321 · operator: owner@ptm.test
 
 This is a real rendered operator journey against the running app on live
@@ -8,8 +8,8 @@ data — not a unit test. Screenshots in `./screens/`.
 
 ## Live inventory-truth signals (source: inventory_confidence_monitor)
 
-- Low-confidence products on file: **99**
-  - probe kg probe-kg-8dtst10h, probe kg probe-kg-rs2tlsnm, probe kg probe-kg-8l7pzihd, probe kg probe-kg-h4e76j67, probe kg probe-kg-p2g0crf0, probe kg probe-kg-bykuaxn4, probe kg probe-kg-s0rhc2ks, probe kg probe-kg-fdlh99zu, probe kg probe-kg-7je5auh6, probe kg probe-kg-uxwtf18b, probe kg probe-kg-xczsoqh2, probe kg probe-kg-6vtdhpbp …
+- Low-confidence products on file: **4**
+  - chicken breast fillets, v6.4 intake lamb leg 1782913606617, v6.4 intake lamb leg 1782918920569, v6.4 intake lamb leg 1782913405834
 
 ## What the operator saw
 
@@ -33,7 +33,7 @@ data — not a unit test. Screenshots in `./screens/`.
 
 ## Control proofs
 
-- PASS: read live inventory-truth signals — 99 low-confidence product(s) on file
+- PASS: read live inventory-truth signals — 4 low-confidence product(s) on file
 - PASS: operator signs in — http://127.0.0.1:3001/admin/today
 - PASS: purchasing page renders for operator — 0 order recommendation(s): none
 - PASS: confidence→verb contract holds on the purchasing page — no low-confidence product is told to Order

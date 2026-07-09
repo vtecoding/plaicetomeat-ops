@@ -1,6 +1,6 @@
 # V16 · Surface Convergence — Stream A Lock
 
-Generated: 2026-06-30T18:27:47.142Z
+Generated: 2026-07-09T23:33:50.465Z
 
 Static guard over `src/app/admin/**/page.tsx`. Keeps the secondary admin surfaces inside the
 one craft-butcher visual language the V16 compression pass established — no return to the old

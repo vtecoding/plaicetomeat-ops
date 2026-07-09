@@ -1,6 +1,6 @@
 # V15.1 · TODAY Operating System — Operator-Journey Proof
 
-Generated: 2026-06-30T18:29:42.965Z
+Generated: 2026-07-09T23:41:43.417Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test · viewport: 1366×1000
 
 A real start-of-day journey against the running app. Screenshot in
@@ -12,15 +12,15 @@ A real start-of-day journey against the running app. Screenshot in
 - **All priorities above the fold (no scrolling):** yes
 
 ### The three things to do now
-1. Verification Pending Foods certificate needs renewal
-2. Sell Probe kg probe-kg-24mexpz4 first
-3. Sell Probe kg probe-kg-g9smbxt5 first
+1. Check Chicken Breast Fillets now
+2. Check V6.4 Intake Lamb Leg 1782913405834 now
+3. Check V6.4 Intake Lamb Leg 1782913606617 now
 
 ## Operating-system checks
 
 - PASS: operator signs in — http://127.0.0.1:3001/admin/today
 - PASS: Do Now is above the fold — all priorities visible without scrolling — zone top=512px bottom=984px (viewport 1000px)
-- PASS: at most three primary actions render — Do now = 3: Verification Pending Foods certificate needs renewal | Sell Probe kg probe-kg-24mexpz4 first | Sell Probe kg probe-kg-g9smbxt5 first
+- PASS: at most three primary actions render — Do now = 3: Check Chicken Breast Fillets now | Check V6.4 Intake Lamb Leg 1782913405834 now | Check V6.4 Intake Lamb Leg 1782913606617 now
 - PASS: the 'How the shop is doing' status panel is retired — shop-status not present
 - PASS: weekly summary never outranks actions (below Do Now, collapsed) — present=true below=true collapsed=true
 - PASS: Later is collapsed by default and below Do Now — present=true collapsed=true below=true

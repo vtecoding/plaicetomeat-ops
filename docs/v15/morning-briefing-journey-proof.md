@@ -1,6 +1,6 @@
 # V15.3 · Morning Briefing Engine — Operator-Journey Proof
 
-Generated: 2026-06-30T18:29:48.360Z
+Generated: 2026-07-09T23:41:48.650Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test · viewport: 1366×1000
 
 A real start-of-day journey against the running app. Screenshot in
@@ -11,11 +11,11 @@ A real start-of-day journey against the running app. Screenshot in
 - **Yesterday:** YESTERDAY
 Yesterday was steady, with no waste recorded.
 - **Today:** TODAY
-A supplier certificate needs attention today. A couple more to check below.
+Some stock needs checking and writing off. A couple more to check below.
 - **You can ignore:** YOU CAN IGNORE
 Everything else can wait — the list below has what matters.
 
-Briefing length: **29 words** (limit 100). Actions length: 40 words.
+Briefing length: **30 words** (limit 100). Actions length: 37 words.
 
 ## Checks
 
@@ -26,6 +26,6 @@ Briefing length: **29 words** (limit 100). Actions length: 40 words.
 - PASS: briefing + Do Now read without scrolling (above the fold) — Do Now bottom=984px (viewport 1000px)
 - PASS: no metric / number / percentage in the briefing — clean
 - PASS: no confidence / ranking / score language in the briefing — clean
-- PASS: briefing within the 100-word limit — 29 words (target 40–80, max 100)
-- PASS: briefing is shorter than the actions — briefing 29 words vs actions 40 words
+- PASS: briefing within the 100-word limit — 30 words (target 40–80, max 100)
+- PASS: briefing is shorter than the actions — briefing 30 words vs actions 37 words
 - PASS: briefing does not contradict Do Now — consistent

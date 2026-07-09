@@ -1,6 +1,6 @@
 # V16 · Customer Win-Back — Operator-Journey Proof
 
-Generated: 2026-06-30T18:29:52.160Z
+Generated: 2026-07-09T23:41:52.408Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test
 
 A real rendered operator journey against the running app on live seeded data — not a
