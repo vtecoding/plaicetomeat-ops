@@ -46,7 +46,12 @@ const LOCAL_DEMO_ISSUER = "supabase-demo";
 // Documented, intentionally-public local dev fixtures (seeded local users only).
 // These are never valid against any production environment. Anything not on this
 // list that looks like a secret still fails the build.
-const KNOWN_LOCAL_FIXTURES = new Set(["PlaiceTest123!"]);
+const KNOWN_LOCAL_FIXTURES = new Set([
+  "PlaiceTest123!",
+  // Deliberately WRONG password used by seed-dev.mjs's verifySeededFixtures() to
+  // prove the negative case (a bad password must fail sign-in). Never a real secret.
+  "WrongPlaiceTest123!",
+]);
 
 function git(args) {
   return execFileSync("git", args, { cwd: ROOT, encoding: "utf8" });
