@@ -1,0 +1,153 @@
+{
+  "phase": "PTM Remediation Phase 1",
+  "date": "2026-07-11",
+  "verdict": "CONTROLLED-PILOT READY",
+  "verdict_conditions": {
+    "backup_restored_successfully": true,
+    "production_at_reviewed_migration_head": true,
+    "anonymous_sequence_mutation_blocked": true,
+    "build_identity_known": true,
+    "health_reporting_reflects_reality": true
+  },
+  "residual_owner_action_outstanding": {
+    "recurring_backup_workflow_green": false,
+    "detail": "4+1 GitHub secrets must be set by the owner; until then health backup_freshness is truthfully DEGRADED and the release gate blocks on backup."
+  },
+  "reconciliation": {
+    "audited_commit": "d1a82e23a5a785732ead8fc4d6fc9dba9374bb55",
+    "local_main_before": "d1a82e23a5a785732ead8fc4d6fc9dba9374bb55",
+    "origin_main_before": "d1a82e23a5a785732ead8fc4d6fc9dba9374bb55",
+    "remediation_branch": "ptm-remediation-phase-1",
+    "remediation_commit": "ba169d1adbfc6df7a25a76a8757487890b0251be",
+    "working_tree_before": "clean except untracked PTM_AUDIT_FINDINGS.json + PTM_MASTER_AUDIT_REPORT.md",
+    "deployed_commit_before": "UNVERIFIED (no build identifier; dpl_FSobVsLeyjtowSZAfhX1YKAyxu41, gitSource null, timing-correlated to d1a82e2)",
+    "deployed_commit_after": "ba169d1 (dpl_GMEvLN6UGZB6ZLzr6oUdDgZvTpxQ, injected PTM_BUILD_SHA, exposed via /api/health build.commit)"
+  },
+  "migrations": {
+    "repository_count_before": 38,
+    "repository_count_after": 40,
+    "manifest_head": "202607111000",
+    "manifest_checksum_sha256": "18aa72a6e4d5202c4ddb2b3d33a1bed189df8716c95d4c8833da0a10d39ae917",
+    "production_head_before": "202606300900",
+    "production_head_after": "202607111000",
+    "production_parity_after": "40/40 (every local has matching remote via `supabase migration list --linked`)",
+    "applied_to_production": [
+      { "version": "202606301000", "name": "clean_local_api_grants", "sha256": "36bcff99ec12ba74452433d55e9d25908b131ef0b466bb7d9d2a625a52fd5e38" },
+      { "version": "202607011300", "name": "service_role_api_grants", "sha256": "d78bbec7fb02f3ba01868defd38d52a32697ed275195df5b16cd3385cbb396b2" },
+      { "version": "202607101200", "name": "phase3_lock_products_and_events", "sha256": "28557d2a10e1662b1f086a54056baa66516ad895472808f847dd696009da4953" },
+      { "version": "202607110900", "name": "revoke_next_order_ref_anon (NEW)", "sha256": "generated" },
+      { "version": "202607111000", "name": "ops_backup_ledger (NEW)", "sha256": "generated" }
+    ]
+  },
+  "findings_retired": {
+    "PTM-DR-001": {
+      "severity": "P0",
+      "status": "SUBSTANTIALLY RETIRED",
+      "evidence": "Verified encrypted backup of real prod data created (AES-256-GCM, checksum-stable, decrypt round-trip OK) and restored into 3 isolated scratch DBs; full validation battery passed. Full-scope backup tooling (schema+auth+storage+roles+data) + repeatable restore drill delivered.",
+      "residual": "Recurring daily backup workflow needs owner GitHub secrets; health truthfully DEGRADED until first green run."
+    },
+    "PTM-REL-002": {
+      "severity": "P1",
+      "status": "RETIRED",
+      "evidence": "Production advanced from head 202606300900 (35) to 202607111000 (40). Post-apply read-only dump: 3 permissive write policies dropped; authenticated/anon reduced to SELECT-only on products/order_status_events/inventory_waste_events. Forge-denial + authorized-path success proven on the production-restored scratch clone."
+    },
+    "PTM-SEC-003": {
+      "severity": "P3 (confirmed exploit)",
+      "status": "RETIRED",
+      "evidence": "Migration 202607110900 REVOKEs EXECUTE from PUBLIC/anon/authenticated, GRANT to service_role only. Prod dump confirms. On the clone: anon before=PTM-2026-00003 (advanced), after=permission denied; service_role after=PTM-2026-00003 (authorized path intact). Regression guard verify:next-order-ref-lock 5/5."
+    },
+    "PTM-OBS-012": {
+      "severity": "P3 (enabler)",
+      "status": "RETIRED",
+      "evidence": "Health migration parity now deterministic against the complete 40-migration generated manifest (was 11 curated). Live prod /api/health: migration_parity HEALTHY 40/40 head 202607111000. Demonstrated live DEGRADED on simulated drift (39/40, missing 1)."
+    },
+    "PTM-REL-009": {
+      "severity": "P3",
+      "status": "RETIRED",
+      "evidence": "next.config injects PTM_BUILD_SHA; /api/health exposes build.commit. Live prod: build.known true, commit ba169d1. Fail-closed unit-tested (unknown SHA -> not HEALTHY)."
+    }
+  },
+  "scratch_restore_drill": {
+    "isolation": "separate databases (ptm_scratch/2/3) in the local Supabase Postgres cluster, bootstrapped with auth/extensions/vault + realtime publication; dropped after use (held prod PII)",
+    "schema_object_counts": { "tables": 48, "functions": 66, "policies": 56, "triggers": 22 },
+    "rls_enabled": "48/48",
+    "auth_users": 5,
+    "orphan_profiles": 0,
+    "critical_row_counts": { "orders": 5, "order_items": 5, "products": 9, "audit_logs": 120, "order_status_events": 13, "inventory_movements": 6 },
+    "fk_integrity_orphans": 0,
+    "storage": "1 bucket / objects metadata restored",
+    "representative_read_path": "get_public_order_status (anon) -> non-null",
+    "representative_write_path": "create_checkout_order (service_role) -> PTM-2026-00003 (post-revoke, DEFINER->next_order_ref chain intact)",
+    "encrypted_artifact_bytes": 97168,
+    "rpo": "<= 24h (daily cadence; free-tier Supabase has no PITR)",
+    "rto": "~10-15 min encrypted-artifact -> validated scratch restore"
+  },
+  "adversarial_validation_on_clone": {
+    "before_migration": {
+      "anon_next_order_ref": "SUCCEEDED -> PTM-2026-00003 (advanced sequence)",
+      "staff_forge_order_status_event": "INSERT SUCCEEDED",
+      "manager_unaudited_price_edit": "UPDATE SUCCEEDED",
+      "authenticated_insert_grant_3_tables": true,
+      "permissive_write_policies_on_3_tables": 3
+    },
+    "after_migration": {
+      "anon_next_order_ref": "permission denied for function",
+      "authenticated_next_order_ref": "permission denied for function",
+      "service_role_next_order_ref": "PTM-2026-00003 (authorized path intact)",
+      "staff_forge_order_status_event": "permission denied for table",
+      "manager_unaudited_price_edit": "permission denied for table",
+      "authenticated_insert_grant_3_tables": false,
+      "authenticated_truncate_products": false,
+      "permissive_write_policies_on_3_tables": 0,
+      "authorized_definer_transition_order_status": "wrote status event despite no direct grant (design thesis holds)",
+      "authorized_create_checkout_order": "PTM-2026-00003"
+    }
+  },
+  "production_readonly_proof_after_apply": {
+    "migration_parity": "40/40 matching local/remote",
+    "next_order_ref_grants": "REVOKE ALL FROM PUBLIC; GRANT TO service_role only (no anon/authenticated)",
+    "permissive_policies_dropped": ["managers can manage products", "managers can create branch waste events", "staff can create branch order status events"],
+    "authenticated_grants_on_truth_tables": "SELECT,MAINTAIN only (no INSERT/UPDATE/DELETE) on products/order_status_events/inventory_waste_events",
+    "backup_ledger_objects_present": ["ops_backup_runs", "record_backup_run", "get_backup_freshness"],
+    "deployed_app_serves_post_migration": "HTTP 200 (old + new endpoint both served; no breakage)",
+    "note": "No destructive production write used as proof; forge-denial proven on the byte-identical prod-restored clone."
+  },
+  "live_health": {
+    "before_remediation": { "state": "HEALTHY", "migration_parity": "11/11 (curated, masked 3-behind drift)", "build": "none" },
+    "after_remediation": {
+      "state": "DEGRADED",
+      "checks": { "app": "HEALTHY", "build_identity": "HEALTHY", "configuration": "HEALTHY", "database": "HEALTHY", "migration_parity": "HEALTHY", "backup_freshness": "DEGRADED" },
+      "build": { "commit": "ba169d1", "known": true },
+      "migration": { "requiredHead": "202607111000", "observedHead": "202607111000", "requiredCount": 40, "parity": true },
+      "backup": { "lastSuccessAt": null, "state": "DEGRADED", "reason": "recurring backup workflow needs owner secrets (truthful, fail-closed)" },
+      "http_status": 200
+    }
+  },
+  "validation_gates": {
+    "typecheck": "PASS (0 errors)",
+    "lint": "PASS (0 errors, 6 pre-existing warnings, none in new files)",
+    "unit_tests": "PASS 634/634 (82 files; +14 new: migration-parity, build-identity, backup-freshness)",
+    "build": "PASS",
+    "architecture_static": "PASS 8/8 (incl. new migration-manifest guard)",
+    "architecture_db": "PASS 7/7 (incl. truth-table-lock + new next-order-ref-lock)",
+    "next_order_ref_lock_regression": "PASS 5/5",
+    "scratch_restore_drill": "PASS",
+    "release_gate_local_mode": "PASS (manifest + build identity; prod checks skipped)",
+    "release_gate_red_demo": "BLOCKED on missing backup (fail-closed) even with schema at head",
+    "release_gate_green_demo": "ALLOWED after backup row stamped",
+    "health_truthful_degraded": "DEMONSTRATED (live, simulated drift -> 39/40 missing 1)",
+    "health_truthful_healthy": "DEMONSTRATED (live local, all 6 checks HEALTHY)"
+  },
+  "deliverables": [
+    "PTM_REMEDIATION_PHASE_1_REPORT.md",
+    "PTM_REMEDIATION_PHASE_1_EVIDENCE.json",
+    "supabase/migrations/202607110900_revoke_next_order_ref_anon.sql",
+    "supabase/migrations/202607111000_ops_backup_ledger.sql",
+    "src/lib/server/migration-manifest.generated.ts + scripts/generate-migration-manifest.mjs",
+    "src/lib/domain/{migration-parity,build-identity,backup-freshness}.ts (+ tests)",
+    "src/app/api/health/route.ts (rewritten) + next.config.ts (build SHA)",
+    "scripts/{backup-production-full,restore-backup-scratch,verify-next-order-ref-lock,verify-release-gate}.mjs",
+    ".github/workflows/{release-gate.yml, production-backup.yml (updated)}",
+    "docs/runbooks/ptm-phase1-{production-change,recovery,rollback}.md"
+  ]
+}
