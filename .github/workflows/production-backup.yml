@@ -9,9 +9,13 @@ name: Production Backup
 #   SUPABASE_SERVICE_ROLE_KEY       — production service role key
 #   BACKUP_ENCRYPTION_KEY           — strong passphrase for AES-256-GCM encryption
 #   CANONICAL_BRANCH_ID             — production branch UUID
+# Additional secret for the FULL logical backup (Phase-1 remediation, PTM-DR-011):
+#   SUPABASE_DB_URL                 — direct Postgres (pooler) connection string,
+#                                     enables schema+auth+storage+roles capture and
+#                                     stamps the ops_backup_runs freshness ledger.
 #
-# After the workflow succeeds, download the artifact and run restore-backup-local.mjs
-# to perform the quarterly recovery drill (see docs/runbooks/free-tier-backups.md).
+# After the workflow succeeds, download the artifact and run restore-backup-scratch.mjs
+# to perform the recovery drill (see docs/runbooks/ptm-phase1-recovery.md).
 
 on:
   schedule:
@@ -40,7 +44,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run production backup
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Run production backup (REST — data + manifest)
         env:
           BACKUP_ENVIRONMENT: PRODUCTION
           STRICT: "1"
@@ -50,6 +59,17 @@ jobs:
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
           BACKUP_OUTPUT_DIR: backups
         run: node scripts/backup-production.mjs
+
+      - name: Run FULL logical backup (schema + auth + storage + roles) and stamp freshness ledger
+        env:
+          BACKUP_ENVIRONMENT: PRODUCTION
+          STRICT: "1"
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          BACKUP_OUTPUT_DIR: backups
+        run: node scripts/backup-production-full.mjs
 
       - name: Verify backup
         env:

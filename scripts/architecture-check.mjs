@@ -45,9 +45,11 @@ const GUARDS = [
   { id: "operator-language", principle: "Language", tier: "static", script: "scripts/verify-operator-language.mjs", what: "operator copy stays plain, jargon-free" },
   { id: "rls-coverage", principle: "Security", tier: "static", script: "scripts/verify-rls-coverage.mjs", what: "every migrated table enables row level security (no fail-open new tables)" },
   { id: "operational-truth", principle: "Truth", tier: "static", script: "scripts/verify-operational-truth.mjs", what: "failures render as honest truth states, never demo data or fake empties" },
+  { id: "migration-manifest", principle: "Release", tier: "static", script: "scripts/generate-migration-manifest.mjs", args: ["--check"], what: "generated migration manifest matches supabase/migrations (no curated-subset drift)" },
 
   // ── db: need a reachable Supabase ──
   { id: "truth-table-lock", principle: "Truth", tier: "db", script: "scripts/verify-truth-table-lock.mjs", what: "ledger & truth-table RLS lock — nothing bypasses the ledger" },
+  { id: "next-order-ref-lock", principle: "Security", tier: "db", script: "scripts/verify-next-order-ref-lock.mjs", what: "next_order_ref denies anon/authenticated; only the internal command path advances the sequence" },
   { id: "required-compliance", principle: "Compliance", tier: "db", script: "scripts/verify-required-compliance.mjs", what: "required temperature/compliance evidence enforced" },
   { id: "compliance-integrity", principle: "Compliance", tier: "db", script: "scripts/verify-compliance-integrity.mjs", what: "temperature log RPCs hardened — no forgeable or fabricated evidence" },
   { id: "pricing-validation-integrity", principle: "Integrity", tier: "db", script: "scripts/verify-pricing-validation-integrity.mjs", what: "pricing validation recomputed server-side, not client-trusted" },
@@ -88,7 +90,7 @@ function parseArgs(argv) {
 }
 
 function runGuard(guard) {
-  const result = spawnSync("node", [guard.script], {
+  const result = spawnSync("node", [guard.script, ...(guard.args ?? [])], {
     cwd: process.cwd(),
     encoding: "utf8",
     timeout: 120_000,

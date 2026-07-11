@@ -50,6 +50,10 @@
     "verify:operator-firewall": "node scripts/verify-operator-firewall.mjs",
     "verify:operator-route-lock": "node scripts/verify-operator-route-lock.mjs",
     "verify:truth-table-lock": "node scripts/verify-truth-table-lock.mjs",
+    "verify:next-order-ref-lock": "node scripts/verify-next-order-ref-lock.mjs",
+    "verify:migration-manifest": "node scripts/generate-migration-manifest.mjs --check",
+    "verify:release-gate": "node scripts/verify-release-gate.mjs",
+    "gen:migration-manifest": "node scripts/generate-migration-manifest.mjs",
     "verify:required-compliance": "node scripts/verify-required-compliance.mjs",
     "dad:usability": "node scripts/audit-dad-usability.mjs"
   },

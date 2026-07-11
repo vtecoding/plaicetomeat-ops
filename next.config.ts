@@ -1,4 +1,25 @@
+import { execSync } from "node:child_process";
+
 import type { NextConfig } from "next";
+
+// PTM-REL-009 — resolve an immutable build commit SHA at build time so the
+// deployed app can be reconciled to a commit. Priority:
+//   1. VERCEL_GIT_COMMIT_SHA   — set by Vercel git-connected builds.
+//   2. PTM_BUILD_SHA           — explicitly injected by a CLI/manual deploy.
+//   3. `git rev-parse HEAD`    — build-container fallback when .git is present.
+// Empty string when none are available; the health endpoint then reports the
+// build identity as UNKNOWN and refuses to report HEALTHY (fail-closed).
+function resolveBuildSha(): string {
+  const fromEnv = process.env.VERCEL_GIT_COMMIT_SHA || process.env.PTM_BUILD_SHA;
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim();
+  try {
+    return execSync("git rev-parse HEAD", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return "";
+  }
+}
+
+const BUILD_SHA = resolveBuildSha();
 
 // V11.1 — security headers (spec §8.1.5). Applied to every route.
 //
@@ -54,6 +75,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  env: {
+    // Exposed as a build-time constant. Read server-side by build-identity.ts.
+    PTM_BUILD_SHA: BUILD_SHA,
+  },
   async headers() {
     return [
       {
