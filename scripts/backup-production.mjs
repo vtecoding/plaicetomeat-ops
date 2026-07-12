@@ -193,6 +193,12 @@ async function main() {
   }
 
   const totalRows = Object.values(rowCounts).reduce((s, n) => s + n, 0);
+
+  // NOTE: this REST backup covers core-table data only. It deliberately does NOT
+  // stamp the ops_backup_runs freshness ledger — health must not report HEALTHY on
+  // a partial backup. Only the full logical backup (backup-production-full.mjs, via
+  // SUPABASE_DB_URL: schema+data+auth+storage) stamps the ledger and flips health.
+
   console.log("");
   console.log("RESULT: backup PASSED (BACKUP_CERTIFIED)");
   console.log(`  encrypted archive : ${backupFileName(timestamp)}`);

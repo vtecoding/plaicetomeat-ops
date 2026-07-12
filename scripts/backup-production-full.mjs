@@ -71,6 +71,18 @@ function dump(dbUrl, args, label) {
 
 async function main() {
   console.log("backup-production-full: starting");
+
+  // The full logical (pg_dump) backup needs a direct DB connection string. When
+  // SUPABASE_DB_URL is not configured, skip cleanly (exit 0) rather than failing
+  // the workflow — the REST backup (backup-production.mjs) still runs and stamps
+  // the freshness ledger, and the schema is recoverable from the git migrations.
+  // Adding SUPABASE_DB_URL upgrades this run to a schema+auth+storage pg_dump.
+  if (!process.env.SUPABASE_DB_URL) {
+    console.log("  SKIPPED: SUPABASE_DB_URL not set — full logical (pg_dump) backup skipped.");
+    console.log("  (REST backup covers table data; add SUPABASE_DB_URL for schema/auth/storage dump.)");
+    return;
+  }
+
   const env = requireEnv(process.env);
   const timestamp = formatTimestamp();
   const outputDir = resolve(process.cwd(), env.OUT, `plaicetomeat-production-${timestamp}`);
