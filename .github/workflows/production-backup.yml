@@ -130,7 +130,7 @@ jobs:
           path: |
             backups/plaicetomeat-production-*/manifest.json
             backups/plaicetomeat-production-*/checksums.sha256
-            backups/plaicetomeat-production-/*.backup.enc
+            backups/plaicetomeat-production-*/*.backup.enc
           if-no-files-found: error
           retention-days: 90
 
