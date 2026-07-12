@@ -56,11 +56,29 @@ function requireEnv(env) {
   };
 }
 
+// PostgreSQL 17 client (>= server major). CI sets PG_DUMP/PG_DUMPALL to the
+// explicit pg17 binary path so we don't depend on pg_wrapper picking the right
+// version. Falls back to PATH locally.
+const PG_DUMP = process.env.PG_DUMP || "pg_dump";
+const PG_DUMPALL = process.env.PG_DUMPALL || "pg_dumpall";
+
+// Supabase DIRECT connections (db.<ref>.supabase.co) are IPv6-only and are not
+// reachable from GitHub Actions runners. pg_dump must use the SESSION pooler
+// (aws-0-<region>.pooler.supabase.com, port 5432). Fail fast with a clear message.
+function assertPoolerUrl(dbUrl) {
+  if (/@db\.[a-z0-9]+\.supabase\.co[:/]/i.test(dbUrl)) {
+    throw new Error(
+      "SUPABASE_DB_URL is a DIRECT connection (db.<ref>.supabase.co), which is IPv6-only " +
+        "and unreachable from CI. Use the SESSION POOLER string instead: " +
+        "postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres " +
+        "(Dashboard -> Project Settings -> Database -> Connection string -> Session mode).",
+    );
+  }
+}
+
 function pgDump(dbUrl, { schema, dataOnly, label }) {
-  // Direct pg_dump — no Docker, no Supabase CLI. Requires a PostgreSQL 17 client
-  // (>= server major) on PATH and a SESSION-pooler / direct connection string.
   const args = [dbUrl, "--schema", schema, dataOnly ? "--data-only" : "--schema-only"];
-  const res = spawnSync("pg_dump", args, { encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
+  const res = spawnSync(PG_DUMP, args, { encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
   if ((res.status ?? 1) !== 0) {
     throw new Error(`pg_dump (${label}) failed: ${(res.stderr || res.stdout || "").slice(-400)}`);
   }
@@ -69,7 +87,7 @@ function pgDump(dbUrl, { schema, dataOnly, label }) {
 
 function pgDumpRoles(dbUrl) {
   // Best-effort: role definitions without passwords (Supabase manages those).
-  const res = spawnSync("pg_dumpall", ["-d", dbUrl, "--roles-only", "--no-role-passwords"], {
+  const res = spawnSync(PG_DUMPALL, ["-d", dbUrl, "--roles-only", "--no-role-passwords"], {
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });
@@ -95,6 +113,7 @@ async function main() {
   }
 
   const env = requireEnv(process.env);
+  assertPoolerUrl(env.DB_URL);
   const timestamp = formatTimestamp();
   const outputDir = resolve(process.cwd(), env.OUT, `plaicetomeat-production-${timestamp}`);
   mkdirSync(outputDir, { recursive: true });

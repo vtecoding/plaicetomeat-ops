@@ -48,9 +48,14 @@ the CLI/API. To supply `SUPABASE_DB_URL` for the full logical backup:
 1. Supabase Dashboard → **Project Settings → Database → Reset database password**
    (this resets the password *and* re-syncs the pooler correctly — the safe way).
    The live app is unaffected (it authenticates with API keys, not the DB password).
-2. Copy the **Session pooler** connection string (Connection string → Session mode),
+2. Copy the **Session pooler** connection string (Connection string → **Session mode**),
    which embeds the new password:
    `postgresql://postgres.<ref>:<new-password>@aws-0-<region>.pooler.supabase.com:5432/postgres`
+   > ⚠️ Use the **Session pooler** string (host `aws-0-<region>.pooler.supabase.com`,
+   > user `postgres.<ref>`). Do **NOT** use the *Direct connection* (`db.<ref>.supabase.co`) —
+   > it is IPv6-only and unreachable from GitHub Actions, so the backup will fail with
+   > "Network is unreachable". Do not use the *Transaction pooler* (port 6543) either —
+   > pg_dump needs a session connection.
 3. Set the secret (value stays local — never pasted into a shared transcript):
    ```bash
    printf '%s' 'postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres' \
