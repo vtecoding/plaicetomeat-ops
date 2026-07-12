@@ -125,7 +125,8 @@ jobs:
             process.stdin.on('data',c=>d+=c);
             process.stdin.on('end',()=>{
               const m=JSON.parse(d);
-              console.log('Rows: '+m.row_count_total+' across '+m.core_tables_present.length+' tables');
+              if (Array.isArray(m.core_tables_present)) console.log('Rows: '+m.row_count_total+' across '+m.core_tables_present.length+' tables');
+              else console.log('Full logical backup — scope: '+(m.scope||[]).join(', '));
             });
           "
 
@@ -152,8 +153,9 @@ jobs:
               const m=JSON.parse(d);
               console.log('- **Status**: BACKUP_CERTIFIED');
               console.log('- **Timestamp**: '+m.created_at);
-              console.log('- **Rows**: '+m.row_count_total);
-              console.log('- **Tables**: '+m.core_tables_present.join(', '));
+              console.log('- **Mode**: '+(m.backup_mode||'rest_api'));
+              if (Array.isArray(m.core_tables_present)) console.log('- **Rows**: '+m.row_count_total+' across '+m.core_tables_present.length+' tables');
+              else console.log('- **Scope**: '+(m.scope||[]).join(', '));
               console.log('- **Environment**: '+m.environment);
               console.log('- **Checksum**: \`'+m.encrypted_checksum+'\`');
             " >> $GITHUB_STEP_SUMMARY

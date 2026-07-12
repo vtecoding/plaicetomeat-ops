@@ -98,10 +98,20 @@ async function main() {
   check("no raw SQL in backup directory", !isRawSqlPresent(fileNames),
     fileNames.filter((f) => f.endsWith(".sql")).join(", "));
 
-  // 7. All core tables present in manifest
-  const tableCheck = verifyManifestTables(manifest);
-  check("all core tables present in manifest", tableCheck.ok,
-    tableCheck.missing.length > 0 ? `missing: ${tableCheck.missing.join(", ")}` : "");
+  // 7. Scope check — REST backups list core tables; full logical (pg_dump) backups
+  //    list a `scope` of dumped components (schema/data/auth/storage/roles).
+  if (Array.isArray(manifest.core_tables_present)) {
+    const tableCheck = verifyManifestTables(manifest);
+    check("all core tables present in manifest", tableCheck.ok,
+      tableCheck.missing.length > 0 ? `missing: ${tableCheck.missing.join(", ")}` : "");
+  } else if (Array.isArray(manifest.scope)) {
+    const need = ["schema_public", "data_public", "schema_auth", "data_auth"];
+    const missing = need.filter((s) => !manifest.scope.includes(s));
+    check("full logical backup scope present (schema+data+auth)", missing.length === 0,
+      missing.length ? `missing: ${missing.join(", ")}` : manifest.scope.join(", "));
+  } else {
+    check("manifest declares a backup scope", false, "no core_tables_present or scope field");
+  }
 
   // 8. Backup age check (only in STRICT + PRODUCTION mode)
   if (strict && isProduction) {
@@ -132,8 +142,13 @@ async function main() {
   console.log("RESULT: latest backup verification PASSED (BACKUP_CERTIFIED)");
   console.log(`  environment : ${manifest.environment}`);
   console.log(`  created at  : ${manifest.created_at}`);
-  console.log(`  total rows  : ${manifest.row_count_total}`);
-  console.log(`  tables      : ${manifest.core_tables_present.join(", ")}`);
+  console.log(`  backup mode : ${manifest.backup_mode ?? "rest_api"}`);
+  if (Array.isArray(manifest.core_tables_present)) {
+    console.log(`  total rows  : ${manifest.row_count_total}`);
+    console.log(`  tables      : ${manifest.core_tables_present.join(", ")}`);
+  } else {
+    console.log(`  scope       : ${(manifest.scope ?? []).join(", ")}`);
+  }
 }
 
 main().catch((err) => {
