@@ -76,19 +76,41 @@ function assertPoolerUrl(dbUrl) {
   }
 }
 
-function pgDump(dbUrl, { schema, dataOnly, label }) {
-  const args = [dbUrl, "--schema", schema, dataOnly ? "--data-only" : "--schema-only"];
-  const res = spawnSync(PG_DUMP, args, { encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
+// Parse the connection string into components so the password is passed to
+// pg_dump via PGPASSWORD (not embedded in a URI). This makes the backup robust to
+// passwords containing URL-special characters ( @ : / ? # % ), which otherwise get
+// mangled by URI parsing and surface as "password authentication failed". The
+// greedy password capture stops at the LAST '@' (the host has none).
+function parseDbUrl(dbUrl) {
+  const m = String(dbUrl).match(/^postgres(?:ql)?:\/\/([^:@]+):(.*)@([^:@/]+):(\d+)\/([^?]+)/);
+  if (!m) {
+    throw new Error(
+      "SUPABASE_DB_URL is not a postgresql://user:password@host:port/dbname string. " +
+        "Use the Session pooler string from the dashboard.",
+    );
+  }
+  return { user: m[1], password: m[2], host: m[3], port: m[4], dbname: m[5] };
+}
+
+function pgDump(conn, { schema, dataOnly, label }) {
+  const args = ["-h", conn.host, "-p", conn.port, "-U", conn.user, "-d", conn.dbname,
+    "--schema", schema, dataOnly ? "--data-only" : "--schema-only"];
+  const res = spawnSync(PG_DUMP, args, {
+    encoding: "utf8",
+    maxBuffer: 512 * 1024 * 1024,
+    env: { ...process.env, PGPASSWORD: conn.password },
+  });
   if ((res.status ?? 1) !== 0) {
     throw new Error(`pg_dump (${label}) failed: ${(res.stderr || res.stdout || "").slice(-400)}`);
   }
   return res.stdout ?? "";
 }
 
-function pgDumpRoles(dbUrl) {
+function pgDumpRoles(conn) {
   // Best-effort: role definitions without passwords (Supabase manages those).
-  const res = spawnSync(PG_DUMPALL, ["-d", dbUrl, "--roles-only", "--no-role-passwords"], {
+  const res = spawnSync(PG_DUMPALL, ["-h", conn.host, "-p", conn.port, "-U", conn.user, "-d", conn.dbname, "--roles-only", "--no-role-passwords"], {
     encoding: "utf8",
+    env: { ...process.env, PGPASSWORD: conn.password },
     maxBuffer: 64 * 1024 * 1024,
   });
   if ((res.status ?? 1) !== 0) {
@@ -119,14 +141,15 @@ async function main() {
   mkdirSync(outputDir, { recursive: true });
 
   console.log("  dumping schema (public+auth+storage), data, roles via pg_dump...");
+  const conn = parseDbUrl(env.DB_URL);
   const parts = {
-    schema_public: pgDump(env.DB_URL, { schema: "public", label: "schema/public" }),
-    schema_auth: pgDump(env.DB_URL, { schema: "auth", label: "schema/auth" }),
-    schema_storage: pgDump(env.DB_URL, { schema: "storage", label: "schema/storage" }),
-    data_public: pgDump(env.DB_URL, { schema: "public", dataOnly: true, label: "data/public" }),
-    data_auth: pgDump(env.DB_URL, { schema: "auth", dataOnly: true, label: "data/auth" }),
-    data_storage: pgDump(env.DB_URL, { schema: "storage", dataOnly: true, label: "data/storage" }),
-    roles: pgDumpRoles(env.DB_URL),
+    schema_public: pgDump(conn, { schema: "public", label: "schema/public" }),
+    schema_auth: pgDump(conn, { schema: "auth", label: "schema/auth" }),
+    schema_storage: pgDump(conn, { schema: "storage", label: "schema/storage" }),
+    data_public: pgDump(conn, { schema: "public", dataOnly: true, label: "data/public" }),
+    data_auth: pgDump(conn, { schema: "auth", dataOnly: true, label: "data/auth" }),
+    data_storage: pgDump(conn, { schema: "storage", dataOnly: true, label: "data/storage" }),
+    roles: pgDumpRoles(conn),
   };
 
   const scope = Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, v.length]));
