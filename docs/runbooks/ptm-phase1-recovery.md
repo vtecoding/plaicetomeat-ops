@@ -40,6 +40,27 @@ never print their values.
 | `BACKUP_ENCRYPTION_KEY` | AES-256-GCM passphrase (≥ 32 chars) |
 | `SUPABASE_DB_URL` | **new** — direct pooler connection string for the full logical dump |
 
+### Configuring `SUPABASE_DB_URL` (the one secret that needs a dashboard reset)
+
+The DB password is shown only once at project creation and is not retrievable via
+the CLI/API. To supply `SUPABASE_DB_URL` for the full logical backup:
+
+1. Supabase Dashboard → **Project Settings → Database → Reset database password**
+   (this resets the password *and* re-syncs the pooler correctly — the safe way).
+   The live app is unaffected (it authenticates with API keys, not the DB password).
+2. Copy the **Session pooler** connection string (Connection string → Session mode),
+   which embeds the new password:
+   `postgresql://postgres.<ref>:<new-password>@aws-0-<region>.pooler.supabase.com:5432/postgres`
+3. Set the secret (value stays local — never pasted into a shared transcript):
+   ```bash
+   printf '%s' 'postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres' \
+     | gh secret set SUPABASE_DB_URL --repo vtecoding/plaicetomeat-ops
+   ```
+4. Store the new password in your password manager. Re-`supabase link --password`
+   locally if you use the CLI for migrations.
+5. Re-run the backup workflow (below). The full logical step then runs, stamps the
+   freshness ledger, and `/api/health` flips to HEALTHY.
+
 Validation (no values printed):
 
 ```bash
