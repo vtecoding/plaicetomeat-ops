@@ -138,3 +138,24 @@ profiles reconcile to `auth.users` (0 orphans), and business data present. Exit 
 **Measured RPO / RTO (drill):** RPO ≤ 24h (daily backup cadence; no PITR on free
 tier). RTO ≈ 10–15 min from encrypted artifact to validated scratch restore
 (schema + data + validation), plus dump time when generating a fresh backup.
+
+### Verified DR drill — 2026-07-13 (restore = evidence, not assumption)
+
+Run against the workflow-produced full artifact and a fresh backup of the
+prod-equivalent DB. Re-run this quarterly.
+
+| Check | Result |
+|---|---|
+| Restore into a **completely empty** DB | PASS — 49 tables from bare `CREATE DATABASE` + Supabase prereqs |
+| RLS / triggers / functions / views | PASS — RLS 49/49, 70 functions, 56 policies, 25 triggers, 4 views |
+| Grants / security locks survive restore | PASS — anon `next_order_ref` denied, 0 forge-door policies |
+| **Row-level identity** (content hash, not counts) | PASS — orders, order_items, products, audit_logs, inventory_movements, order_status_events, compliance_readings all **byte-identical** (md5 match src vs restored) |
+| **Measured RTO** | ~4s decrypt+restore+validate at current data size (seconds-scale for a single shop; scales with row count) |
+| **Corrupt → recover** | PASS — wiped all orders (9→0), recovered from the encrypted backup alone (0→9), recovered hash **identical to pre-disaster** |
+| Encryption | PASS — AES-256-GCM, decrypt round-trip + checksum verified |
+
+**Retention (current vs recommended):** current = **flat 90-day** GitHub artifact
+retention (≈ 90 daily copies; nothing recoverable beyond 90 days). For a longer
+horizon (audit/EHO), move to GFS — daily×30 + weekly×12 + monthly×12 — which needs
+an external object store (S3 / Backblaze B2 / Cloudflare R2 with lifecycle rules),
+since GitHub artifacts only support a single flat `retention-days`.
