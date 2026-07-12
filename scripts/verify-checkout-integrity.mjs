@@ -284,6 +284,7 @@ async function httpChecks() {
 
   // forged price ignored: submit absurd unitPriceSnapshot, confirm stored price is DB price
   {
+    const truth = await productTruth();
     const k = key(`http-forge-${randomUUID().slice(0, 6)}`);
     const res = await post(httpBody({ idempotencyKey: k, basket: [{ productId: PRODUCT, productSlug: "p", name: "p", quantity: 1, unitType: "box", unitPriceSnapshot: 0.01 }] }));
     const ok = res.status === 201;
@@ -291,7 +292,7 @@ async function httpChecks() {
     if (ok) {
       const body = await res.json();
       const { items } = await orderItemsFor(body.orderRef);
-      priceOk = items.length === 1 && Number(items[0].unit_price_snapshot) === PRODUCT_PRICE;
+      priceOk = items.length === 1 && Number(items[0].unit_price_snapshot) === truth.price;
     }
     check("/api/checkout ignores forged client price", ok && priceOk, `status=${res.status}`);
   }

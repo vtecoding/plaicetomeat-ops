@@ -50,6 +50,7 @@ const GUARDS = [
   // ── db: need a reachable Supabase ──
   { id: "truth-table-lock", principle: "Truth", tier: "db", script: "scripts/verify-truth-table-lock.mjs", what: "ledger & truth-table RLS lock — nothing bypasses the ledger" },
   { id: "next-order-ref-lock", principle: "Security", tier: "db", script: "scripts/verify-next-order-ref-lock.mjs", what: "next_order_ref denies anon/authenticated; only the internal command path advances the sequence" },
+  { id: "shortfall-owner-alert", principle: "Truth", tier: "db", script: "scripts/verify-shortfall-owner-alert.mjs", what: "an oversell shortfall raises an unresolved owner_alert (no silent stock loss)" },
   { id: "required-compliance", principle: "Compliance", tier: "db", script: "scripts/verify-required-compliance.mjs", what: "required temperature/compliance evidence enforced" },
   { id: "compliance-integrity", principle: "Compliance", tier: "db", script: "scripts/verify-compliance-integrity.mjs", what: "temperature log RPCs hardened — no forgeable or fabricated evidence" },
   { id: "pricing-validation-integrity", principle: "Integrity", tier: "db", script: "scripts/verify-pricing-validation-integrity.mjs", what: "pricing validation recomputed server-side, not client-trusted" },

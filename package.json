@@ -51,6 +51,7 @@
     "verify:operator-route-lock": "node scripts/verify-operator-route-lock.mjs",
     "verify:truth-table-lock": "node scripts/verify-truth-table-lock.mjs",
     "verify:next-order-ref-lock": "node scripts/verify-next-order-ref-lock.mjs",
+    "verify:shortfall-owner-alert": "node scripts/verify-shortfall-owner-alert.mjs",
     "verify:migration-manifest": "node scripts/generate-migration-manifest.mjs --check",
     "verify:release-gate": "node scripts/verify-release-gate.mjs",
     "gen:migration-manifest": "node scripts/generate-migration-manifest.mjs",

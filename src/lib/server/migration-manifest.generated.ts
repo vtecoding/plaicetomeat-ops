@@ -212,6 +212,11 @@ export const REQUIRED_MIGRATIONS: readonly MigrationManifestEntry[] = [
     "version": "202607111000",
     "file": "202607111000_ops_backup_ledger.sql",
     "checksum": "e9ff4ded4738edb6c80024a79804fe04ce6c69c8c712b93ab74aab3dfb4dde60"
+  },
+  {
+    "version": "202607111100",
+    "file": "202607111100_shortfall_owner_alert.sql",
+    "checksum": "2859e40fe5dff241e0e42dbda80ffe273da0ec5c4b7af6c21a50e367422c6f5f"
   }
 ] as const;
 
@@ -255,11 +260,12 @@ export const REQUIRED_MIGRATION_VERSIONS: readonly string[] = [
   "202607011300",
   "202607101200",
   "202607110900",
-  "202607111000"
+  "202607111000",
+  "202607111100"
 ] as const;
 
-export const REQUIRED_MIGRATION_HEAD = "202607111000" as const;
+export const REQUIRED_MIGRATION_HEAD = "202607111100" as const;
 
-export const MIGRATION_MANIFEST_CHECKSUM = "18aa72a6e4d5202c4ddb2b3d33a1bed189df8716c95d4c8833da0a10d39ae917" as const;
+export const MIGRATION_MANIFEST_CHECKSUM = "eab523cd3bf67408c16203a944f893da8fc974f7b25508801cd19bf3a1e97541" as const;
 
-export const REQUIRED_MIGRATION_COUNT = 40 as const;
+export const REQUIRED_MIGRATION_COUNT = 41 as const;
