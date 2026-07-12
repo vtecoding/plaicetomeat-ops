@@ -16,7 +16,7 @@ export const REQUIRED_MIGRATIONS: readonly MigrationManifestEntry[] = [
   {
     "version": "202605290001",
     "file": "202605290001_init.sql",
-    "checksum": "9ce1e8f4dba47f6d35556c61d90291e6a9efdd3f43d5b05f98c1e6b2030cb625"
+    "checksum": "680af588105e66d416c45b55a49c0b442d3454fd9e9b25881eae97fab1a97857"
   },
   {
     "version": "202605300001",
@@ -71,12 +71,12 @@ export const REQUIRED_MIGRATIONS: readonly MigrationManifestEntry[] = [
   {
     "version": "202606021000",
     "file": "202606021000_v6_product_cost.sql",
-    "checksum": "845d49c3cd744dc242aa2a32dab0e666ef54d29b449d4643f6e3bad8f4eeb959"
+    "checksum": "6eb305a9ca97bed076a029634f90131af1cfebeff73ac71e91a4bd49ef933a5b"
   },
   {
     "version": "202606021100",
     "file": "202606021100_v6_4_carcass_intake.sql",
-    "checksum": "6677e01b37477b84ab8769c0ee34947edb52261fd7f016279cc0fe5d053f0982"
+    "checksum": "2069e3c259a4bbd5163312fcaa12563534589d5489cdbd77b9e8f9bef7943dc4"
   },
   {
     "version": "202606021500",
@@ -91,22 +91,22 @@ export const REQUIRED_MIGRATIONS: readonly MigrationManifestEntry[] = [
   {
     "version": "202606041700",
     "file": "202606041700_v10_phase2_guided_capture.sql",
-    "checksum": "25c14e0589d5622489b68fe3bc9bbbc91f3b86ff72e7c1c773a30eae36861d71"
+    "checksum": "bff9954036ffa585b586ad84e664784389317018550a8c2336569c2e79d6f010"
   },
   {
     "version": "202606051200",
     "file": "202606051200_v11_1_public_order_access.sql",
-    "checksum": "e4296174a7a49163f43f8ff9340071786eefbdb9aae23c5f1ba1c462231591cd"
+    "checksum": "bcf02bc8fa5815183a082812a6cd4dc678a5fa43efe072db7131081e4839169b"
   },
   {
     "version": "202606051300",
     "file": "202606051300_v11_1_seal_public_access.sql",
-    "checksum": "cbac4b02b5b2096770d94a1dca74fc40c002845966fe84e9199532074082a3d1"
+    "checksum": "a29c2dce2d265273dee63fdef40945c611ce892f4831c39e848ebc09095fde0e"
   },
   {
     "version": "202606051400",
     "file": "202606051400_v11_2_audit_authenticity.sql",
-    "checksum": "d2568ffbbce24d0e44a44e0533326bef9a4a9c54ea3171857cb908949fd29830"
+    "checksum": "8ff4c1d9398116f09e996a7e403a6762a67174911350574946b98ae0d6208393"
   },
   {
     "version": "202606061200",
@@ -116,47 +116,47 @@ export const REQUIRED_MIGRATIONS: readonly MigrationManifestEntry[] = [
   {
     "version": "202606071000",
     "file": "202606071000_v12_3_checkout_integrity.sql",
-    "checksum": "998b1bf98c69f3aee34d0a651b34397017b9acf90771d01a1b0e7255432f7a18"
+    "checksum": "650adc018cb4cb559ff3173b632b565fa4a9a198a5130569cdc0d15c119b633d"
   },
   {
     "version": "202606071600",
     "file": "202606071600_v12_5_inventory_stale_count_guard.sql",
-    "checksum": "695ee7785973c7d701c0769e1bab4bf808730ee893e9163c810c8d24f5f8cbf8"
+    "checksum": "05fc733c3a5798ef44a23048d8727fb18833f1b8dbcfdc140c6ed03e8f6cf985"
   },
   {
     "version": "202606071700",
     "file": "202606071700_v12_6_checklist_evidence_integrity.sql",
-    "checksum": "834dd75b568cfff4b74545aabe1c4748c05b3f348824e8447a23e9051460f660"
+    "checksum": "5fa5f950d8d28c0050b0c5104e24f16a3a6556c2d68e7d3b06bff012f68b5cde"
   },
   {
     "version": "202606071800",
     "file": "202606071800_compliance_temperature_capture.sql",
-    "checksum": "d6246aaa74db75922403e003797505a023fd6d0e7daca06ca165a37df2d2b828"
+    "checksum": "1091480a21f486af04e5846b704ea6275531842b5a47ac742dd793921d4b28cc"
   },
   {
     "version": "202606081000",
     "file": "202606081000_v13_1_pricing_validation.sql",
-    "checksum": "dd606fbc967e7fa124e3b2fad41c10fbd94a97d1a14c40615f745c49c1057359"
+    "checksum": "a23084956f547bbac0b78414b01818ceb4b3797929fc1bb72f6f196aed3414ea"
   },
   {
     "version": "202606081100",
     "file": "202606081100_v13_2_disaster_recovery.sql",
-    "checksum": "26064cf0d42b4123146f4765e2eb1b0eb23a46440e17905da2d759f59328e7a8"
+    "checksum": "456a64b329e865c2a6939159c4f3d472de18ca3fcf70aa8e84ebcc74d2ddd2e7"
   },
   {
     "version": "202606082000",
     "file": "202606082000_v14_1_sales_stock_truth.sql",
-    "checksum": "73dd2d84a8c4ac42774d16060325f59383bafc3ed799c9c7d93b2b97608370fe"
+    "checksum": "12803022a997fd78504b005e718aa43b9f626781e2358867cff539ad3cacd02d"
   },
   {
     "version": "202606090900",
     "file": "202606090900_v14_1_h_inventory_truth_hardening.sql",
-    "checksum": "8d39911213c52b8ff4de4cdb4a1b1635a2d53d8c8c8e3fdb6f5e6a17b84dc12b"
+    "checksum": "194d0c7b748e96246bcdcbec50bdf71be5e68ea241bf09dc14e22a7557d3c7ce"
   },
   {
     "version": "202606091000",
     "file": "202606091000_v14_1_h_reassert_sale_depletion_hook.sql",
-    "checksum": "787ea1b525d9eb073f76df3c8481fb97812ff74b7e343170e01cfb51da420b30"
+    "checksum": "f613b31ffad29f54456faa74d43bea2d9d530347a9c5052980b50232b87a5cc6"
   },
   {
     "version": "202606111200",
@@ -171,32 +171,32 @@ export const REQUIRED_MIGRATIONS: readonly MigrationManifestEntry[] = [
   {
     "version": "202606290900",
     "file": "202606290900_phase0_lock_truth_tables.sql",
-    "checksum": "2232cfa1e85eba71aded03cdb9f0788f2e7958649c5749f25ccde8c0ea34ed93"
+    "checksum": "9b572ec9629bd8461a0597f087df71bcd2162adbbf9494bc111f0d11658e62e0"
   },
   {
     "version": "202606291000",
     "file": "202606291000_phase1_required_compliance_evidence.sql",
-    "checksum": "dcd87092b1940cdf270df02a4c5b633c877a6227d2b15e7b2cd6a7fc14a10bbb"
+    "checksum": "7db9d9e1ae9e156e673476a4d45996afa3df6a5e4846476cc45b9fd9c97cac66"
   },
   {
     "version": "202606291100",
     "file": "202606291100_phase2_drop_phantom_counter_customer.sql",
-    "checksum": "0fc0750da4cf8f6ae60d539a506e420bbee98c67439ea84db04fab2cd357a602"
+    "checksum": "98405873e031b2486ff99b5bae5287c7670e20674d3c776257d1907b8aba30a3"
   },
   {
     "version": "202606300900",
     "file": "202606300900_v17_8_reconcile_delivery_cost.sql",
-    "checksum": "9ff6631ef24b3b2faf90a49ba98c7922f21ea71cb9917b962127d29f35336e71"
+    "checksum": "2335dc82095785eb152cfab6a35840d3b6165f4635be67e597b4cdef6eaeb61f"
   },
   {
     "version": "202606301000",
     "file": "202606301000_clean_local_api_grants.sql",
-    "checksum": "36bcff99ec12ba74452433d55e9d25908b131ef0b466bb7d9d2a625a52fd5e38"
+    "checksum": "978ea49ab536c03cf9352063c4c251ffe59b9e3599bea6f796ce2678608a008c"
   },
   {
     "version": "202607011300",
     "file": "202607011300_service_role_api_grants.sql",
-    "checksum": "d78bbec7fb02f3ba01868defd38d52a32697ed275195df5b16cd3385cbb396b2"
+    "checksum": "d07cbe1580fd8ee989b85a6ae417890ca0608dad4a3bc907761c1cfaa7c6039f"
   },
   {
     "version": "202607101200",
@@ -266,6 +266,6 @@ export const REQUIRED_MIGRATION_VERSIONS: readonly string[] = [
 
 export const REQUIRED_MIGRATION_HEAD = "202607111100" as const;
 
-export const MIGRATION_MANIFEST_CHECKSUM = "eab523cd3bf67408c16203a944f893da8fc974f7b25508801cd19bf3a1e97541" as const;
+export const MIGRATION_MANIFEST_CHECKSUM = "d7d5190ac863632104a37cba688c2cb95387895ddccbf32097d03d0764452174" as const;
 
 export const REQUIRED_MIGRATION_COUNT = 41 as const;

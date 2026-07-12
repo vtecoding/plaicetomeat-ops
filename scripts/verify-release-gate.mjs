@@ -53,7 +53,7 @@ function deriveManifest() {
   const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
   const entries = files.map((file) => {
     const version = file.slice(0, file.indexOf("_"));
-    const checksum = createHash("sha256").update(readFileSync(join(MIGRATIONS_DIR, file), "utf8")).digest("hex");
+    const checksum = createHash("sha256").update(readFileSync(join(MIGRATIONS_DIR, file), "utf8").replace(/\r\n/g, "\n")).digest("hex");
     return { version, file, checksum };
   });
   const manifestChecksum = createHash("sha256")

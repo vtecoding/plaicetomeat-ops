@@ -39,7 +39,10 @@ function build() {
     if (!/^\d{12}$/.test(version)) {
       throw new Error(`Migration filename does not start with a 12-digit version: ${file}`);
     }
-    const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8");
+    // Normalize CRLF -> LF so the checksum is content-based and stable across
+    // Windows (local) and Linux (CI) checkouts — otherwise line-ending conversion
+    // alone would flip the checksum and spuriously fail the release gate.
+    const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8").replace(/\r\n/g, "\n");
     const checksum = createHash("sha256").update(sql).digest("hex");
     return { version, file, checksum };
   });
