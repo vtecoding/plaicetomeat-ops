@@ -56,15 +56,26 @@ function requireEnv(env) {
   };
 }
 
-function dump(dbUrl, args, label) {
-  // Uses the linked Supabase CLI pg_dump path via --db-url. Returns SQL text.
-  const res = spawnSync("npx", ["supabase", "db", "dump", "--db-url", dbUrl, ...args], {
+function pgDump(dbUrl, { schema, dataOnly, label }) {
+  // Direct pg_dump — no Docker, no Supabase CLI. Requires a PostgreSQL 17 client
+  // (>= server major) on PATH and a SESSION-pooler / direct connection string.
+  const args = [dbUrl, "--schema", schema, dataOnly ? "--data-only" : "--schema-only"];
+  const res = spawnSync("pg_dump", args, { encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
+  if ((res.status ?? 1) !== 0) {
+    throw new Error(`pg_dump (${label}) failed: ${(res.stderr || res.stdout || "").slice(-400)}`);
+  }
+  return res.stdout ?? "";
+}
+
+function pgDumpRoles(dbUrl) {
+  // Best-effort: role definitions without passwords (Supabase manages those).
+  const res = spawnSync("pg_dumpall", ["-d", dbUrl, "--roles-only", "--no-role-passwords"], {
     encoding: "utf8",
-    shell: process.platform === "win32",
-    maxBuffer: 256 * 1024 * 1024,
+    maxBuffer: 64 * 1024 * 1024,
   });
   if ((res.status ?? 1) !== 0) {
-    throw new Error(`db dump (${label}) failed: ${(res.stderr || res.stdout || "").slice(0, 300)}`);
+    console.warn(`  WARN roles dump skipped: ${(res.stderr || "").slice(-200)}`);
+    return "";
   }
   return res.stdout ?? "";
 }
@@ -88,15 +99,15 @@ async function main() {
   const outputDir = resolve(process.cwd(), env.OUT, `plaicetomeat-production-${timestamp}`);
   mkdirSync(outputDir, { recursive: true });
 
-  console.log("  dumping schema (public+auth+storage), data, roles...");
+  console.log("  dumping schema (public+auth+storage), data, roles via pg_dump...");
   const parts = {
-    schema_public: dump(env.DB_URL, [], "schema/public"),
-    schema_auth: dump(env.DB_URL, ["--schema", "auth"], "schema/auth"),
-    schema_storage: dump(env.DB_URL, ["--schema", "storage"], "schema/storage"),
-    data_public: dump(env.DB_URL, ["--data-only"], "data/public"),
-    data_auth: dump(env.DB_URL, ["--schema", "auth", "--data-only"], "data/auth"),
-    data_storage: dump(env.DB_URL, ["--schema", "storage", "--data-only"], "data/storage"),
-    roles: dump(env.DB_URL, ["--role-only"], "roles"),
+    schema_public: pgDump(env.DB_URL, { schema: "public", label: "schema/public" }),
+    schema_auth: pgDump(env.DB_URL, { schema: "auth", label: "schema/auth" }),
+    schema_storage: pgDump(env.DB_URL, { schema: "storage", label: "schema/storage" }),
+    data_public: pgDump(env.DB_URL, { schema: "public", dataOnly: true, label: "data/public" }),
+    data_auth: pgDump(env.DB_URL, { schema: "auth", dataOnly: true, label: "data/auth" }),
+    data_storage: pgDump(env.DB_URL, { schema: "storage", dataOnly: true, label: "data/storage" }),
+    roles: pgDumpRoles(env.DB_URL),
   };
 
   const scope = Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, v.length]));
