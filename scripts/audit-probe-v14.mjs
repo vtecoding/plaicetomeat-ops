@@ -50,6 +50,7 @@ async function newProduct(unitType) {
     name: `Probe ${unitType} ${slug}`,
     slug,
     unit_type: unitType,
+    inventory_policy: unitType === "kg" ? "kg_batch" : "untracked_manual",
     price_per_unit: 10,
     is_available: true,
     stock_status: "in_stock",

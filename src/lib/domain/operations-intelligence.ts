@@ -1,5 +1,8 @@
+import type { InventoryPolicy } from "@/lib/domain/types";
+
 export type ExpiryCommandItem = {
   productName: string;
+  inventoryPolicy?: InventoryPolicy;
   remainingWeightKg: number;
   valueAtRisk: number;
   expiryDate: string;
@@ -55,6 +58,7 @@ export type InventoryDepletionBatchInput = {
   batchId: string;
   productId: string;
   productName: string;
+  inventoryPolicy?: InventoryPolicy;
   remainingWeightKg: number;
   status: string;
   expiryDate: string;
@@ -73,7 +77,9 @@ export type MigrationHealthInput = {
 };
 
 export function buildExpiryCommandCentre(items: ExpiryCommandItem[]) {
-  const active = items.filter((item) => item.remainingWeightKg > 0);
+  const active = items.filter(
+    (item) => item.inventoryPolicy !== "untracked_manual" && item.remainingWeightKg > 0,
+  );
   const expiresToday = active.filter((item) => item.daysToExpiry === 0);
   const expiresThisWeek = active.filter((item) => item.daysToExpiry >= 0 && item.daysToExpiry <= 7);
   const expired = active.filter((item) => item.daysToExpiry < 0);
@@ -296,7 +302,7 @@ export function buildInventoryDepletionForecast(
     salesByProduct.set(sale.productId, [...(salesByProduct.get(sale.productId) ?? []), sale]);
   }
 
-  return batches.map((batch) => {
+  return batches.filter((batch) => batch.inventoryPolicy !== "untracked_manual").map((batch) => {
     if (batch.status !== "active" || batch.remainingWeightKg <= 0) {
       return depletionRow(batch, "no_active_stock", "No active stock.", null);
     }
@@ -444,6 +450,7 @@ function depletionRow(
     batchId: batch.batchId,
     productId: batch.productId,
     productName: batch.productName,
+    inventoryPolicy: batch.inventoryPolicy ?? "kg_batch",
     remainingWeightKg: roundWeight(batch.remainingWeightKg),
     expiryDate: batch.expiryDate,
     daysToExpiry: batch.daysToExpiry,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildHelpSummary, helpProblemLabel, helpProblemSeverity } from "./help";
+import { buildHelpSummary, helpOperationEntityRef, helpProblemLabel, helpProblemSeverity, isHelpOperationId } from "./help";
 
 describe("operator help workflow helpers", () => {
   it("keeps problem labels plain", () => {
@@ -10,9 +10,9 @@ describe("operator help workflow helpers", () => {
     expect(helpProblemLabel("nonsense")).toBe("Something else");
   });
 
-  it("treats a fridge problem as urgent and everything else as a heads-up", () => {
+  it("treats fridge and equipment problems as urgent external interrupts", () => {
     expect(helpProblemSeverity("fridge")).toBe("critical");
-    expect(helpProblemSeverity("equipment")).toBe("warning");
+    expect(helpProblemSeverity("equipment")).toBe("critical");
     expect(helpProblemSeverity(undefined)).toBe("warning");
   });
 
@@ -22,5 +22,15 @@ describe("operator help workflow helpers", () => {
       'Help from the shop: Ran out of something. "no lamb left"',
     );
     expect(buildHelpSummary("other", "   ")).toBe("Help from the shop: Something else.");
+    expect(buildHelpSummary("mistake", "wrong weight")).toBe(
+      'Help from the shop: I made a mistake just now. "wrong weight"',
+    );
+  });
+
+  it("uses a validated stable operation reference for replay-safe help", () => {
+    const operationId = "d9428888-122b-4c21-bc86-1889a335f7f1";
+    expect(isHelpOperationId(operationId)).toBe(true);
+    expect(isHelpOperationId("not-a-uuid")).toBe(false);
+    expect(helpOperationEntityRef(operationId)).toBe(`operator-help:${operationId}`);
   });
 });

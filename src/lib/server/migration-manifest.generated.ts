@@ -232,6 +232,51 @@ export const REQUIRED_MIGRATIONS: readonly MigrationManifestEntry[] = [
     "version": "202607141200",
     "file": "202607141200_v18_audit_vocabulary.sql",
     "checksum": "9077034acf4d9cba00c8d19dc06155ca7e72214d2d09f23efaf73eab5f799136"
+  },
+  {
+    "version": "202607141300",
+    "file": "202607141300_v18_inventory_policy.sql",
+    "checksum": "9ee85d8e3fd4d60d7452125b26eb9f19ec38320d75181534a492ef2fda4b57fe"
+  },
+  {
+    "version": "202607141400",
+    "file": "202607141400_v18_alert_dispatch.sql",
+    "checksum": "068da600b1e90bae55c61ea8eb0a6a4086e1a376bbcdcb25a7f49657f4bc68fe"
+  },
+  {
+    "version": "202607141500",
+    "file": "202607141500_v18_alert_lifecycle.sql",
+    "checksum": "4c4668b3bf1635778212582c4860bb873ce60712b04999f7ad6e420cdb248102"
+  },
+  {
+    "version": "202607141600",
+    "file": "202607141600_v18_refunds.sql",
+    "checksum": "c4db4c751ee47d16066d4545575990fb8bb7227bcd57d341db54e43048925c4d"
+  },
+  {
+    "version": "202607141700",
+    "file": "202607141700_v18_order_amendments.sql",
+    "checksum": "66cf8755ae16a4490dde136461134b499f1d4195a276017983c92c1437b199e3"
+  },
+  {
+    "version": "202607142100",
+    "file": "202607142100_v18_certificate_expiry_alerts.sql",
+    "checksum": "cfdba527368538a8b2562dd58343d142eb114fda080eba68109c765cab09fc2a"
+  },
+  {
+    "version": "202607142200",
+    "file": "202607142200_v18_atomic_operator_serve.sql",
+    "checksum": "d4fef6f15a5f6f39d0ccdc37ee8d93ebd2236c3212221db7346ce6ddc5823e83"
+  },
+  {
+    "version": "202607142300",
+    "file": "202607142300_v18_operator_run_completion.sql",
+    "checksum": "c711d235cc19ce4d7a9987e8e6bc4ffb06cab6220c29cd4153f9f24d96eecc7c"
+  },
+  {
+    "version": "202607142400",
+    "file": "202607142400_v18_atomic_evidence_finalize.sql",
+    "checksum": "c1bad18ad64a50a1a80b7195465c3cf83692f06a849207cba12ef0f089ddabc5"
   }
 ] as const;
 
@@ -279,11 +324,20 @@ export const REQUIRED_MIGRATION_VERSIONS: readonly string[] = [
   "202607111100",
   "202607141000",
   "202607141100",
-  "202607141200"
+  "202607141200",
+  "202607141300",
+  "202607141400",
+  "202607141500",
+  "202607141600",
+  "202607141700",
+  "202607142100",
+  "202607142200",
+  "202607142300",
+  "202607142400"
 ] as const;
 
-export const REQUIRED_MIGRATION_HEAD = "202607141200" as const;
+export const REQUIRED_MIGRATION_HEAD = "202607142400" as const;
 
-export const MIGRATION_MANIFEST_CHECKSUM = "55547c2adb8215c07261918971a1ee94154b414e8736dbe068883851168be002" as const;
+export const MIGRATION_MANIFEST_CHECKSUM = "b5c03b7895e1530f2c3fcc3c828a1eadb880921bc2e7d93aca3f27e71f390fd4" as const;
 
-export const REQUIRED_MIGRATION_COUNT = 44 as const;
+export const REQUIRED_MIGRATION_COUNT = 53 as const;

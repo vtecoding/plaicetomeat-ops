@@ -30,6 +30,7 @@ export type InventoryBatch = {
   branchId: string;
   productId: string;
   productName: string;
+  inventoryPolicy: "kg_batch";
   supplierId: string | null;
   supplierName: string | null;
   receivedDate: string;
@@ -98,7 +99,10 @@ type InventoryBatchRow = {
   storage_location: string | null;
   batch_number: string | null;
   status: InventoryBatch["status"];
-  product: { name: string | null } | { name: string | null }[] | null;
+  product:
+    | { name: string | null; inventory_policy: "kg_batch" | "untracked_manual" }
+    | { name: string | null; inventory_policy: "kg_batch" | "untracked_manual" }[]
+    | null;
   supplier: { name: string | null } | { name: string | null }[] | null;
 };
 
@@ -148,6 +152,7 @@ function mapBatch(row: InventoryBatchRow, now = new Date()): InventoryBatch {
     branchId: row.branch_id,
     productId: row.product_id,
     productName: first(row.product)?.name ?? "Unknown product",
+    inventoryPolicy: "kg_batch",
     supplierId: row.supplier_id,
     supplierName: first(row.supplier)?.name ?? null,
     receivedDate: row.received_date,
@@ -214,10 +219,11 @@ export async function getInventoryBatches(branchId: string): Promise<InventoryBa
       received_weight_kg, remaining_weight_kg, invoice_cost, cost_per_kg,
       halal_cert_ref, country_of_origin, slaughter_date, storage_location,
       batch_number, status,
-      product:products(name),
+      product:products!inner(name, inventory_policy),
       supplier:suppliers(name)
     `)
     .eq("branch_id", branchId)
+    .eq("product.inventory_policy", "kg_batch")
     .order("expiry_date", { ascending: true });
 
   if (error || !data) return [];

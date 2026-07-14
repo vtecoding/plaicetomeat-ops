@@ -42,6 +42,7 @@ INSERT INTO public.products (
   slug,
   description,
   unit_type,
+  inventory_policy,
   price_per_unit,
   min_order_quantity,
   max_order_quantity,
@@ -51,18 +52,19 @@ INSERT INTO public.products (
   sort_order
 )
 VALUES
-  ('00000000-0000-4000-8000-000000000201', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000101', 'Chicken Breast Fillets', 'chicken-breast-fillets', 'Fresh boneless chicken breast fillets prepared for quick weekday meals.', 'kg', 8.99, 0.5, 10, true, 'in_stock', true, 10),
-  ('00000000-0000-4000-8000-000000000202', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000101', 'Whole Chicken', 'whole-chicken', 'Whole HMC halal chicken, ideal for roasting or cutting down at home.', 'each', 6.50, 1, 8, true, 'in_stock', false, 20),
-  ('00000000-0000-4000-8000-000000000203', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000102', 'Lamb Leg Steaks', 'lamb-leg-steaks', 'Lean lamb leg steaks cut for grilling, pan frying, or curry prep.', 'kg', 15.99, 0.5, 8, true, 'low_stock', true, 10),
-  ('00000000-0000-4000-8000-000000000204', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000103', 'Beef Diced', 'beef-diced', 'Tender diced beef for stews, curries, and batch cooking.', 'kg', 12.49, 0.5, 10, true, 'in_stock', true, 10),
-  ('00000000-0000-4000-8000-000000000205', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000104', 'Lean Lamb Mince', 'lean-lamb-mince', 'Fresh minced lamb prepared daily.', 'kg', 11.99, 0.5, 10, true, 'in_stock', true, 10),
-  ('00000000-0000-4000-8000-000000000206', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000105', 'Ribeye Steak', 'ribeye-steak', 'Premium ribeye steak cut to order.', 'kg', 24.99, 0.5, 5, true, 'in_stock', true, 10),
-  ('00000000-0000-4000-8000-000000000207', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000106', 'Family Curry Pack', 'family-curry-pack', 'A balanced pack of chicken, lamb, and mince for the week ahead.', 'box', 35.00, 1, 4, true, 'in_stock', false, 10)
+  ('00000000-0000-4000-8000-000000000201', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000101', 'Chicken Breast Fillets', 'chicken-breast-fillets', 'Fresh boneless chicken breast fillets prepared for quick weekday meals.', 'kg', 'kg_batch', 8.99, 0.5, 10, true, 'in_stock', true, 10),
+  ('00000000-0000-4000-8000-000000000202', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000101', 'Whole Chicken', 'whole-chicken', 'Whole HMC halal chicken, ideal for roasting or cutting down at home.', 'each', 'untracked_manual', 6.50, 1, 8, true, 'in_stock', false, 20),
+  ('00000000-0000-4000-8000-000000000203', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000102', 'Lamb Leg Steaks', 'lamb-leg-steaks', 'Lean lamb leg steaks cut for grilling, pan frying, or curry prep.', 'kg', 'kg_batch', 15.99, 0.5, 8, true, 'low_stock', true, 10),
+  ('00000000-0000-4000-8000-000000000204', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000103', 'Beef Diced', 'beef-diced', 'Tender diced beef for stews, curries, and batch cooking.', 'kg', 'kg_batch', 12.49, 0.5, 10, true, 'in_stock', true, 10),
+  ('00000000-0000-4000-8000-000000000205', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000104', 'Lean Lamb Mince', 'lean-lamb-mince', 'Fresh minced lamb prepared daily.', 'kg', 'kg_batch', 11.99, 0.5, 10, true, 'in_stock', true, 10),
+  ('00000000-0000-4000-8000-000000000206', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000105', 'Ribeye Steak', 'ribeye-steak', 'Premium ribeye steak cut to order.', 'kg', 'kg_batch', 24.99, 0.5, 5, true, 'in_stock', true, 10),
+  ('00000000-0000-4000-8000-000000000207', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000106', 'Family Curry Pack', 'family-curry-pack', 'A balanced pack of chicken, lamb, and mince for the week ahead.', 'box', 'untracked_manual', 35.00, 1, 4, true, 'in_stock', false, 10)
 ON CONFLICT (branch_id, slug) DO UPDATE SET
   category_id = EXCLUDED.category_id,
   name = EXCLUDED.name,
   description = EXCLUDED.description,
   unit_type = EXCLUDED.unit_type,
+  inventory_policy = EXCLUDED.inventory_policy,
   price_per_unit = EXCLUDED.price_per_unit,
   min_order_quantity = EXCLUDED.min_order_quantity,
   max_order_quantity = EXCLUDED.max_order_quantity,

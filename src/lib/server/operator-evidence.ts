@@ -67,7 +67,7 @@ export async function getOperatorEvidence(branchId: string): Promise<OperatorEvi
   const rows = data as EvidenceRow[];
   const signed = await Promise.all(
     rows.map(async (row) => {
-      if (!row.object_path || row.status === "deleted" || row.status === "failed") return null;
+      if (!row.object_path || row.status === "delete_pending" || row.status === "deleted" || row.status === "failed") return null;
       const { data: signedData } = await supabase.storage.from(row.bucket).createSignedUrl(row.object_path, 60 * 10);
       return signedData?.signedUrl ?? null;
     }),

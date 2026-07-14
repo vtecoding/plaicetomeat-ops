@@ -1,5 +1,6 @@
 import { OperatorWasteFlow } from "@/app/operator/_components/operator-waste-flow";
 import { getAllProducts } from "@/lib/server/catalog";
+import { getLatestOperatorDraft } from "@/lib/server/operator-drafts";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +21,14 @@ function commonOrder(name: string) {
 }
 
 export default async function OperatorWastePage() {
-  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
-  const products = await getAllProducts(branchId);
-  const productOptions = [...products].sort((a, b) => commonOrder(a.name) - commonOrder(b.name) || a.name.localeCompare(b.name));
+  const { branchId, profile } = await requireStaffContext("manager", { branchScoped: true });
+  const [products, initialDraft] = await Promise.all([
+    getAllProducts(branchId),
+    getLatestOperatorDraft({ branchId, operatorId: profile.id, workflow: "waste" }),
+  ]);
+  const productOptions = products
+    .filter((product) => product.inventoryPolicy === "kg_batch")
+    .sort((a, b) => commonOrder(a.name) - commonOrder(b.name) || a.name.localeCompare(b.name));
 
   return (
     <div data-testid="operator-waste-page">
@@ -37,6 +43,7 @@ export default async function OperatorWastePage() {
             name: product.name,
             unitType: product.unitType,
           }))}
+          initialDraft={initialDraft}
         />
       </div>
     </div>

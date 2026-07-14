@@ -94,6 +94,43 @@ async function main() {
   check("owner_alert is a 'warning'", alerts?.[0]?.severity === "warning", `severity=${alerts?.[0]?.severity}`);
   check("owner_alert summary is plain-English + names the shortfall", /short/i.test(alerts?.[0]?.summary ?? ""), alerts?.[0]?.summary ?? "");
 
+  const { error: reversalError } = await admin.from("inventory_movements").insert({
+    batch_id: batchId,
+    branch_id: BRANCH,
+    movement_type: "ADJUSTMENT",
+    quantity_kg: 0.5,
+    delta_kg: 0.5,
+    balance_before_kg: 0,
+    balance_after_kg: 0.5,
+    source_event: "REFUND_LINE_REVERSAL",
+    reason: "refund reversal must not resolve a shortfall",
+    idempotency_key: `shortfall-refund-reversal-${uniq()}`,
+  });
+  if (reversalError) throw new Error(`refund reversal probe: ${reversalError.message}`);
+  const { data: afterReversal } = await admin
+    .from("owner_alerts")
+    .select("resolved_at")
+    .eq("id", alerts?.[0]?.id ?? "00000000-0000-0000-0000-000000000000")
+    .maybeSingle();
+  check("a refund stock reversal cannot falsely clear a shortfall job", !afterReversal?.resolved_at);
+
+  const { error: adjustError } = await manager.rpc("admin_adjust_inventory_remaining", {
+    p_batch_id: batchId,
+    p_new_remaining_kg: 1,
+    p_reason: "owner jobs auto-resolve probe",
+  });
+  if (adjustError) throw new Error(`stock adjustment: ${adjustError.message}`);
+  const { data: resolvedAlert } = await admin
+    .from("owner_alerts")
+    .select("resolved_at,resolution_note")
+    .eq("id", alerts?.[0]?.id ?? "00000000-0000-0000-0000-000000000000")
+    .maybeSingle();
+  check(
+    "touching the short product auto-resolves its owner job",
+    Boolean(resolvedAlert?.resolved_at) && /automatically/i.test(resolvedAlert?.resolution_note ?? ""),
+    JSON.stringify(resolvedAlert),
+  );
+
   // cleanup
   await admin.from("owner_alerts").delete().eq("entity_ref", `order:${orderId}`);
   await admin.from("orders").delete().eq("id", orderId);

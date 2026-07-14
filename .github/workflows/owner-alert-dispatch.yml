@@ -1,0 +1,41 @@
+name: Owner Alert Dispatch
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      field_proof:
+        description: "Require at least one claim and provider acceptance for all (not handset receipt)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: owner-alert-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Scan, enqueue and dispatch a bounded sweep
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OWNER_ALERT_CHANNEL_ENABLED: ${{ secrets.OWNER_ALERT_CHANNEL_ENABLED }}
+          OWNER_ALERT_TWILIO_AT_MOST_ONCE_ACCEPTED: ${{ secrets.OWNER_ALERT_TWILIO_AT_MOST_ONCE_ACCEPTED }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_OWNER_FROM: ${{ secrets.TWILIO_OWNER_FROM }}
+          OWNER_ALERT_FIELD_PROOF: ${{ inputs.field_proof == true && 'true' || 'false' }}
+          ALERT_DISPATCH_BATCH_SIZE: "10"
+        run: pnpm worker:owner-alerts

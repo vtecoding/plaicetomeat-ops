@@ -44,7 +44,7 @@ export default async function TodayPage() {
   const [snapshot, ownerAway, reconcile, moneyCard] = await Promise.all([
     getOperationalSnapshotV1(branchId),
     profile.role === "owner" ? getOwnerAwaySummary(branchId) : Promise.resolve(null),
-    getReconciliationItems(branchId),
+    getReconciliationItems(branchId, { markSeen: false }),
     // V18 A1 (PTM-OPS-001): yesterday's money — takings split + till result.
     profile.role === "owner" ? getYesterdayMoneyCard(branchId) : Promise.resolve(null),
   ]);
@@ -96,8 +96,8 @@ export default async function TodayPage() {
             {/* Everything below recedes. Later is collapsed; the weekly summary is demoted to a
                 collapsed "for reference" panel. No dashboard surface sits above Do Now. */}
             <LaterReserve actions={brain.later} />
-            {/* The reconciliation tray: low-urgency bookkeeping batched into one entry, below
-                Do Now and never competing with it. Urgent items are never swept in here. */}
+            {/* B2 owner jobs: one lifecycle for every unresolved alert, kept below Do Now so
+                the primary three actions retain their visual priority. */}
             {reconcile.count > 0 && <ReconciliationTodayPanel tray={reconcile} />}
             <SecondaryInfo weekly={brain.weekly} />
           </>
@@ -152,9 +152,11 @@ function ReconciliationTodayPanel({ tray }: { tray: ReconcileTray }) {
         </span>
         <span className="min-w-0">
           <span className="block font-display text-lg font-semibold text-[var(--ink)]">
-            {tray.count} {tray.count === 1 ? "thing" : "things"} to reconcile
+            {tray.count} open owner {tray.count === 1 ? "job" : "jobs"}
           </span>
-          <span className="block text-sm font-medium text-[var(--muted)]">A little bookkeeping the shop saved up — clear it when you have a minute.</span>
+          <span className="block text-sm font-medium text-[var(--muted)]">
+            {tray.unseenCount > 0 ? `${tray.unseenCount} new. ` : ""}Open the work, then leave a note when it is sorted.
+          </span>
         </span>
       </span>
       <span className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-4 text-sm font-semibold text-[var(--brand)] ring-1 ring-[var(--line)]">

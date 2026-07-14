@@ -64,6 +64,19 @@ export function branchLocalDate(timezone: string, at: Date = new Date()): string
   }).format(at);
 }
 
+/** Shift an ISO calendar date without applying the process timezone or DST. */
+export function addBusinessCalendarDays(isoDate: string, days: number): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate) || !Number.isInteger(days)) {
+    throw new RangeError("Invalid business calendar date shift.");
+  }
+  const anchor = new Date(`${isoDate}T12:00:00.000Z`);
+  if (Number.isNaN(anchor.getTime()) || anchor.toISOString().slice(0, 10) !== isoDate) {
+    throw new RangeError("Invalid business calendar date.");
+  }
+  anchor.setUTCDate(anchor.getUTCDate() + days);
+  return anchor.toISOString().slice(0, 10);
+}
+
 async function getBranchTimezone(branchId: string): Promise<string> {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.from("branches").select("timezone").eq("id", branchId).maybeSingle();
@@ -210,10 +223,7 @@ export async function getYesterdayMoneyCard(branchId: string): Promise<Yesterday
   const supabase = await createSupabaseServerClient();
   const timezone = await getBranchTimezone(branchId);
   const today = branchLocalDate(timezone);
-  // Calendar-safe: anchor at UTC noon of the local date, step back one day.
-  const yesterday = new Date(new Date(`${today}T12:00:00Z`).getTime() - 24 * 3600 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const yesterday = addBusinessCalendarDays(today, -1);
 
   const [{ data: expectedRaw }, { data: session }] = await Promise.all([
     supabase.rpc("day_money_expected_v18", { p_branch_id: branchId, p_business_date: yesterday }),

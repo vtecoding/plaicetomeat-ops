@@ -6,7 +6,6 @@ import { ArrowLeft, Check, CheckCircle2 } from "lucide-react";
 
 import {
   completeChecklist,
-  escalateChecklistStep,
   recordChecklistStep,
   startOrResumeChecklist,
 } from "@/app/actions/ops-capture";
@@ -140,16 +139,9 @@ export function OperatorChecklist({
     setStates((prev) => ({ ...prev, [activeStep.key]: { state, payload } }));
     setNumberValue("");
 
-    // F8: a critical step the operator can't do raises an owner escalation. The
-    // step is NOT counted as done — a required reading still blocks completion.
-    if (state === "skipped" && activeStep.critical) {
-      await escalateChecklistStep({
-        branchId,
-        kind,
-        stepKey: activeStep.key,
-        stepTitle: activeStep.title,
-      });
-    }
+    // V18 B2: the DB step insert creates the deduped owner alert in this same
+    // transaction (and a critical alert atomically creates outbox debt). No
+    // second, crash-prone server write is needed here.
 
     setBusy(false);
   }

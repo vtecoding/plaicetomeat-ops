@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { InventoryBatch, Supplier } from "@/lib/server/compliance-inventory";
 import type { Product } from "@/lib/domain/types";
+import { isStockCountedProduct, STOCK_NOT_COUNTED_LABEL } from "@/lib/domain/inventory-policy";
 import { cn, formatCurrency } from "@/lib/utils";
 
 /** Slug ↔ name, mirrors the slug used to build the operator-action id (operator-guidance). */
@@ -63,6 +64,8 @@ export function AdminInventoryClient({
   const expiresToday = batches.filter((batch) => batch.status === "active" && batch.daysToExpiry === 0 && batch.remainingWeightKg > 0);
   const expiresThisWeek = batches.filter((batch) => batch.status === "active" && batch.daysToExpiry >= 0 && batch.daysToExpiry <= 7 && batch.remainingWeightKg > 0);
   const expired = batches.filter((batch) => batch.status === "active" && batch.daysToExpiry < 0 && batch.remainingWeightKg > 0);
+  const countedProducts = products.filter(isStockCountedProduct);
+  const untrackedProducts = products.filter((product) => !isStockCountedProduct(product));
 
   return (
     <div>
@@ -119,7 +122,26 @@ export function AdminInventoryClient({
         </dl>
       </section>
 
-      <BatchForm branchId={branchId} products={products} suppliers={suppliers} onResult={announce} />
+      {untrackedProducts.length > 0 ? (
+        <section className="mt-6 rounded-lg border border-[var(--line)] bg-white p-5" data-testid="untracked-stock-products">
+          <h2 className="text-lg font-semibold">Items kept available by hand</h2>
+          <p className="mt-1 text-sm text-[#6c5e52]">
+            These items are sold normally, but they are not included in stock totals, expiry notices or buying warnings.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {untrackedProducts.map((product) => (
+              <div key={product.id} className="flex items-center gap-2 rounded-full border border-[#ded6ca] bg-[#f7f3ed] px-3 py-2 text-sm">
+                <span className="font-semibold">{product.name}</span>
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-[#6c5e52]">
+                  {STOCK_NOT_COUNTED_LABEL}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <BatchForm branchId={branchId} products={countedProducts} suppliers={suppliers} onResult={announce} />
 
       <div className="mt-8 grid gap-4">
         {batches.length === 0 ? (

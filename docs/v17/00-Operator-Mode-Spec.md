@@ -260,8 +260,11 @@ screen** and advances on a single large tap. Step kinds (the only ones that exis
 - A persistent **"Back"** (undo last answer) and, where the step is not legally critical, a
   **"Skip"**. Skips are recorded, not silent (§17, §23).
 - Progress is shown as dots ("● ● ○ ○"), never "40%".
-- Every answer is saved to the run immediately (`operator_workflow_runs.steps` JSONB) so the device
-  can die at any point and resume.
+- Serve, stock-delivery and waste save each completed mode transition to
+  `operator_workflow_runs.steps` JSONB. Writes are debounced, serial and awaited; the header says
+  `Saved for resume` only after the server confirms the write. A draft failure is visible but never
+  blocks the authoritative completion action. Re-entry offers the newest same-day saved run or
+  marks it abandoned before starting fresh.
 - Commit happens at the `confirm` step → the adapter runs server-side, emits events, and only then
   the run is marked `completed`.
 
@@ -300,7 +303,7 @@ bookkeeping that the full system can't see.
 | Operator workflow completes | Existing action(s) invoked | Audit / domain events written |
 |---|---|---|
 | **Open Shop** | `ops-capture.startOrResumeChecklist({kind:"opening"})`, `recordChecklistStep` ×N, `completeChecklist`; `compliance.recordComplianceReading` (if temp given) | `opening_check_completed`, `compliance_check_recorded`, `fridge_temperature_evidence_uploaded` (if photo), `operator_session_started`, `audit_event_written`, `owner_brain_updated` (via revalidate) |
-| **Serve Customer** | `operator/serve.recordCounterSale` → `checkout`/order create → set `collected` (depletes stock V14.1) | `counter_sale_recorded`, `order_collected`, `stock_movement_created`, `revenue_recorded`, `demand_signal_updated`, `repeat_customer_updated` (if known), `audit_event_written` |
+| **Serve Customer** | `operator/serve.saveSimpleSale` → anonymous order/items → `collect_order_with_tender`; FEFO depletion for `kg_batch` lines only | `order_created`, payment event, order status/depletion evidence, completed operator run + audit; canonical `inventory_shortfall` only when kg stock runs short |
 | **Delivery received** | `operator/delivery.confirmSimpleDelivery` → `compliance-inventory.createInventoryBatch` (or `carcass-intake.confirmCarcassIntake` for carcass) | `delivery_received`, `stock_batch_created`, `stock_movement_created`, `supplier_evidence_uploaded` (if note photo), `purchasing_recommendation_reconciled`, `audit_event_written`, `owner_alert_created` (if mismatch) |
 | **Certificate photo uploaded** | `operator/certificate.captureCertificate` → store file → `saveSupplier` (if classified) or queue review | `compliance_document_uploaded`, `certificate_review_required` (if unknown/low confidence), `owner_alert_created` (if expiry/unknown/critical), `audit_event_written` |
 | **Waste recorded** | `operator/waste.recordSimpleWaste` → `compliance-inventory.recordWaste` | `waste_recorded`, `stock_movement_created`, `waste_intelligence_updated`, `audit_event_written`, `owner_alert_created` (if waste over threshold) |
@@ -411,7 +414,8 @@ the **Stock / Delivery** workflow as prompts:
 - "Did a delivery arrive?" → yes/no
 - "What arrived?" → `pick` from large product tiles (common products first; "Something else" →
   short search) — **or** "A whole carcass" → routes to the carcass path
-- "How much?" → `number` pad → "boxes", "kg", or "each" (unit chosen by product)
+- "How much?" → kg number pad. The picker contains only `kg_batch` products; each/box
+  products are sold normally but do not enter the batch-delivery workflow.
 - "Take a photo of the delivery note" → optional → supplier evidence
 - "Where did you put it?" → choice: Fridge / Freezer / Counter / Back store
 - "All done?" → `confirm`
@@ -452,26 +456,27 @@ wrong; the owner sees the correction in audit.
 Ultra-simple counter sale (**Serve Customer**):
 
 1. "What are they buying?" → `pick` (common products as big tiles; recent/popular first)
-2. "How much?" → preset tiles (e.g. ½ kg, 1 kg, 2 kg) **or** number pad
+2. kg product: "How much?" → preset tiles (e.g. ½ kg, 1 kg, 2 kg) **or** grams pad;
+   each product: "How many?"; box product: "How many boxes?" → 1–6 presets or an
+   integer 1–99 pad. Every catalogue preset includes an approximate line price.
 3. "Anything else?" → add another line / "No, that's all"
 4. "How are they paying?" → Cash / Card
-5. "Done" → `confirm` shows total in big text → commit
+5. `confirm` shows every line price and the Total in big text → commit → "Done"
+   repeats the server-saved total. If the catalogue changed after the page loaded,
+   the done screen says "Price updated" and uses the server total.
 
-**Behind the scenes (`operator/serve.recordCounterSale`)**: creates an order via the existing
-checkout/order path and transitions it straight to `collected` (which, per V14.1, **depletes
-inventory**). It must reuse `counter.updateOrderStatus`'s collection path so the existing
-`getCollectionStockMessage` "count this" nudge and revalidation of `/admin`, `/admin/today`,
-`/admin/inventory`, `/admin/purchasing` all fire. Produces: **counter_sale_recorded**,
-**order_collected**, **stock_movement_created**, **revenue_recorded**, **demand_signal_updated**,
-and **repeat_customer_updated** *if* the operator optionally taps "Regular customer?" → picks a known
-name (feeds the V16 win-back engine). Customer naming is **optional** and never required.
+**Behind the scenes (`actions/operator/serve.saveSimpleSale`)**: resolves products and current
+catalogue prices server-side, creates an anonymous walk-in order under the run idempotency key,
+and advances it to `collected` through `collect_order_with_tender`. The final hop records exactly
+one cash/card tender and collection in one transaction. kg + `kg_batch` lines deplete FEFO;
+each/box + `untracked_manual` lines write normal order and money truth but no invented kg movement.
+Retries repair a same-total header-only order before collection and never silently change money.
 
 **Operator never sees:** order IDs, statuses, the orders board, SMS internals, or margins.
 
-**Negative-stock safety:** if depletion would drive a batch negative, the existing RPC already
-handles it (records the movement and surfaces a gentle "count this" message) — the operator sees
-"Saved. Please check this product's stock later," and the owner gets the count nudge in TODAY. The
-sale is **never** blocked at the counter (a real customer is standing there).
+**Negative-stock safety:** kg depletion floors at zero and records an explicit shortfall; the
+canonical `inventory_shortfall` owner alert is keyed to the order. There is no duplicate
+sale-specific low-stock alert. The sale is **never** blocked at the counter.
 
 ---
 
@@ -499,7 +504,8 @@ something away?"):
 
 - "Did you throw anything away?" → yes/no (no → done)
 - "What did you throw away?" → `pick` product
-- "How much?" → number pad (kg / each)
+- "How much?" → kg number pad. Only `kg_batch` products are offered; untracked products
+  never create a weight-waste movement.
 - "Why?" → `choice`: Expired · Damaged · Customer changed mind · Mistake · Other
 - "Take a photo (if you want)" → optional
 - "Done" → confirm
@@ -744,8 +750,11 @@ completeOpen(input: { runId; answers; photos }): Promise<ActionResult>   // → 
 completeClose(input: { runId; answers; photos }): Promise<ActionResult>
 
 // serve.ts
-recordCounterSale(input: { lines: {productId; qty; unit}[]; payment: 'cash'|'card'; customerId?: string })
-  : Promise<{ ok; total; message }>   // → checkout/order create → collected
+saveSimpleSale(input: {
+  runId;
+  lines: { productId?; name?; quantity; priceGbp? }[];
+  payKind: 'cash' | 'card';
+}): Promise<{ ok; totalGbp; message }> // → anonymous order/items → collected+tender
 
 // delivery.ts
 confirmSimpleDelivery(input: { productId; qty; unit; expiry?; storage?; notePhotoUrl?; runId })
@@ -844,7 +853,8 @@ delivery batch; idempotency key derivation); event taxonomy completeness.
 
 **Integration (server actions against seeded Supabase):**
 - `completeOpen` → opening checklist completed + compliance reading + audit rows.
-- `recordCounterSale` → order created, collected, stock depleted, revalidation fired.
+- `saveSimpleSale` → order created, exactly one tender, kg stock depleted, each/box lines
+  retained without kg movements, and the persisted subtotal returned.
 - `confirmSimpleDelivery` → batch + movement + supplier evidence; duplicate rejected.
 - `recordSimpleWaste` → waste + movement + intelligence revalidate.
 - `captureCertificate` unclassified → document stored + owner alert.
@@ -852,7 +862,8 @@ delivery batch; idempotency key derivation); event taxonomy completeness.
 
 **Live journey gates (Playwright/`verify:*`, the house pattern):**
 - **Operator open journey:** login as operator → `/operator` → Open Shop → all steps → "Done today".
-- **Operator serve journey:** sale of 1kg lamb, card → total shown → stock decremented.
+- **Operator serve journey:** sale of 1kg lamb, card → total shown → stock decremented; then an
+  each line and a box line → integer count, catalogue price, saved total, and no kg movement.
 - **Operator delivery journey:** lamb delivery + note photo → batch visible in owner inventory.
 - **Operator close journey:** close with waste → closing + compliance completed.
 - **Owner Away journey:** owner toggles away → operator causes a fridge "No" → owner alert + (mock)

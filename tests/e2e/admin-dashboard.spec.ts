@@ -5,8 +5,8 @@ import { resetStateBeforeEach } from "./reset-state";
 
 // V11.3 — /admin is the single analysis hub ("Business Insights"), analysis only.
 // Operational sections (what needs attention / fixing, counter-service mode) moved
-// to Today. The dev seed creates 3 real orders for today (24.98 + 35.00 + 18.49 =
-// 78.47 revenue).
+// to Today. The dev seed creates 3 open orders but no collected tender, so payment
+// truth reports £0 revenue rather than treating uncollected basket value as takings.
 test.describe("business insights hub", () => {
   resetStateBeforeEach();
 
@@ -15,10 +15,10 @@ test.describe("business insights hub", () => {
     await page.goto("/admin");
 
     await expect(page.getByTestId("owner-dashboard")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Review the business" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Check the shop" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "What happened today?" })).toBeVisible();
     await expect(page.getByTestId("metric-order-count")).toHaveText("3");
-    await expect(page.getByTestId("metric-revenue")).toContainText("78.47");
+    await expect(page.getByTestId("metric-revenue")).toHaveText("£0.00");
     await expect(page.getByTestId("metric-expiring-certificates")).toBeVisible();
 
     // Operational boards and the duplicate counter no longer live here.

@@ -15,11 +15,11 @@ test.describe("purchasing & stock planning", () => {
     await expect(page.getByRole("heading", { name: "What makes me money?" })).toHaveCount(0);
   });
 
-  test("shows operator readiness and a back route to the dashboard", async ({ page }) => {
+  test("shows operator readiness and a back route to shop detail", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await page.goto("/admin/purchasing");
 
     await expect(page.getByTestId("order-readiness-note")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Back to dashboard" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to shop detail" })).toBeVisible();
   });
 });

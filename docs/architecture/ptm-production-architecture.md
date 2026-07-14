@@ -1,6 +1,6 @@
 # PTM Production Architecture
 
-Status: living document, tied to the code on `main` as of 2026-07-10.
+Status: living document, tied to the V18 Phase-A implementation as of 2026-07-14.
 Every claim below is either enforced by code/migrations/gates named here, or is
 explicitly marked **GAP**. If you change a named enforcement point, change this file.
 
@@ -49,21 +49,27 @@ matters, and closed to any write path that skips validation or audit.
 | Audit rows cannot be forged | V11.2: insert policies dropped, only fail-closed `emit_audit_log` writes; grants re-revoked in `202607011300` |
 | Required temperature evidence cannot be skipped | `ops_complete_session` (phase1 `202606291000`: latest state of required numeric steps must be `done`); guards `verify:required-compliance`, `verify:compliance-integrity` |
 | Compliance evidence cannot be fabricated | compliance tables write-locked; `record_compliance_reading`/`complete_compliance_log` DEFINER RPCs; guard `verify:compliance-integrity` (14 checks) |
-| Every table has RLS | all 48 tables enabled; guard `verify:rls-coverage` (static, fails CI on a new table without RLS) |
+| Every application table has RLS | guard `verify:rls-coverage` fails CI on a new table without RLS |
 | Operator cannot reach admin | middleware (`src/middleware.ts`): getUser → signed session envelope → profiles.role/operator_mode → `canAccessStaffPath`; guard `verify:operator-route-lock` (live) |
-| Money totals derive from lines, cancelled orders never count as sales | serve/checkout compute server-side; all aggregations filter `status !== "cancelled" && !is_test` (dashboard, operations-intelligence, owner-away, shop-intelligence) |
-| A retry can never collect a header-only order | `repairMissingItems` in `src/app/actions/operator/serve.ts` + `serveRepairDecision` (unit-tested): items verified before collection; different-money retries escalate to owner |
-| Cost gaps are owner-visible from state, not events | `healMissingCostAlerts` in `src/lib/server/reconciliation.ts`: cost-0 operator batches recreate their missing alert at tray read |
-| UI success only after persisted success | operator actions return only after RPC/insert confirmation; `readCompletedRun`/idempotency keys make retries safe |
+| Realised money derives from append-only tender/refund facts | `payment_events` is the realised-sales source; collection/refund RPCs stamp branch-local `business_date`; amended line truth comes only from `get_effective_order_lines_v18` at the frozen sequence |
+| Operator Serve cannot expose a partial sale | `create_operator_serve_order_v18` prices lines, creates the order graph, advances status, tenders, depletes, creates required owner work and completes the run in one PostgreSQL transaction |
+| Untracked products can never leak into kg stock truth | `products.inventory_policy` unit/policy CHECK + batch-write trigger; canonical readers, expiry/depletion and purchasing filters; guard `verify:untracked-isolation` |
+| Cost gaps are owner-visible and recoverable | operator delivery commits its zero-cost batch and required cost job together; tray reconciliation also heals historical missing jobs from batch state |
+| UI success only follows a complete durable receipt | operator business RPCs fence by run id + canonical request fingerprint, reject conflicting replays, and return immutable completion receipts; completed/abandoned runs are database-terminal |
 
 ## 5. Domain model (summary)
 
-- **Catalog**: `products` (kg/each/box, price_per_unit, cost), `product_categories`,
+- **Catalog**: `products` (kg/each/box, `inventory_policy`, price_per_unit, cost), `product_categories`,
   `suppliers`. Product mutations via `admin_*` DEFINER RPCs that emit
   `price_changed`/`cost_changed`/`product_changed` audit events.
-- **Orders**: `orders` (+ `order_items`, `order_status_events`, `order_notes`).
+- **Orders**: immutable `order_items` snapshots plus append-only `order_amendments`;
+  `get_effective_order_lines_v18` is the authoritative ordered fold used by manager,
+  customer, tender and depletion reads. `order_status_events` and `order_notes` retain
+  lifecycle/history detail.
   State machine: incoming → prepping → ready → collected; cancellable pre-collection.
-  Money: `numeric(10,2)`, subtotal persisted at creation, computed from lines.
+  Money: append-only `payment_events`; collection derives the final folded subtotal.
+- **Refunds**: append-only `refund_operations` + `refund_line_outcomes`, compensating
+  `payment_events`, exact allocation-linked inventory reversals and attributed waste.
 - **Inventory truth**: `inventory_batches` (received/remaining kg, expiry, cost) +
   `inventory_movements` (signed append-only ledger of record) +
   `order_inventory_depletions`, `inventory_reversal_groups`,
@@ -72,8 +78,9 @@ matters, and closed to any write path that skips validation or audit.
 - **Compliance evidence**: `compliance_logs`/`compliance_readings` (temperatures),
   `ops_checklist_sessions`/`ops_checklist_events` (open/close, append-only events),
   `inventory_waste_events`, `operator_evidence` (photos), certificates.
-- **Operator adapter**: `operator_workflow_runs` (runId idempotency + resume),
-  `owner_alerts` (escalations, CAS-resolved).
+- **Operator adapter**: `operator_workflow_runs` (draft/resume state plus terminal run-id,
+  request-fingerprint and receipt fencing), `operator_evidence`, and `owner_alerts`
+  (registry-driven jobs with claim, lifecycle and dispatch state).
 - **Audit**: `audit_logs` (allowlisted event types, fail-closed emitter),
   security events for denied access.
 
@@ -125,6 +132,14 @@ corrections go through `ops_apply_stock_count_line` with a stale-count guard (re
 if stock moved since counting). Reversals append compensating rows. The
 `inventory_reconciliation_monitor` cross-checks cache vs ledger.
 
+`products.inventory_policy` separates sale truth from stock truth. `kg_batch`
+products participate in batch quantity, value, expiry, cover and depletion;
+`untracked_manual` products remain fully sellable and included in money/performance
+reporting but never enter those stock calculations. Each/box products are constrained
+to `untracked_manual`; a deliberately manual kg product is also allowed. Public
+availability for an untracked product remains the owner's manual `is_available` and
+`stock_status`. Stock surfaces use the exact label **Stock not counted**.
+
 Operator deliveries land at cost 0, stamped cost-pending; the reconcile tray
 self-heals missing alerts from batch state (§4).
 
@@ -132,10 +147,31 @@ self-heals missing alerts from batch state (§4).
 
 Storefront + API share one hardened checkout service (body cap, zod schema, duplicate
 SKU merge, rate limit, idempotency key + fingerprint, server-only test gate, RPC).
-Operator serve creates the order via service role with runId idempotency, then walks
-the state machine to collected under the operator's own JWT (audit attribution).
+Operator serve calls one authenticated `create_operator_serve_order_v18` transaction.
+The database resolves catalogue truth, creates header/items/status events, walks the
+existing state machine, records tender and depletion, creates any mandatory owner job,
+and only then stores the completed run receipt.
 Payment method cash/card is explicit on counter sales. Counter sales have no phantom
-customer identity (phase2 migration dropped the fiction).
+customer identity (phase2 migration dropped the fiction). Catalogue kg lines are
+priced by weight; each/box lines require an integer count from 1 to 99 and are priced
+count × current catalogue price. The browser shows approximate preset prices and a
+review total, but the server resolves current prices again. The saved subtotal is
+returned to the done screen; a changed total is explicitly labelled **Price updated**.
+
+Ready orders may be adjusted at handover without mutating their item snapshots.
+Substitution, weight adjustment and removal events are folded in sequence. Collection
+freezes one amendment sequence and uses that same projection for the tender amount and
+kg depletion. An advisory transaction lock makes a genuinely overlapping adjustment
+and collection fail one side cleanly; the order row remains the serialisation point.
+
+Collected-order refunds are manager-only compensating transactions. The RPC derives
+the method from the original sale, caps each method and line by remaining paid/depleted
+truth, and commits money, stock disposition and audit together. `customer_kept` moves no
+stock; `returned_restockable` reverses the exact original batch allocations;
+`returned_discarded` performs that reversal and then records attributed waste, leaving
+net stock unchanged. The client cannot choose a refund method.
+The configured threshold owner job commits in that same RPC and is unique by refund
+operation, so neither a crash boundary nor an idempotent replay can lose or duplicate it.
 
 ## 11. Audit model
 
@@ -147,17 +183,23 @@ via middleware fire-and-forget (never slows a denial). Guard: `verify:audit-auth
 
 ## 12. Owner alert model
 
-`owner_alerts(branch, severity warning|critical, kind, summary, entity_ref unique-ish,
-created_by, resolved_at)`. Created by operator escalations (dedup on open entity_ref),
-depletion shortfalls, away-mode fridge escalation (critical), reconcile self-heal.
-Resolution is CAS on `resolved_at` (never deleted) and audited. Warning-class alerts
-feed the reconcile tray; critical alerts surface on TODAY.
+`owner_alerts` is the single owner-job registry: kind-specific action, seen/claimed/
+resolved lifecycle, note or truth-backed resolution, and append-only transition audit.
+Critical inserts atomically create an `alert_dispatches` outbox obligation; the bounded
+worker claims with a lease, sends or records an honest skipped/failed state, and stamps
+delivery only after confirmed send. Daily and Owner-Away digests use stable business-day
+keys. `/admin/reconcile` renders the registry; Today/Away link to it instead of owning a
+second job model.
 
 ## 13. Operator UX model
 
-Four tiles only; every flow is linear with big buttons, resume via
-`operator_workflow_runs`, double-submit protection (busy state client-side, runId
-idempotency server-side). Every failure message says what to do next in plain words;
+Four tiles only; every flow is linear with big buttons. Serve, delivery and waste
+persist the last completed mode transition in `operator_workflow_runs`: draft writes
+are debounced, serial and awaited, and the UI distinguishes saving, saved and failed
+recovery state. The newest same-day run is resumable; starting fresh first abandons
+the old run. A status-fenced write prevents a late draft from reopening a completed
+run. Draft health never gates the business commit, which retains double-submit
+protection (busy state client-side, runId idempotency server-side). Every failure message says what to do next in plain words;
 "I can't do this — tell owner" exists at each decision point and creates a real
 alert. No admin leakage (route lock + `verify:operator-firewall` vocabulary guard +
 `verify:operator-language`). Failure surfaces: `operator/error.tsx`, root
@@ -166,7 +208,7 @@ alert. No admin leakage (route lock + `verify:operator-firewall` vocabulary guar
 
 ## 14. Security/RLS strategy
 
-All 48 tables RLS-enabled (static-guarded). Explicit grants: anon/authenticated get
+All application tables are RLS-enabled (static-guarded). Explicit grants: anon/authenticated get
 SELECT (policy-gated) + INSERT on order_notes only; legacy TRUNCATE/REFERENCES/TRIGGER
 swept (`202607101200`). Default privileges auto-grant SELECT on future tables — the
 `verify:rls-coverage` gate exists precisely because of that fail-open default.
@@ -177,12 +219,14 @@ client bundles (build-error guard).
 
 ## 15. Reliability strategy
 
-Idempotency: checkout (key + fingerprint), operator runs (runId), batch intake
-(intake key), depletion (unique keys), alert dedup (open entity_ref). Retries are
-bounded (single-shot actions; the serve retry path repairs or escalates, never loops).
-Partial-failure handling: serve repairs missing items before collection; reconcile
-claims alerts CAS-first and rolls the claim back if the follow-on write fails; the
-tray self-heals from state.
+Idempotency: checkout (key + fingerprint), operator completion (run id + canonical
+fingerprint + receipt), batch intake (stable run key), depletion (unique keys),
+amendments and refunds (operation id + canonical request fingerprint), owner jobs and
+dispatch (stable entity/provider keys). Conflicting payload reuse is refused. Serve,
+delivery, waste, refund, amendment, delivery-cost resolution and Owner-Away activation
+compose their coupled database facts inside transactions. Evidence upload is the one
+external storage boundary; deterministic operation paths make concurrent certificate
+submits converge before the database completion transaction.
 
 ## 16. Observability strategy
 
@@ -212,26 +256,29 @@ Tiered constitution runner `scripts/architecture-check.mjs`:
 - **static** (CI quality.yml): owner-brain-compliance, intelligence-firewall,
   operator-firewall, surface-convergence, operator-language, rls-coverage,
   operational-truth — 7 guards.
-- **db** (CI database-security.yml on ephemeral Supabase): truth-table-lock (12
-  adversarial), required-compliance, compliance-integrity (14 adversarial),
-  pricing-validation-integrity, disaster-recovery ×2 — 6 guards.
+- **db** (CI database-security.yml on ephemeral Supabase): the constitutional DB
+  tier plus V18 payment, inventory-policy, refund, amendment, atomic-serve,
+  run-completion, alert-dispatch and owner-job fault/concurrency batteries.
 - **live** (CI application-e2e.yml / local): operator-route-lock, operator-journeys,
   action-compression, today-os, one-tap-actions, morning-briefing, customer-winback.
 
-Plus: vitest unit suite (~620 tests), Playwright e2e sets, `verify:seeded-logins`,
-migration drift check, release-report roll-up.
+Plus: the unit suite, V18 two-connection/fault-injection database batteries, dedicated
+V18 Playwright journeys, `verify:seeded-logins`, migration drift check and release-report
+roll-up. Pull-request workflows run the V18 gates so the invariants are regression-protected.
 
 ## 19. Release gates
 
-A change is releasable when: typecheck + lint + unit + build green; static tier 7/7;
-db tier 6/6 on a fresh migrated DB; live tier green against a seeded running app;
+A change is releasable when: typecheck + lint + unit + build green; static tier green;
+the constitutional and V18 DB suites pass on a fresh migrated DB; live tier is green against a seeded running app;
 migration list clean against the target environment. Production DB pushes follow the
 runbook in `docs/agent-memory/` (repair-before-push history exists — see memory).
 
 ## 20. Known trade-offs
 
 - Config tables stay direct-writable by managers (speed over uniform audit).
-- Operator serve is weight-only; each/box products deliberately escalate to owner.
+- Each/box stock is intentionally not quantity-tracked: sales and tenders are exact,
+  while stock availability remains a manual catalogue decision until a count ledger
+  is justified by shop evidence.
 - Operator deliveries capture no cost at the door (speed for the operator; cost gap
   is state-derived owner work).
 - `admin_set_delivery_cost` can rewrite any batch cost (audited via `cost_changed`).
@@ -239,13 +286,14 @@ runbook in `docs/agent-memory/` (repair-before-push history exists — see memor
 
 ## 21. Open risks
 
-- **Multi-step order creation is not one transaction** (order → items → events →
-  collect). Mitigated by repair-on-retry + idempotency, not eliminated. A single
-  `create_counter_sale` DEFINER RPC would be the stronger end-state.
 - No DB-level constraint that `orders.subtotal = Σ order_items.line_total`
-  (writers compute it; nothing re-checks continuously).
+  (controlled writers compute it; collection independently freezes and tenders the
+  authoritative folded projection).
 - No external telemetry sink (see §16).
-- `production-backup.yml` needs repo secrets (BACKUP_ENCRYPTION_KEY,
-  SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_URL, CANONICAL_BRANCH_ID) — until
-  set, scheduled backups don't run from CI.
+- External owner-alert delivery still requires the configured provider/number and a
+  real-phone field gate. Twilio outbound Messages has no documented request
+  idempotency key, so ambiguous transport/provider outcomes are terminal-visible and
+  never blindly retried; activation requires explicit acceptance of that trade-off.
+- Phase-A shop reconciliation, timed Gul rehearsal, real refund/amendment day, tray
+  usability and staged Owner-Away trials remain field evidence, not code claims.
 - Public storefront pages still carry pre-redesign styling (cosmetic only).

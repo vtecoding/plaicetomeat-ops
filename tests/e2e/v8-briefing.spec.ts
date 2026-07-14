@@ -26,6 +26,9 @@ test.describe("shop intelligence after consolidation", () => {
     await link.click();
 
     await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole("heading", { name: "Check the shop" })).toBeVisible();
+    const weeklyReview = page.getByText("Open the weekly review");
+    await weeklyReview.click();
     await expect(page.getByRole("heading", { name: "How the shop is doing" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Things to review" })).toBeVisible();
     await expect(page.getByTestId("health-score")).toBeVisible();

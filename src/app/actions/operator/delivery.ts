@@ -1,32 +1,40 @@
 "use server";
 
-import { createInventoryBatch } from "@/app/actions/compliance-inventory";
 import {
-  auditOperatorRun,
-  createOwnerAlert,
   isUuid,
-  readCompletedRun,
   revalidateOperatorOps,
-  saveOperatorRun,
   type OperatorActionResult,
 } from "@/app/actions/operator/escalation";
 import { linkOperatorEvidence } from "@/app/actions/operator/evidence";
-import {
-  deliveryNeedsOwnerCheck,
-  expiryDateFromChoice,
-  storageLabel,
-  type ExpiryChoice,
-  type StorageChoice,
-} from "@/lib/operator/workflows/stock";
+import type { ExpiryChoice, StorageChoice } from "@/lib/operator/workflows/stock";
 import { resolveStaffContext } from "@/lib/server/staff-context";
-import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  createSupabaseServiceClient,
+  hasSupabaseServiceEnv,
+} from "@/lib/supabase/server";
 
-type ProductRow = { id: string; name: string; unit_type: string | null };
-type SupplierRow = { id: string; name: string; active: boolean | null };
+type ProductRow = {
+  id: string;
+  name: string;
+  unit_type: string | null;
+  inventory_policy: "kg_batch" | "untracked_manual";
+};
+
+type DeliveryCompletion = {
+  outcome?: "delivery" | "owner_check";
+  id?: string;
+  product_name?: string;
+  needs_owner?: boolean;
+  evidence_review_required?: boolean;
+  replayed?: boolean;
+};
 
 async function requireOperator() {
   const ctx = await resolveStaffContext("manager", { branchScoped: true });
-  return ctx.ok ? { ok: true as const, branchId: ctx.branchId, profileId: ctx.profile.id } : ctx;
+  return ctx.ok
+    ? { ok: true as const, branchId: ctx.branchId, profileId: ctx.profile.id }
+    : ctx;
 }
 
 async function getProduct(branchId: string, productId: string) {
@@ -34,66 +42,47 @@ async function getProduct(branchId: string, productId: string) {
   const supabase = createSupabaseServiceClient();
   const { data } = await supabase
     .from("products")
-    .select("id,name,unit_type")
+    .select("id,name,unit_type,inventory_policy")
     .eq("branch_id", branchId)
     .eq("id", productId)
     .maybeSingle<ProductRow>();
   return data ?? null;
 }
 
-async function getSupplier(branchId: string, supplierId: string | null) {
-  if (!hasSupabaseServiceEnv() || !isUuid(supplierId)) return null;
-  const supabase = createSupabaseServiceClient();
-  const { data } = await supabase
-    .from("suppliers")
-    .select("id,name,active")
-    .eq("branch_id", branchId)
-    .eq("id", supplierId)
-    .maybeSingle<SupplierRow>();
-  return data?.active ? data : null;
-}
-
-function todayIso() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
-}
-
 async function ownerCheck(input: {
   runId: string;
   branchId: string;
-  profileId: string;
   kind: string;
   summary: string;
   steps: Record<string, unknown>;
   message: string;
 }): Promise<OperatorActionResult> {
-  const alertId = await createOwnerAlert({
-    branchId: input.branchId,
-    profileId: input.profileId,
-    kind: input.kind,
-    summary: input.summary,
-    entityRef: input.runId,
-    metadata: input.steps,
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("complete_operator_owner_check_v18", {
+    p_run_id: input.runId,
+    p_branch_id: input.branchId,
+    p_workflow: "delivery",
+    p_kind: input.kind,
+    p_summary: input.summary,
+    p_steps: input.steps,
   });
+  if (error || !data) {
+    return {
+      ok: false,
+      message: error?.message.includes("different answers")
+        ? "This was already saved with different answers."
+        : "Could not tell the owner. Please try again.",
+    };
+  }
 
-  await saveOperatorRun({
-    runId: input.runId,
-    branchId: input.branchId,
-    profileId: input.profileId,
-    workflow: "delivery",
-    status: "completed",
-    steps: input.steps,
-    resultRef: alertId ? `owner_alert:${alertId}` : null,
-  });
-  await auditOperatorRun({
-    runId: input.runId,
-    branchId: input.branchId,
-    profileId: input.profileId,
-    workflow: "delivery",
-    metadata: input.steps,
-  });
+  const receipt = data as DeliveryCompletion;
   revalidateOperatorOps();
-  return { ok: true, message: input.message, id: alertId ?? undefined, needsOwner: true };
+  return {
+    ok: true,
+    message: receipt.replayed ? "Already saved." : input.message,
+    id: receipt.id,
+    needsOwner: true,
+  };
 }
 
 export async function confirmSimpleDelivery(input: {
@@ -104,16 +93,17 @@ export async function confirmSimpleDelivery(input: {
   expiryChoice: ExpiryChoice;
   storageChoice: StorageChoice;
   noteEvidenceId?: string | null;
-  // Provenance of each confirm-don't-ask value ("last_used" / "safe_default" / "manual" …).
-  // Audit-only; recorded in the run steps, never affects validation or stock.
-  sources?: { supplier?: string | null; storage?: string | null; expiry?: string | null } | null;
+  // Provenance of each confirm-don't-ask value (last_used, safe_default, manual, etc.).
+  // This is audit-only and never changes stock validation.
+  sources?: {
+    supplier?: string | null;
+    storage?: string | null;
+    expiry?: string | null;
+  } | null;
 }): Promise<OperatorActionResult> {
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!isUuid(input.runId)) return { ok: false, message: "Please go back and try again." };
-
-  const completed = await readCompletedRun(input.runId);
-  if (completed) return { ok: true, message: "Already saved.", id: completed };
 
   const quantity = Number(input.quantity);
   const noteEvidenceId = isUuid(input.noteEvidenceId) ? input.noteEvidenceId : null;
@@ -133,140 +123,59 @@ export async function confirmSimpleDelivery(input: {
     return { ok: false, message: "Please enter how much arrived." };
   }
 
-  const product = input.productId ? await getProduct(auth.branchId, input.productId) : null;
-  if (!product) {
-    return ownerCheck({
-      runId: input.runId,
-      branchId: auth.branchId,
-      profileId: auth.profileId,
-      kind: "operator_delivery_unknown_product",
-      summary: "Delivery arrived, but the product was not clear.",
-      steps,
-      message: "Saved. The owner will check it.",
-    });
-  }
-
-  if (product.unit_type !== "kg") {
-    return ownerCheck({
-      runId: input.runId,
-      branchId: auth.branchId,
-      profileId: auth.profileId,
-      kind: "operator_delivery_needs_owner",
-      summary: `${product.name} arrived and needs the owner to add it.`,
-      steps: { ...steps, productName: product.name, unitType: product.unit_type },
-      message: "Saved. The owner will add this one.",
-    });
-  }
-
-  const supplier = await getSupplier(auth.branchId, input.supplierId);
-  if (!supplier) {
-    return ownerCheck({
-      runId: input.runId,
-      branchId: auth.branchId,
-      profileId: auth.profileId,
-      kind: "operator_delivery_unknown_supplier",
-      summary: `${product.name} arrived, but the supplier was not clear.`,
-      steps: { ...steps, productName: product.name },
-      message: "Saved. The owner will check the supplier.",
-    });
-  }
-
-  const expiryDate = expiryDateFromChoice(input.expiryChoice);
-  const needsOwner = deliveryNeedsOwnerCheck({
-    supplierKnown: true,
-    expiryChoice: input.expiryChoice,
-    storageChoice: input.storageChoice,
-    photoProvided: !!noteEvidenceId,
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("record_operator_delivery_v18", {
+    p_run_id: input.runId,
+    p_branch_id: auth.branchId,
+    p_product_id: isUuid(input.productId) ? input.productId : null,
+    p_supplier_id: isUuid(input.supplierId) ? input.supplierId : null,
+    p_quantity_kg: quantity,
+    p_expiry_choice: input.expiryChoice,
+    p_storage_choice: input.storageChoice,
+    p_note_evidence_id: noteEvidenceId,
+    p_steps: steps,
   });
-  // F7: Operator Mode never captures an invoice cost, so the batch is created at
-  // cost 0. Stamp every operator batch as cost-pending so it can never be mistaken
-  // for genuinely free stock, and so the owner has an explicit "add cost" task.
-  const COST_PENDING_NOTE = "Cost pending: operator delivery — owner to add the invoice cost.";
-  const note = [
-    needsOwner
-      ? `Operator delivery needs owner check. Location: ${storageLabel(input.storageChoice)}. Note photo: ${noteEvidenceId ? "yes" : "no"}.`
-      : null,
-    COST_PENDING_NOTE,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const res = await createInventoryBatch({
-    branchId: auth.branchId,
-    productId: product.id,
-    supplierId: supplier.id,
-    receivedDate: todayIso(),
-    expiryDate,
-    receivedWeightKg: quantity,
-    remainingWeightKg: quantity,
-    invoiceCost: 0,
-    storageLocation: input.storageChoice === "not_sure" ? null : storageLabel(input.storageChoice),
-    batchNumber: `OP-${input.runId.slice(0, 8)}`,
-    intakeIdempotencyKey: `operator-delivery:${input.runId}:${product.id}:${quantity}:${expiryDate}`,
-    expectedWeightKg: quantity,
-    actualReviewNote: note,
-  });
-
-  if (!res.ok) return res;
-
-  const evidenceLink =
-    noteEvidenceId && res.id
-      ? await linkOperatorEvidence({
-          evidenceId: noteEvidenceId,
-          sourceType: "inventory_batch",
-          sourceId: res.id,
-          sourceRef: product.name,
-          reviewRequired: needsOwner,
-        })
-      : null;
-
-  let alertId: string | null = null;
-  if (needsOwner) {
-    alertId = await createOwnerAlert({
-      branchId: auth.branchId,
-      profileId: auth.profileId,
-      kind: "operator_delivery_check_needed",
-      summary: `${product.name} was added. Owner should check the details.`,
-      entityRef: input.runId,
-      metadata: { ...steps, productName: product.name, supplierName: supplier.name, batchId: res.id, evidenceLinkOk: evidenceLink?.ok ?? null },
-    });
+  if (error || !data) {
+    return {
+      ok: false,
+      message: error?.message.includes("different answers")
+        ? "This was already saved with different answers."
+        : "Could not save the delivery. Please try again.",
+    };
   }
 
-  // F7: always raise a cost-pending task for the batch (separate entityRef so it
-  // is distinct from, and survives, the optional details-check alert above).
-  if (res.id) {
-    await createOwnerAlert({
-      branchId: auth.branchId,
-      profileId: auth.profileId,
-      kind: "operator_delivery_cost_pending",
-      summary: `${product.name} was added with no cost — add the invoice cost.`,
-      entityRef: `${res.id}:cost`,
-      metadata: { reason: "cost_pending", batchId: res.id, productId: product.id, productName: product.name, quantityKg: quantity },
+  const receipt = data as DeliveryCompletion;
+  let needsOwner = receipt.needs_owner ?? receipt.outcome === "owner_check";
+  if (noteEvidenceId && receipt.outcome === "delivery" && receipt.id) {
+    const evidenceLink = await linkOperatorEvidence({
+      evidenceId: noteEvidenceId,
+      expectedRunId: input.runId,
+      sourceType: "inventory_batch",
+      sourceId: receipt.id,
+      sourceRef: receipt.product_name ?? "Delivery",
+      reviewRequired: receipt.evidence_review_required ?? false,
     });
+    if (!evidenceLink.ok) {
+      revalidateOperatorOps();
+      return {
+        ok: false,
+        message: "Stock was saved, but the photo did not link. The owner job is still open. Please try again.",
+      };
+    }
+    needsOwner = evidenceLink.needsOwner ?? needsOwner;
   }
-
-  await saveOperatorRun({
-    runId: input.runId,
-    branchId: auth.branchId,
-    profileId: auth.profileId,
-    workflow: "delivery",
-    status: "completed",
-    steps: { ...steps, productName: product.name, supplierName: supplier.name, batchId: res.id, evidenceLinkOk: evidenceLink?.ok ?? null },
-    resultRef: res.id ? `inventory_batch:${res.id}` : alertId ? `owner_alert:${alertId}` : null,
-  });
-  await auditOperatorRun({
-    runId: input.runId,
-    branchId: auth.branchId,
-    profileId: auth.profileId,
-    workflow: "delivery",
-    metadata: { productId: product.id, batchId: res.id, needsOwner, evidenceId: noteEvidenceId, evidenceLinkOk: evidenceLink?.ok ?? null },
-  });
   revalidateOperatorOps();
 
   return {
     ok: true,
-    message: needsOwner ? "Stock added. The owner will check it." : "Stock added.",
-    id: res.id,
+    message: receipt.replayed
+      ? "Already saved."
+      : receipt.outcome === "owner_check"
+        ? "Saved. The owner will check it."
+        : needsOwner
+          ? "Stock added. The owner will check it."
+          : "Stock added.",
+    id: receipt.id,
     needsOwner,
   };
 }
@@ -280,14 +189,10 @@ export async function reportRanOut(input: {
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!isUuid(input.runId)) return { ok: false, message: "Please go back and try again." };
 
-  const completed = await readCompletedRun(input.runId);
-  if (completed) return { ok: true, message: "Already saved.", id: completed };
-
   const product = input.productId ? await getProduct(auth.branchId, input.productId) : null;
   return ownerCheck({
     runId: input.runId,
     branchId: auth.branchId,
-    profileId: auth.profileId,
     kind: "operator_stock_ran_out",
     summary: product
       ? input.sure
@@ -307,7 +212,6 @@ export async function tellOwnerAboutStock(input: { runId: string }): Promise<Ope
   return ownerCheck({
     runId: input.runId,
     branchId: auth.branchId,
-    profileId: auth.profileId,
     kind: "operator_stock_help_needed",
     summary: "Operator was not sure what happened with stock.",
     steps: { askedForHelp: true },

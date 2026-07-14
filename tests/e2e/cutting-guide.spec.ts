@@ -67,6 +67,7 @@ test.describe("cutting & pricing guide", () => {
     await page.getByTestId("add-product-button").click();
     await page.getByTestId("new-product-name").fill(name);
     await page.getByTestId("new-product-price").fill("1.00");
+    await page.getByTestId("new-product-unit").selectOption("kg");
     await page.getByTestId("new-product-submit").click();
     await expect(page.getByTestId("product-feedback")).toContainText("created");
 
@@ -84,7 +85,9 @@ test.describe("cutting & pricing guide", () => {
     await expect(legAdvancedRow.getByText("Saved price and cost to product.")).toBeVisible();
 
     await page.goto("/admin/products");
-    await expect(page.locator('[data-testid="product-row"]', { hasText: name }).getByTestId("product-price-input")).toHaveValue("9.82");
+    const mappedProduct = page.locator('[data-testid="product-row"]', { hasText: name });
+    await mappedProduct.getByRole("button", { name: "Open edit controls" }).click();
+    await expect(mappedProduct.getByTestId("product-price-input")).toHaveValue("9.82");
   });
 
   test("carcass intake confirms, creates stock and updates a linked product", async ({ page }) => {
@@ -95,6 +98,7 @@ test.describe("cutting & pricing guide", () => {
     await page.getByTestId("add-product-button").click();
     await page.getByTestId("new-product-name").fill(name);
     await page.getByTestId("new-product-price").fill("1.00");
+    await page.getByTestId("new-product-unit").selectOption("kg");
     await page.getByTestId("new-product-submit").click();
     await expect(page.getByTestId("product-feedback")).toContainText("created");
 
@@ -123,9 +127,9 @@ test.describe("cutting & pricing guide", () => {
 
     // The linked product's price now reflects the confirmed intake.
     await page.goto("/admin/products");
-    await expect(
-      page.locator('[data-testid="product-row"]', { hasText: name }).getByTestId("product-price-input"),
-    ).toHaveValue("9.82");
+    const intakeProduct = page.locator('[data-testid="product-row"]', { hasText: name });
+    await intakeProduct.getByRole("button", { name: "Open edit controls" }).click();
+    await expect(intakeProduct.getByTestId("product-price-input")).toHaveValue("9.82");
   });
 
   test("animal switching keeps the professional map stable on mobile", async ({ page }) => {

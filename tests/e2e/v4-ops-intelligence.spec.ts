@@ -10,15 +10,17 @@ test.describe("V4 operations intelligence", () => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await page.goto("/admin");
 
-    // Panel titles render as headings in the desktop grid (plain-English wording).
-    await expect(page.getByRole("heading", { name: "What expires soon?" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "What am I losing money on?" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "What money can I make?" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Product Performance" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "What makes me money?" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Customer Loyalty" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "What Customers Buy Together" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "What certificates expire soon?" })).toBeVisible();
+    // Panel titles render only after opening the deliberately compressed detail.
+    const detail = page.getByRole("group", { name: "Shop detail" });
+    await detail.getByText("Open what to watch").click();
+    await expect(detail.getByRole("heading", { name: "What expires soon?" })).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "What am I losing money on?" })).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "What money can I make?" })).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "Product Performance" })).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "What makes me money?" })).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "Customer Loyalty" })).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "What Customers Buy Together" })).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "What certificates expire soon?" })).toBeVisible();
   });
 
   test("shows release governance and migration health", async ({ page }) => {
@@ -27,7 +29,10 @@ test.describe("V4 operations intelligence", () => {
 
     await expect(page.getByRole("heading", { name: "Deployment Ledger" })).toBeVisible();
     await expect(page.getByText("Migration Health")).toBeVisible();
-    await expect(page.getByText("Post Release Verification")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Release ledger" })).toHaveCount(1);
+    // A clean local database has no release deployment, so it must not fabricate
+    // a post-release verification card.
+    await expect(page.getByText("Post Release Verification")).toHaveCount(0);
   });
 
   test("supports audit investigation filters", async ({ page }) => {

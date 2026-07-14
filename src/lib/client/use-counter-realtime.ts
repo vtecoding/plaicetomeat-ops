@@ -14,8 +14,8 @@ export type CounterConnectionState =
   | "polling";
 
 const POLL_INTERVAL_MS = 15_000;
+const LIVE_SAFETY_REFRESH_INTERVAL_MS = 2_000;
 const SUBSCRIBE_TIMEOUT_MS = 12_000;
-const MAX_REALTIME_RETRIES = 3;
 const REFETCH_DEBOUNCE_MS = 250;
 
 /**
@@ -36,7 +36,8 @@ export function useCounterRealtime(opts: {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const retriesRef = useRef(0);
+  const liveSafetyRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const liveSafetyRefreshPendingRef = useRef(false);
 
   const scheduleRefetch = useCallback(() => {
     if (debounceRef.current) {
@@ -54,8 +55,35 @@ export function useCounterRealtime(opts: {
     }
   }, []);
 
+  const stopLiveSafetyRefresh = useCallback(() => {
+    if (liveSafetyRefreshRef.current) {
+      clearInterval(liveSafetyRefreshRef.current);
+      liveSafetyRefreshRef.current = null;
+    }
+    liveSafetyRefreshPendingRef.current = false;
+  }, []);
+
+  const startLiveSafetyRefresh = useCallback(() => {
+    if (liveSafetyRefreshRef.current) {
+      return;
+    }
+
+    // A subscribed socket is not proof that every CDC event was delivered.
+    // This bounded catch-up sweep keeps the board fresh through dropped events
+    // while the badge continues to report the channel's actual state.
+    liveSafetyRefreshRef.current = setInterval(() => {
+      if (liveSafetyRefreshPendingRef.current) {
+        return;
+      }
+      liveSafetyRefreshPendingRef.current = true;
+      void refetchRef.current().finally(() => {
+        liveSafetyRefreshPendingRef.current = false;
+      });
+    }, LIVE_SAFETY_REFRESH_INTERVAL_MS);
+  }, []);
+
   const startPolling = useCallback(
-    (nextState: CounterConnectionState) => {
+    (nextState: CounterConnectionState, intervalMs = POLL_INTERVAL_MS) => {
       setState(nextState);
       if (pollRef.current) {
         return;
@@ -63,9 +91,9 @@ export function useCounterRealtime(opts: {
       pollRef.current = setInterval(() => {
         void (async () => {
           const ok = await refetchRef.current();
-          setState((current) => (current === "live" ? current : ok ? "polling" : "stale"));
+          setState((current) => (current === "live" ? current : ok ? nextState : "stale"));
         })();
-      }, POLL_INTERVAL_MS);
+      }, intervalMs);
     },
     [],
   );
@@ -81,6 +109,7 @@ export function useCounterRealtime(opts: {
     let client: ReturnType<typeof createSupabaseBrowserClient> | null = null;
     let channel: RealtimeChannel | null = null;
     let timeout: ReturnType<typeof setTimeout> | null = null;
+    let subscribed = false;
 
     try {
       client = createSupabaseBrowserClient();
@@ -94,14 +123,29 @@ export function useCounterRealtime(opts: {
     const activeClient = client;
 
     void (async () => {
-      const { data } = await activeClient.auth.getSession();
+      const { data, error } = await activeClient.auth.getSession();
 
       if (cancelled) {
         return;
       }
 
-      if (data.session?.access_token) {
-        activeClient.realtime.setAuth(data.session.access_token);
+      const accessToken = data.session?.access_token;
+      if (error || !accessToken) {
+        startPolling("reconnecting", LIVE_SAFETY_REFRESH_INTERVAL_MS);
+        void refetchRef.current();
+        return;
+      }
+
+      try {
+        await activeClient.realtime.setAuth(accessToken);
+      } catch {
+        startPolling("reconnecting", LIVE_SAFETY_REFRESH_INTERVAL_MS);
+        void refetchRef.current();
+        return;
+      }
+
+      if (cancelled) {
+        return;
       }
 
       const filter = `branch_id=eq.${branchId}`;
@@ -117,26 +161,26 @@ export function useCounterRealtime(opts: {
           }
 
           if (status === "SUBSCRIBED") {
-            retriesRef.current = 0;
+            subscribed = true;
             stopPolling();
+            startLiveSafetyRefresh();
             setState("live");
             // Catch up on anything missed while (re)connecting.
             void refetchRef.current();
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            retriesRef.current += 1;
-            if (retriesRef.current >= MAX_REALTIME_RETRIES) {
-              startPolling("polling");
-            } else {
-              setState("reconnecting");
-            }
+            subscribed = false;
+            stopLiveSafetyRefresh();
+            startPolling("reconnecting", LIVE_SAFETY_REFRESH_INTERVAL_MS);
           } else if (status === "CLOSED") {
-            setState((current) => (current === "polling" ? current : "reconnecting"));
+            subscribed = false;
+            stopLiveSafetyRefresh();
+            startPolling("reconnecting", LIVE_SAFETY_REFRESH_INTERVAL_MS);
           }
         });
 
       timeout = setTimeout(() => {
-        if (!cancelled) {
-          setState((current) => (current === "live" || current === "polling" ? current : "reconnecting"));
+        if (!cancelled && !subscribed) {
+          startPolling("reconnecting", LIVE_SAFETY_REFRESH_INTERVAL_MS);
         }
       }, SUBSCRIBE_TIMEOUT_MS);
     })();
@@ -150,11 +194,20 @@ export function useCounterRealtime(opts: {
         clearTimeout(debounceRef.current);
       }
       stopPolling();
+      stopLiveSafetyRefresh();
       if (channel) {
         void activeClient.removeChannel(channel);
       }
     };
-  }, [branchId, forcePolling, scheduleRefetch, startPolling, stopPolling]);
+  }, [
+    branchId,
+    forcePolling,
+    scheduleRefetch,
+    startLiveSafetyRefresh,
+    startPolling,
+    stopLiveSafetyRefresh,
+    stopPolling,
+  ]);
 
   return { state };
 }

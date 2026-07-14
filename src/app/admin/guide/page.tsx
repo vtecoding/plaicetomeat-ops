@@ -11,6 +11,16 @@ type Guide = { title: string; steps: string[] };
 
 const GUIDES: Guide[] = [
   {
+    title: "How to rehearse a counter sale",
+    steps: [
+      "Open Operator, then Serve.",
+      "Choose the item and weigh it, or count it if it is sold each or by the box.",
+      "Tap the weight or count. Read the shown price aloud before saving.",
+      "Choose Cash or Card, check every line and the Total, then press Save.",
+      "On Done, check the saved Total. If it says Price updated, use that final amount.",
+    ],
+  },
+  {
     title: "How to handle an order",
     steps: [
       "Open Counter.",
@@ -70,6 +80,16 @@ const GUIDES: Guide[] = [
 type DryRunGroup = { title: string; items: string[] };
 
 const DRY_RUN: DryRunGroup[] = [
+  {
+    title: "Counter sale rehearsal",
+    items: [
+      "Serve one weighed item and read its price aloud",
+      "Serve one each or box item and check the count",
+      "Choose Cash or Card",
+      "Check each line and Total before Save",
+      "Check the saved Total on Done",
+    ],
+  },
   {
     title: "Full order test",
     items: [

@@ -7,6 +7,7 @@ import { BackLink, Masthead } from "@/components/ui/page";
 import { setupStatusLabel, type SetupItem, type SetupItemStatus } from "@/lib/domain/setup-checklist";
 import { getDashboardMetrics } from "@/lib/server/dashboard";
 import { getSetupChecklist } from "@/lib/server/setup-checklist";
+import { getOwnerAlertDeliveryHealth } from "@/lib/server/alert-dispatch";
 import { requireStaffContext } from "@/lib/server/staff-context";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +16,10 @@ export const dynamic = "force-dynamic";
 export default async function SetupPage() {
   const { profile, branchId } = await requireStaffContext("manager", { branchScoped: true });
   const metrics = await getDashboardMetrics(branchId);
-  const { sections, launchSafety, progress } = await getSetupChecklist(branchId, metrics);
+  const [{ sections, launchSafety, progress }, deliveryHealth] = await Promise.all([
+    getSetupChecklist(branchId, metrics),
+    getOwnerAlertDeliveryHealth(branchId),
+  ]);
   const isOwner = profile.role === "owner";
 
   return (
@@ -30,6 +34,12 @@ export default async function SetupPage() {
         <p className="mt-4 rounded-xl bg-[#f2fbf5] p-3 text-sm font-semibold text-[var(--brand)]">
           {progress.done} of {progress.auto} checks the app can see are done.
         </p>
+
+        {!deliveryHealth.configured && (
+          <p className="mt-4 rounded-xl border border-[#f0c66e] bg-[#fff8e6] p-3 text-sm font-semibold text-[#5a3900]" data-testid="setup-owner-alert-channel">
+            {deliveryHealth.configurationIssue ?? "Phone delivery is not ready."} Do not rely on urgent phone alerts until this check clears.
+          </p>
+        )}
 
         {sections.map((section) => (
           <section key={section.key} className="mt-6 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm">

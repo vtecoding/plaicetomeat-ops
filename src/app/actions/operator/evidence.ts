@@ -1,17 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
-import { createOwnerAlert, isUuid, simpleText } from "@/app/actions/operator/escalation";
-import { emitAuditLog } from "@/lib/server/audit";
+import { isUuid, simpleText } from "@/app/actions/operator/escalation";
 import type {
   OperatorEvidenceSourceType,
   OperatorEvidenceType,
   OperatorEvidenceUploadResult,
 } from "@/lib/operator/evidence-types";
 import { resolveStaffContext } from "@/lib/server/staff-context";
-import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  createSupabaseServiceClient,
+  hasSupabaseServiceEnv,
+} from "@/lib/supabase/server";
 
 const BUCKET = "operator-evidence";
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -65,39 +68,22 @@ async function recordFailedUpload(input: {
   if (!hasSupabaseServiceEnv()) return null;
 
   const supabase = createSupabaseServiceClient();
-  const { data } = await supabase
-    .from("operator_evidence")
-    .insert({
-      branch_id: input.branchId,
-      bucket: BUCKET,
-      object_path: null,
-      file_name: input.fileName,
-      content_type: input.contentType,
-      size_bytes: input.sizeBytes,
-      evidence_type: input.evidenceType,
-      source_type: input.sourceType,
-      source_id: input.sourceId,
-      source_ref: input.sourceRef,
-      status: "failed",
-      review_required: true,
-      failure_reason: input.reason,
-      uploaded_by: input.profileId,
-    })
-    .select("id")
-    .single<{ id: string }>();
-
-  if (data?.id) {
-    await emitAuditLog({
-      eventType: "evidence_upload_failed",
-      targetType: "operator_evidence",
-      targetId: data.id,
-      branchId: input.branchId,
-      metadata: { evidence_type: input.evidenceType, source_type: input.sourceType, reason: input.reason },
-      systemReason: "operator_evidence_upload",
-    });
-  }
-
-  return data?.id ?? null;
+  const evidenceId = randomUUID();
+  const { data, error } = await supabase.rpc("record_operator_evidence_failure_v18", {
+    p_evidence_id: evidenceId,
+    p_branch_id: input.branchId,
+    p_actor_id: input.profileId,
+    p_file_name: input.fileName,
+    p_content_type: input.contentType,
+    p_size_bytes: input.sizeBytes,
+    p_evidence_type: input.evidenceType,
+    p_source_type: input.sourceType,
+    p_source_id: input.sourceId,
+    p_source_ref: input.sourceRef,
+    p_reason: input.reason,
+  });
+  const result = data as { id?: string } | null;
+  return error ? null : result?.id ?? null;
 }
 
 export async function uploadOperatorEvidence(formData: FormData): Promise<OperatorEvidenceUploadResult> {
@@ -112,8 +98,16 @@ export async function uploadOperatorEvidence(formData: FormData): Promise<Operat
   const sourceId = valueFrom(formData, "sourceId");
   const sourceRef = simpleText(valueFrom(formData, "sourceRef"), 160);
   const evidenceType = (EVIDENCE_TYPES.has(evidenceTypeRaw) ? evidenceTypeRaw : "other") as OperatorEvidenceType;
-  const sourceType = (SOURCE_TYPES.has(sourceTypeRaw) ? sourceTypeRaw : "operator_workflow_run") as OperatorEvidenceSourceType;
+  if (sourceTypeRaw !== "operator_workflow_run") {
+    return { ok: false, message: "Photo details are not valid." };
+  }
+  const sourceType: OperatorEvidenceSourceType = "operator_workflow_run";
   const safeSourceId = isUuid(sourceId) ? sourceId : null;
+  const operationId = valueFrom(formData, "operationId");
+  if (!safeSourceId || !isUuid(operationId) || operationId !== safeSourceId) {
+    return { ok: false, message: "Photo details are not valid." };
+  }
+  const deterministicOperationId = operationId;
 
   if (!file || file.size === 0) {
     return { ok: false, message: "Choose a photo first." };
@@ -153,15 +147,38 @@ export async function uploadOperatorEvidence(formData: FormData): Promise<Operat
   }
 
   const supabase = createSupabaseServiceClient();
+  const fileSha256 = createHash("sha256").update(Buffer.from(await file.arrayBuffer())).digest("hex");
   const now = new Date();
   const folder = `${auth.branchId}/${now.toISOString().slice(0, 10)}/${cleanSegment(sourceType, "source")}`;
-  const objectPath = `${folder}/${randomUUID()}.${extensionFor(file)}`;
+  const evidenceId = deterministicOperationId ?? randomUUID();
+  const objectPath = deterministicOperationId
+    ? `${auth.branchId}/operations/${cleanSegment(sourceType, "source")}/${deterministicOperationId}`
+    : `${folder}/${randomUUID()}.${extensionFor(file)}`;
   const upload = await supabase.storage.from(BUCKET).upload(objectPath, file, {
     contentType: file.type,
     upsert: false,
   });
 
-  if (upload.error) {
+  let objectExists = !upload.error;
+  let objectConflict = false;
+  if (upload.error && deterministicOperationId) {
+    // A provider error can mean either a real failure or that another copy of
+    // this request already created the deterministic object. Downloading and
+    // hashing the stored bytes proves which case this is and prevents the
+    // upload loser from writing evidence metadata for a different photo.
+    const stored = await supabase.storage.from(BUCKET).download(objectPath);
+    if (!stored.error && stored.data) {
+      const storedSha256 = createHash("sha256")
+        .update(Buffer.from(await stored.data.arrayBuffer()))
+        .digest("hex");
+      objectExists = storedSha256 === fileSha256;
+      objectConflict = storedSha256 !== fileSha256;
+    }
+  }
+  if (objectConflict) {
+    return { ok: false, message: "This paper run already has a different photo. Start fresh." };
+  }
+  if (!objectExists) {
     const id = await recordFailedUpload({
       branchId: auth.branchId,
       profileId: auth.profileId,
@@ -172,64 +189,44 @@ export async function uploadOperatorEvidence(formData: FormData): Promise<Operat
       sourceType,
       sourceId: safeSourceId,
       sourceRef,
-      reason: upload.error.message.slice(0, 240),
+      reason: (upload.error?.message ?? "storage object unavailable").slice(0, 240),
     });
     return { ok: false, id: id ?? undefined, message: "Photo did not save. Try again or skip for now." };
   }
 
-  const reviewRequired = evidenceType === "certificate" || evidenceType === "supplier_document" || evidenceType === "other";
-  const { data, error } = await supabase
-    .from("operator_evidence")
-    .insert({
-      branch_id: auth.branchId,
-      bucket: BUCKET,
-      object_path: objectPath,
-      file_name: fileName,
-      content_type: file.type,
-      size_bytes: file.size,
-      evidence_type: evidenceType,
-      source_type: sourceType,
-      source_id: safeSourceId,
-      source_ref: sourceRef,
-      status: reviewRequired ? "needs_owner_review" : "uploaded",
-      review_required: reviewRequired,
-      uploaded_by: auth.profileId,
-    })
-    .select("id")
-    .single<{ id: string }>();
-
-  if (error || !data?.id) {
-    await supabase.storage.from(BUCKET).remove([objectPath]);
-    return { ok: false, message: "Photo saved, but the record did not save. Try again." };
-  }
-
-  await emitAuditLog({
-    eventType: "evidence_uploaded",
-    targetType: "operator_evidence",
-    targetId: data.id,
-    branchId: auth.branchId,
-    metadata: { evidence_type: evidenceType, source_type: sourceType, source_id: safeSourceId, file_name: fileName },
-    systemReason: "operator_evidence_upload",
+  const { data, error } = await supabase.rpc("finalize_operator_evidence_upload_v18", {
+    p_evidence_id: evidenceId,
+    p_branch_id: auth.branchId,
+    p_actor_id: auth.profileId,
+    p_bucket: BUCKET,
+    p_object_path: objectPath,
+    p_file_name: fileName,
+    p_content_type: file.type,
+    p_size_bytes: file.size,
+    p_evidence_type: evidenceType,
+    p_source_type: sourceType,
+    p_source_id: safeSourceId,
+    p_source_ref: sourceRef,
+    p_sha256: fileSha256,
   });
+  const finalized = data as { id?: string; created?: boolean } | null;
 
-  if (reviewRequired) {
-    await createOwnerAlert({
-      branchId: auth.branchId,
-      profileId: auth.profileId,
-      kind: "operator_evidence_review",
-      summary: "A photo was saved for owner review.",
-      entityRef: data.id,
-      eventType: "evidence_uploaded",
-      metadata: { evidence_type: evidenceType, source_type: sourceType },
-    });
+  if (error || !finalized?.id) {
+    if (!deterministicOperationId) await supabase.storage.from(BUCKET).remove([objectPath]);
+    return {
+      ok: false,
+      code: deterministicOperationId ? "evidence_row_conflict" : undefined,
+      message: "Photo saved, but the record did not save. Try again.",
+    };
   }
 
   revalidatePath("/admin/evidence");
-  return { ok: true, id: data.id, fileName, message: "Photo saved." };
+  return { ok: true, id: finalized.id, fileName, message: "Photo saved." };
 }
 
 export async function linkOperatorEvidence(input: {
   evidenceId: string | null | undefined;
+  expectedRunId: string;
   sourceType: OperatorEvidenceSourceType;
   sourceId: string;
   sourceRef?: string | null;
@@ -237,48 +234,37 @@ export async function linkOperatorEvidence(input: {
 }) {
   const auth = await requireManager();
   if (!auth.ok) return { ok: false, message: auth.message };
-  if (!hasSupabaseServiceEnv()) return { ok: false, message: "Photo storage is not ready." };
-  if (!isUuid(input.evidenceId) || !isUuid(input.sourceId)) return { ok: false, message: "Photo link is not valid." };
+  if (!isUuid(input.evidenceId) || !isUuid(input.expectedRunId) || !isUuid(input.sourceId)) {
+    return { ok: false, message: "Photo link is not valid." };
+  }
   if (!SOURCE_TYPES.has(input.sourceType)) return { ok: false, message: "Photo link is not valid." };
 
-  const supabase = createSupabaseServiceClient();
-  const { data: existing } = await supabase
-    .from("operator_evidence")
-    .select("id,branch_id,status")
-    .eq("id", input.evidenceId)
-    .maybeSingle<{ id: string; branch_id: string; status: string }>();
-
-  if (!existing || existing.branch_id !== auth.branchId || existing.status === "deleted" || existing.status === "failed") {
-    return { ok: false, message: "Photo link is not available." };
-  }
-
-  const status = input.reviewRequired ? "needs_owner_review" : "linked";
-  const { error } = await supabase
-    .from("operator_evidence")
-    .update({
-      source_type: input.sourceType,
-      source_id: input.sourceId,
-      source_ref: simpleText(input.sourceRef, 160),
-      status,
-      review_required: input.reviewRequired ?? false,
-      linked_at: new Date().toISOString(),
-    })
-    .eq("id", input.evidenceId)
-    .eq("branch_id", auth.branchId);
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("link_operator_evidence_v18", {
+    p_evidence_id: input.evidenceId,
+    p_branch_id: auth.branchId,
+    p_expected_run_id: input.expectedRunId,
+    p_source_type: input.sourceType,
+    p_source_id: input.sourceId,
+    p_source_ref: simpleText(input.sourceRef, 160),
+    p_review_required: input.reviewRequired ?? false,
+  });
 
   if (error) return { ok: false, message: "Photo saved, but it did not link. The owner can still see it." };
 
-  await emitAuditLog({
-    eventType: "evidence_linked",
-    targetType: "operator_evidence",
-    targetId: input.evidenceId,
-    branchId: auth.branchId,
-    metadata: { source_type: input.sourceType, source_id: input.sourceId, source_ref: input.sourceRef ?? null },
-    systemReason: "operator_evidence_link",
-  });
-
+  const receipt = (data ?? {}) as {
+    needs_owner?: boolean;
+    owner_alert_resolved?: boolean;
+    replayed?: boolean;
+  };
   revalidatePath("/admin/evidence");
-  return { ok: true, message: "Photo linked." };
+  return {
+    ok: true,
+    message: "Photo linked.",
+    needsOwner: receipt.needs_owner,
+    ownerAlertResolved: receipt.owner_alert_resolved ?? false,
+    replayed: receipt.replayed ?? false,
+  };
 }
 
 export async function deleteOperatorEvidence(input: { evidenceId: string }) {
@@ -288,40 +274,46 @@ export async function deleteOperatorEvidence(input: { evidenceId: string }) {
   if (!isUuid(input.evidenceId)) return { ok: false, message: "Photo record is not valid." };
 
   const supabase = createSupabaseServiceClient();
-  const { data: existing } = await supabase
-    .from("operator_evidence")
-    .select("id,branch_id,bucket,object_path,status")
-    .eq("id", input.evidenceId)
-    .maybeSingle<{ id: string; branch_id: string; bucket: string; object_path: string | null; status: string }>();
+  const { data: requested, error: requestError } = await supabase.rpc("request_operator_evidence_delete_v18", {
+    p_evidence_id: input.evidenceId,
+    p_branch_id: auth.branchId,
+    p_actor_id: auth.profileId,
+  });
+  const request = requested as {
+    id?: string;
+    bucket?: string;
+    objectPath?: string | null;
+    alreadyDeleted?: boolean;
+  } | null;
+  if (requestError || !request?.id) {
+    const protectedEvidence = requestError?.message.includes("Linked or compliance evidence");
+    return {
+      ok: false,
+      message: protectedEvidence
+        ? "Linked delivery, waste and compliance proof cannot be deleted here."
+        : "Could not request photo deletion.",
+    };
+  }
+  if (request.alreadyDeleted) return { ok: true, message: "Photo already deleted." };
 
-  if (!existing || existing.branch_id !== auth.branchId) return { ok: false, message: "Photo not found." };
-  if (existing.status === "deleted") return { ok: true, message: "Photo already deleted." };
-
-  if (existing.object_path) {
-    const remove = await supabase.storage.from(existing.bucket).remove([existing.object_path]);
-    if (remove.error) return { ok: false, message: "Could not delete the stored photo." };
+  if (request.objectPath) {
+    const remove = await supabase.storage.from(request.bucket ?? BUCKET).remove([request.objectPath]);
+    if (remove.error) {
+      revalidatePath("/admin/evidence");
+      return { ok: false, message: "Photo deletion is waiting. Try delete again." };
+    }
   }
 
-  const { error } = await supabase
-    .from("operator_evidence")
-    .update({
-      status: "deleted",
-      deleted_at: new Date().toISOString(),
-      deleted_by: auth.profileId,
-    })
-    .eq("id", input.evidenceId)
-    .eq("branch_id", auth.branchId);
-
-  if (error) return { ok: false, message: "Could not mark the photo deleted." };
-
-  await emitAuditLog({
-    eventType: "evidence_deleted",
-    targetType: "operator_evidence",
-    targetId: input.evidenceId,
-    branchId: auth.branchId,
-    metadata: {},
-    systemReason: "operator_evidence_delete",
+  const { data: finalized, error: finalizeError } = await supabase.rpc("finalize_operator_evidence_delete_v18", {
+    p_evidence_id: input.evidenceId,
+    p_branch_id: auth.branchId,
+    p_actor_id: auth.profileId,
   });
+  const completion = finalized as { id?: string } | null;
+  if (finalizeError || !completion?.id) {
+    revalidatePath("/admin/evidence");
+    return { ok: false, message: "Photo was removed; its record is waiting to finish. Try delete again." };
+  }
 
   revalidatePath("/admin/evidence");
   return { ok: true, message: "Photo deleted." };

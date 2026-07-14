@@ -78,7 +78,7 @@ export default async function OrderStatusPage({ params }: { params: Promise<{ pu
                     <div>
                       <p className="font-bold">{item.name}</p>
                       <p className="text-[#6c5e52]">
-                        {item.quantity} {item.unitType}
+                        {item.quantity} {item.unitType} @ {formatCurrency(item.unitPrice)}/{item.unitType}
                       </p>
                     </div>
                     <p className="font-bold">{formatCurrency(item.lineTotal)}</p>

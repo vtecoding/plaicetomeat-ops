@@ -7,84 +7,86 @@ import {
   type ServeProductLite,
 } from "@/lib/operator/workflows/serve-lines";
 
-function kgProduct(id: string, price: number): ServeProductLite {
-  return { id, name: `Product ${id}`, unit_type: "kg", price_per_unit: price };
-}
-
-function eachProduct(id: string, price: number): ServeProductLite {
-  return { id, name: `Whole ${id}`, unit_type: "each", price_per_unit: price };
+function product(id: string, unit: ServeProductLite["unit_type"], price: number): ServeProductLite {
+  return { id, name: `Product ${id}`, unit_type: unit, price_per_unit: price };
 }
 
 function mapOf(...products: ServeProductLite[]) {
-  return new Map(products.map((p) => [p.id, p]));
+  return new Map(products.map((item) => [item.id, item]));
 }
 
 describe("resolveServeLines", () => {
-  // F5 / T3
-  it("rejects a custom line with no price", () => {
-    const res = resolveServeLines([{ productId: null, name: "Other", quantityKg: 0.5, priceGbp: null }], mapOf());
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/price/i);
+  it.each([null, 0, -3, Number.NaN, 999999])("rejects an invalid custom price (%s)", (priceGbp) => {
+    const result = resolveServeLines([{ productId: null, name: "Other", quantity: 0.5, priceGbp }], mapOf());
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/price/i);
   });
 
-  it("rejects a custom line priced at £0", () => {
-    const res = resolveServeLines([{ productId: null, name: "Other", quantityKg: 0.5, priceGbp: 0 }], mapOf());
-    expect(res.ok).toBe(false);
-  });
-
-  it("rejects a custom line with a negative price", () => {
-    const res = resolveServeLines([{ productId: null, name: "Other", quantityKg: 0.5, priceGbp: -3 }], mapOf());
-    expect(res.ok).toBe(false);
-  });
-
-  it("rejects a custom line with a non-numeric / NaN price", () => {
-    const res = resolveServeLines([{ productId: null, name: "Other", quantityKg: 0.5, priceGbp: Number.NaN }], mapOf());
-    expect(res.ok).toBe(false);
-  });
-
-  it("rejects an absurd custom price above the cap", () => {
-    const res = resolveServeLines([{ productId: null, name: "Other", quantityKg: 0.5, priceGbp: 999999 }], mapOf());
-    expect(res.ok).toBe(false);
-  });
-
-  it("accepts a valid custom line and records the entered pounds as the line total", () => {
-    const res = resolveServeLines([{ productId: null, name: "Goat curry cut", quantityKg: 0.5, priceGbp: 7.5 }], mapOf());
-    expect(res.ok).toBe(true);
-    if (res.ok) {
-      expect(res.lines[0].total).toBe(7.5);
-      expect(res.lines[0].needsCheck).toBe(true);
-      // quantity * unit_price stays consistent with the total
-      expect(Math.round(res.lines[0].quantity * res.lines[0].price * 100) / 100).toBe(7.5);
+  it("accepts a custom weighted line and treats entered pounds as the line total", () => {
+    const result = resolveServeLines(
+      [{ productId: null, name: "Goat curry cut", quantity: 0.5, priceGbp: 7.5 }],
+      mapOf(),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.lines[0]).toMatchObject({ total: 7.5, quantity: 0.5, unit: "kg", needsCheck: true });
+      expect(Math.round(result.lines[0].quantity * result.lines[0].price * 100) / 100).toBe(7.5);
     }
   });
 
-  // F6 / T4
-  it("rejects an each product in the weight flow", () => {
-    const res = resolveServeLines(
-      [{ productId: "whole", name: null, quantityKg: 1, priceGbp: null }],
-      mapOf(eachProduct("whole", 6)),
+  it("never turns a missing, foreign, or unavailable catalogue id into a custom sale", () => {
+    const result = resolveServeLines(
+      [{ productId: "catalogue-id", name: "Unavailable item", quantity: 1, priceGbp: 12 }],
+      mapOf(),
     );
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/each/i);
+    expect(result).toEqual({ ok: false, message: "That item is no longer available." });
   });
 
-  it("prices a kg product per kg and flags no owner check", () => {
-    const res = resolveServeLines(
-      [{ productId: "breast", name: null, quantityKg: 2, priceGbp: null }],
-      mapOf(kgProduct("breast", 9)),
+  it("prices kg, each, and box catalogue lines as quantity times current catalogue price", () => {
+    const result = resolveServeLines(
+      [
+        { productId: "breast", name: null, quantity: 0.5, priceGbp: null },
+        { productId: "whole", name: null, quantity: 12, priceGbp: null },
+        { productId: "box", name: null, quantity: 2, priceGbp: null },
+      ],
+      mapOf(product("breast", "kg", 9), product("whole", "each", 6.5), product("box", "box", 25)),
     );
-    expect(res.ok).toBe(true);
-    if (res.ok) {
-      expect(res.lines[0].total).toBe(18);
-      expect(res.lines[0].unit).toBe("kg");
-      expect(res.lines[0].needsCheck).toBe(false);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.lines.map((line) => [line.unit, line.total])).toEqual([
+        ["kg", 4.5],
+        ["each", 78],
+        ["box", 50],
+      ]);
+      expect(serveSubtotal(result.lines)).toBe(132.5);
     }
+  });
+
+  it.each([
+    ["each", 0],
+    ["each", 1.5],
+    ["each", 100],
+    ["box", -1],
+    ["box", 99.1],
+  ] as const)("rejects %s quantity %s outside the integer 1-99 contract", (unit, quantity) => {
+    const result = resolveServeLines(
+      [{ productId: "counted", name: null, quantity, priceGbp: null }],
+      mapOf(product("counted", unit, 5)),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toContain("whole number");
+  });
+
+  it.each([0, -1, 50.001, Number.NaN])("rejects invalid kg quantity %s", (quantity) => {
+    const result = resolveServeLines(
+      [{ productId: "kg", name: null, quantity, priceGbp: null }],
+      mapOf(product("kg", "kg", 9)),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/weight/i);
   });
 });
 
-// N1 regression: a first attempt can persist the order header and fail before the
-// item rows land. The retry must never collect a header-only order (money recorded
-// with no lines and no depletion) and must never silently change money.
 describe("serveRepairDecision", () => {
   const base = { persistedSubtotal: 18, resolvedSubtotal: 18 };
 
@@ -92,44 +94,18 @@ describe("serveRepairDecision", () => {
     expect(serveRepairDecision({ ...base, status: "incoming", itemCount: 2 })).toBe("proceed");
   });
 
-  it("proceeds when the order is already terminal (collected/cancelled)", () => {
+  it("proceeds when the order is already terminal", () => {
     expect(serveRepairDecision({ ...base, status: "collected", itemCount: 0 })).toBe("proceed");
     expect(serveRepairDecision({ ...base, status: "cancelled", itemCount: 0 })).toBe("proceed");
   });
 
-  it("repairs a header-only order when the retry resolves to the same subtotal", () => {
+  it("repairs a same-total header-only retry", () => {
     expect(serveRepairDecision({ ...base, status: "incoming", itemCount: 0 })).toBe("insert-items");
+    expect(serveRepairDecision({ status: "incoming", itemCount: 0, persistedSubtotal: 18.0000001, resolvedSubtotal: 18 })).toBe("insert-items");
   });
 
-  it("tolerates float representation but not real money differences", () => {
-    expect(
-      serveRepairDecision({ status: "incoming", itemCount: 0, persistedSubtotal: 18.0000001, resolvedSubtotal: 18 }),
-    ).toBe("insert-items");
-  });
-
-  it("escalates a header-only order when the retry's money differs", () => {
-    expect(
-      serveRepairDecision({ status: "incoming", itemCount: 0, persistedSubtotal: 18, resolvedSubtotal: 17.5 }),
-    ).toBe("escalate");
-  });
-
-  it("escalates when the persisted subtotal is unreadable", () => {
-    expect(
-      serveRepairDecision({ status: "incoming", itemCount: 0, persistedSubtotal: Number.NaN, resolvedSubtotal: 18 }),
-    ).toBe("escalate");
-  });
-});
-
-describe("serveSubtotal", () => {
-  it("sums line totals to clean 2dp money", () => {
-    const res = resolveServeLines(
-      [
-        { productId: "breast", name: null, quantityKg: 0.3, priceGbp: null },
-        { productId: null, name: "Other", quantityKg: 0.5, priceGbp: 7.5 },
-      ],
-      mapOf(kgProduct("breast", 9.99)),
-    );
-    expect(res.ok).toBe(true);
-    if (res.ok) expect(serveSubtotal(res.lines)).toBe(10.5);
+  it("escalates a header-only retry if money differs or is unreadable", () => {
+    expect(serveRepairDecision({ status: "incoming", itemCount: 0, persistedSubtotal: 18, resolvedSubtotal: 17.5 })).toBe("escalate");
+    expect(serveRepairDecision({ status: "incoming", itemCount: 0, persistedSubtotal: Number.NaN, resolvedSubtotal: 18 })).toBe("escalate");
   });
 });

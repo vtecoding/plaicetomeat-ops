@@ -24,6 +24,7 @@ const statusLabels: Record<string, string> = {
   uploaded: "Uploaded",
   linked: "Linked",
   needs_owner_review: "Needs review",
+  delete_pending: "Deletion waiting",
   deleted: "Deleted",
   failed: "Failed",
 };
@@ -90,7 +91,7 @@ function EvidenceCard({
   onResult: (result: Awaited<ReturnType<typeof deleteOperatorEvidence>>) => void;
 }) {
   const [isPending, startTransition] = useTransition();
-  const canDelete = item.status !== "deleted";
+  const canDelete = ["uploaded", "needs_owner_review", "failed", "delete_pending"].includes(item.status);
 
   function deleteItem() {
     startTransition(async () => {
@@ -132,7 +133,7 @@ function EvidenceCard({
         ) : null}
         <Button type="button" variant="destructive" disabled={isPending || !canDelete} onClick={deleteItem}>
           <Trash2 className="h-4 w-4" aria-hidden />
-          {isPending ? "Deleting..." : "Delete"}
+          {isPending ? "Deleting..." : item.status === "delete_pending" ? "Retry delete" : "Delete"}
         </Button>
       </div>
     </article>

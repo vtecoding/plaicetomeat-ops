@@ -29,17 +29,20 @@ test.describe("admin product CRUD", () => {
     // Edit price and confirm it persists across a reload.
     await page.goto("/admin/products");
     const productRow = row(page, name);
+    await productRow.getByRole("button", { name: "Open edit controls" }).click();
     await productRow.getByTestId("product-price-input").fill("18.75");
     await productRow.getByTestId("product-save").click();
     await expect(page.getByTestId("product-feedback")).toContainText(/updated|Price/i);
 
     await page.reload();
-    await expect(row(page, name).getByTestId("product-price-input")).toHaveValue("18.75");
+    const reloadedRow = row(page, name);
+    await reloadedRow.getByRole("button", { name: "Open edit controls" }).click();
+    await expect(reloadedRow.getByTestId("product-price-input")).toHaveValue("18.75");
 
     // Mark unavailable -> disappears from public shop.
-    await row(page, name).getByTestId("product-availability-toggle").click();
+    await reloadedRow.getByTestId("product-availability-toggle").click();
     await expect(page.getByTestId("product-feedback")).toContainText(/Availability/i);
-    await expect(row(page, name).getByTestId("product-availability-state")).toHaveText("Unavailable");
+    await expect(reloadedRow.getByTestId("product-availability-state")).toHaveText("Unavailable");
 
     await page.goto("/shop");
     await expect(page.getByText(name, { exact: false })).toHaveCount(0);

@@ -10,6 +10,7 @@ import { ActionContext } from "@/components/owner-brain/action-context";
 import { PageFrame } from "@/components/site-header";
 import { BackLink, Masthead, SectionHeading } from "@/components/ui/page";
 import type { PurchasingRecommendation, SupplierReadiness } from "@/lib/domain/purchasing-intelligence";
+import { STOCK_NOT_COUNTED_LABEL } from "@/lib/domain/inventory-policy";
 import { getPurchasingPlan, type PurchasingPlan } from "@/lib/server/purchasing-intelligence";
 import { requireStaffContext } from "@/lib/server/staff-context";
 import { cn, firstParam } from "@/lib/utils";
@@ -65,6 +66,24 @@ export default async function PurchasingPage({
             </div>
           )}
         </Section>
+
+        {plan.untrackedProducts.length > 0 ? (
+          <Section
+            title="Items kept available by hand"
+            subtitle="These items stay out of stock totals, expiry notices and buying warnings. Their shop availability is set manually."
+          >
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="purchasing-untracked-products">
+              {plan.untrackedProducts.map((product) => (
+                <article key={product.id} className="rounded-lg border border-[var(--line)] bg-white p-4">
+                  <p className="font-bold">{product.name}</p>
+                  <span className="mt-2 inline-flex rounded-full bg-[#f7f3ed] px-3 py-1 text-xs font-bold text-[#6c5e52]">
+                    {STOCK_NOT_COUNTED_LABEL}
+                  </span>
+                </article>
+              ))}
+            </div>
+          </Section>
+        ) : null}
 
         {plan.seasonalPrep.length > 0 && (
           <Section title="Big-day preparation" subtitle="Peak trading days are coming up. Work through the checklist while there's still time to order.">

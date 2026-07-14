@@ -9,7 +9,7 @@ vi.mock("@/lib/supabase/server", () => ({
   hasSupabaseServiceEnv: () => false,
 }));
 
-import { branchLocalDate, formatPence } from "./payment-truth";
+import { addBusinessCalendarDays, branchLocalDate, formatPence } from "./payment-truth";
 
 const LONDON = "Europe/London";
 
@@ -41,6 +41,15 @@ describe("branchLocalDate — business-date battery (rule 1.11)", () => {
     // BST: 22:50Z = 23:50 local (day 1); 23:10Z = 00:10 local (day 2).
     expect(branchLocalDate(LONDON, new Date("2026-07-13T22:50:00Z"))).toBe("2026-07-13");
     expect(branchLocalDate(LONDON, new Date("2026-07-13T23:10:00Z"))).toBe("2026-07-14");
+  });
+
+  it("derives yesterday and rolling-week starts from calendar dates, not 24-hour instants", () => {
+    const bstMidnightDay = branchLocalDate(LONDON, new Date("2026-07-14T23:30:00Z"));
+    expect(bstMidnightDay).toBe("2026-07-15");
+    expect(addBusinessCalendarDays(bstMidnightDay, -1)).toBe("2026-07-14");
+    expect(addBusinessCalendarDays(bstMidnightDay, -6)).toBe("2026-07-09");
+    expect(addBusinessCalendarDays("2026-03-30", -1)).toBe("2026-03-29");
+    expect(addBusinessCalendarDays("2026-10-26", -1)).toBe("2026-10-25");
   });
 });
 

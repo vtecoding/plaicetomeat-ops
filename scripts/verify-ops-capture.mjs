@@ -169,7 +169,6 @@ async function main() {
   // 5. Complete is idempotent, and steps can't be recorded afterwards.
   {
     for (const [stepKey, payload] of [
-      ["certs_visible", {}],
       ["float_ready", { value: 120 }],
       ["open_sign", {}],
     ]) {

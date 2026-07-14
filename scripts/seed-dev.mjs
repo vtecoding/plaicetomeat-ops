@@ -109,7 +109,11 @@ async function seedOrders() {
   const keys = ["seed-incoming-1", "seed-prepping-1", "seed-ready-1", "seed-winback-1", "seed-winback-2", "seed-winback-3"];
   const { data: existing } = await supabase.from("orders").select("id, idempotency_key").in("idempotency_key", keys);
   for (const row of existing ?? []) {
-    await supabase.from("orders").delete().eq("id", row.id);
+    // Historical win-back orders acquire append-only payment events below and
+    // therefore must outlive subsequent idempotent seed runs.
+    if (!row.idempotency_key.startsWith("seed-winback-")) {
+      await supabase.from("orders").delete().eq("id", row.id);
+    }
   }
 
   const orders = [
@@ -176,35 +180,71 @@ async function seedLapsedRegular() {
 
   for (const h of history) {
     const createdAt = isoDaysAgo(h.daysAgo);
-    const { data: inserted, error } = await supabase
+    const { data: existingOrder, error: existingOrderError } = await supabase
       .from("orders")
-      .insert({
-        branch_id: BRANCH_A,
-        order_ref: h.ref,
-        customer_name: "Yusuf Ali",
-        customer_phone: "+447700900444",
-        status: "collected",
-        pickup_window_id: WINDOW_LUNCH,
-        pickup_date: createdAt.slice(0, 10),
-        subtotal: h.subtotal,
-        idempotency_key: h.key,
-        created_at: createdAt,
-      })
-      .select("id")
-      .single();
-    if (error) throw error;
+      .select("id, pickup_date, created_at")
+      .eq("idempotency_key", h.key)
+      .maybeSingle();
+    if (existingOrderError) throw existingOrderError;
 
-    const { error: itemError } = await supabase.from("order_items").insert({
-      branch_id: BRANCH_A,
-      order_id: inserted.id,
-      product_name_snapshot: "Lamb Shoulder",
-      quantity: 1,
-      unit_type: "kg",
-      unit_price_snapshot: h.subtotal,
-      line_total: h.subtotal,
-      created_at: createdAt,
-    });
-    if (itemError) throw itemError;
+    let orderId = existingOrder?.id;
+    let businessDate = existingOrder?.pickup_date ?? createdAt.slice(0, 10);
+    let paymentCreatedAt = existingOrder?.created_at ?? createdAt;
+
+    if (!orderId) {
+      const { data: inserted, error } = await supabase
+        .from("orders")
+        .insert({
+          branch_id: BRANCH_A,
+          order_ref: h.ref,
+          customer_name: "Yusuf Ali",
+          customer_phone: "+447700900444",
+          status: "collected",
+          pickup_window_id: WINDOW_LUNCH,
+          pickup_date: businessDate,
+          subtotal: h.subtotal,
+          idempotency_key: h.key,
+          created_at: paymentCreatedAt,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      orderId = inserted.id;
+
+      const { error: itemError } = await supabase.from("order_items").insert({
+        branch_id: BRANCH_A,
+        order_id: orderId,
+        product_name_snapshot: "Lamb Shoulder",
+        quantity: 1,
+        unit_type: "kg",
+        unit_price_snapshot: h.subtotal,
+        line_total: h.subtotal,
+        created_at: paymentCreatedAt,
+      });
+      if (itemError) throw itemError;
+    }
+
+    const paymentKey = `${h.key}:sale`;
+    const { data: existingPayment, error: existingPaymentError } = await supabase
+      .from("payment_events")
+      .select("id")
+      .eq("idempotency_key", paymentKey)
+      .maybeSingle();
+    if (existingPaymentError) throw existingPaymentError;
+
+    if (!existingPayment) {
+      const { error: paymentError } = await supabase.from("payment_events").insert({
+        branch_id: BRANCH_A,
+        order_id: orderId,
+        direction: "sale",
+        method: "card",
+        amount_pence: Math.round(h.subtotal * 100),
+        business_date: businessDate,
+        idempotency_key: paymentKey,
+        created_at: paymentCreatedAt,
+      });
+      if (paymentError) throw paymentError;
+    }
   }
   console.log("  lapsed regular Yusuf Ali (3 orders, last ~31 days ago) -> win-back fixture");
 }
@@ -215,6 +255,15 @@ async function clearOpsSessions() {
   const { error } = await supabase.from("ops_checklist_sessions").delete().in("branch_id", [BRANCH_A, BRANCH_B]);
   if (error) throw error;
   console.log("  ops checklist sessions cleared");
+}
+
+async function clearOperatorDrafts() {
+  // Guided-flow drafts are resumable UX state, not business truth. A local seed
+  // starts each browser journey clean so yesterday's interrupted test cannot be
+  // offered to a different run.
+  const { error } = await supabase.from("operator_workflow_runs").delete().in("branch_id", [BRANCH_A, BRANCH_B]);
+  if (error) throw error;
+  console.log("  operator workflow drafts cleared");
 }
 
 async function restoreSeedBatch() {
@@ -312,6 +361,7 @@ async function main() {
   console.log("Seeding today's orders...");
   await seedOrders();
   await clearOpsSessions();
+  await clearOperatorDrafts();
   await restoreSeedBatch();
   await verifySeededFixtures();
   console.log("Done. Test password for all users:", TEST_PASSWORD);

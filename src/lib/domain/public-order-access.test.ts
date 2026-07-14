@@ -39,7 +39,7 @@ describe("findForbiddenFields — public DTO must not leak internal fields", () 
     status: "incoming",
     pickupDate: "2026-06-06",
     pickupWindowLabel: "Morning",
-    items: [{ name: "Lamb chops", quantity: 1, unitType: "kg", lineTotal: 12.5 }],
+    items: [{ name: "Lamb chops", quantity: 1, unitType: "kg", unitPrice: 12.5, lineTotal: 12.5 }],
     subtotal: 12.5,
     canCancel: true,
     cancellationDeadline: "2026-06-05T12:00:00Z",
@@ -64,7 +64,7 @@ describe("findForbiddenFields — public DTO must not leak internal fields", () 
   it("flags forbidden fields nested inside items", () => {
     const leaked = {
       ...safe,
-      items: [{ name: "Lamb", quantity: 1, unitType: "kg", lineTotal: 12.5, staff_notes: "leak" }],
+      items: [{ name: "Lamb", quantity: 1, unitType: "kg", unitPrice: 12.5, lineTotal: 12.5, staff_notes: "leak" }],
     };
     expect(findForbiddenFields(leaked).length).toBeGreaterThan(0);
   });

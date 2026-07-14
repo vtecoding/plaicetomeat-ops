@@ -9,11 +9,12 @@ import { setOwnerAwayMode, type OwnerAwayActionResult } from "@/app/actions/owne
 import { Button } from "@/components/ui/button";
 import { Masthead, Surface } from "@/components/ui/page";
 import type { OwnerAwaySummary } from "@/lib/server/owner-away";
+import type { OwnerAlertDeliveryHealth } from "@/lib/server/alert-dispatch";
 import { formatCurrency } from "@/lib/utils";
 
 type Feedback = { tone: "ok" | "error"; message: string } | null;
 
-export function AdminOwnerAwayClient({ summary }: { summary: OwnerAwaySummary }) {
+export function AdminOwnerAwayClient({ summary, deliveryHealth }: { summary: OwnerAwaySummary; deliveryHealth: OwnerAlertDeliveryHealth }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [isPending, startTransition] = useTransition();
@@ -62,6 +63,16 @@ export function AdminOwnerAwayClient({ summary }: { summary: OwnerAwaySummary })
         </div>
       )}
 
+      {deliveryHealth.failingCount > 0 ? (
+        <div className="mt-4 rounded-lg border border-[#e8a5a5] bg-[#fff1f1] p-4 text-sm font-semibold text-[#7a1b1b]" data-testid="owner-alert-delivery-failing">
+          Phone delivery needs attention. {deliveryHealth.failingCount} {deliveryHealth.failingCount === 1 ? "message ended" : "messages ended"} without a confirmed send. Uncertain Twilio sends are not retried automatically, so they cannot duplicate silently.
+        </div>
+      ) : !deliveryHealth.configured ? (
+        <div className="mt-4 rounded-lg border border-[#f0c66e] bg-[#fff8e6] p-4 text-sm font-semibold text-[#5a3900]" data-testid="owner-alert-channel-warning">
+          {deliveryHealth.configurationIssue ?? "Phone delivery is not ready."} Owner jobs still appear here; urgent problems also show the shop phone fallback.
+        </div>
+      ) : null}
+
       <Surface className="mt-6 overflow-hidden">
         <div className="border-b border-[var(--line)] bg-[var(--brand-50)] px-5 py-4">
           <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--brand)]">{summary.statusLabel}</p>
@@ -82,7 +93,7 @@ export function AdminOwnerAwayClient({ summary }: { summary: OwnerAwaySummary })
             icon={PoundSterling}
             label="Sales"
             value={String(summary.sales.orderCount)}
-            detail={formatCurrency(summary.sales.revenue)}
+            detail={`${formatCurrency(summary.sales.revenue)} net takings`}
             testid="owner-away-sales-count"
           />
           <AwayStat
@@ -132,17 +143,17 @@ export function AdminOwnerAwayClient({ summary }: { summary: OwnerAwaySummary })
 
         <Surface className="p-5">
           <PanelTitle icon={AlertTriangle} title="Needs owner" />
-          {summary.alerts.latest.length === 0 ? (
+          {summary.alerts.openCount === 0 ? (
             <p className="mt-4 text-sm font-medium text-[var(--muted)]">No open owner alerts.</p>
           ) : (
-            <ul className="mt-4 grid gap-3">
-              {summary.alerts.latest.slice(0, 4).map((alert) => (
-                <li key={alert.id} className="rounded-lg border border-[#eee5d8] bg-[#fbfaf7] p-3 text-sm">
-                  <p className="font-bold text-[var(--ink)]">{alert.summary}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">{alert.severity}</p>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-4">
+              <p className="text-sm font-medium text-[var(--muted)]">
+                {summary.alerts.openCount} {summary.alerts.openCount === 1 ? "job is" : "jobs are"} waiting in one tray.
+              </p>
+              <Button asChild className="mt-3">
+                <Link href="/admin/reconcile">Open owner jobs</Link>
+              </Button>
+            </div>
           )}
         </Surface>
       </section>

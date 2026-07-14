@@ -296,7 +296,6 @@ async function main() {
     });
     const steps = [
       ["fridge_temp", "done", { value: 3.2 }],
-      ["certs_visible", "done", {}],
       ["display_ready", "done", {}],
       ["float_ready", "done", { value: 120 }],
       ["open_sign", "done", {}],

@@ -2,19 +2,21 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Check, CheckCircle2, Receipt, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Check, CheckCircle2, ClipboardCheck, Receipt, Trash2 } from "lucide-react";
 
-import { confirmWasteReason, resolveDeliveryCost } from "@/app/actions/reconcile";
+import { confirmWasteReason, resolveDeliveryCost, resolveOwnerAlert } from "@/app/actions/reconcile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 type Item = {
   alertId: string;
   kind: string;
-  action: "delivery-cost" | "waste-reason" | "open";
-  klass: "inline" | "link";
+  action: "inline-cost" | "confirm-reason" | "link" | "note-resolve";
+  autoResolve: "stock-touch" | "checklist-step-complete" | "opening-complete" | "certificate-renewal-or-window" | null;
   title: string;
   summary: string;
+  severity: "warning" | "critical";
+  createdAt: string;
   fullHref: string | null;
   batchId: string | null;
   productName: string | null;
@@ -44,20 +46,39 @@ export function ReconcileClient({ initialItems }: { initialItems: Item[] }) {
     );
   }
 
+  const groups = items.reduce<Array<{ kind: string; title: string; items: Item[] }>>((all, item) => {
+    const existing = all.find((group) => group.kind === item.kind);
+    if (existing) existing.items.push(item);
+    else all.push({ kind: item.kind, title: item.title, items: [item] });
+    return all;
+  }, []);
+
   return (
-    <ol className="mt-6 grid gap-4" data-testid="reconcile-list">
-      {items.map((item) => (
-        <li key={item.alertId}>
-          {item.action === "delivery-cost" ? (
-            <DeliveryCostCard item={item} onDone={() => clear(item.alertId)} />
-          ) : item.action === "waste-reason" ? (
-            <WasteReasonCard item={item} onDone={() => clear(item.alertId)} />
-          ) : (
-            <LinkOutCard item={item} />
-          )}
-        </li>
+    <div className="mt-6 grid gap-7" data-testid="reconcile-list">
+      {groups.map((group) => (
+        <section key={group.kind} data-testid={`owner-job-group-${group.kind}`}>
+          <div className="mb-3 flex items-baseline justify-between gap-3 px-1">
+            <h2 className="font-display text-xl font-semibold text-[var(--ink)]">{group.title}</h2>
+            <span className="text-sm font-bold text-[var(--muted)]">
+              {group.items.length} {group.items.length === 1 ? "job" : "jobs"}
+            </span>
+          </div>
+          <ol className="grid gap-4">
+            {group.items.map((item) => (
+              <li key={item.alertId}>
+                {item.action === "inline-cost" ? (
+                  <DeliveryCostCard item={item} onDone={() => clear(item.alertId)} />
+                ) : item.action === "confirm-reason" ? (
+                  <WasteReasonCard item={item} onDone={() => clear(item.alertId)} />
+                ) : (
+                  <GeneralJobCard item={item} onDone={() => clear(item.alertId)} />
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
       ))}
-    </ol>
+    </div>
   );
 }
 
@@ -199,13 +220,63 @@ function WasteReasonCard({ item, onDone }: { item: Item; onDone: () => void }) {
   );
 }
 
-function LinkOutCard({ item }: { item: Item }) {
+function GeneralJobCard({ item, onDone }: { item: Item; onDone: () => void }) {
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function resolve() {
+    setError(null);
+    start(async () => {
+      const res = await resolveOwnerAlert({ alertId: item.alertId, note });
+      if (!res.ok) {
+        setError(res.message);
+        return;
+      }
+      onDone();
+    });
+  }
+
   return (
-    <Shell icon={<ArrowUpRight className="h-5 w-5" aria-hidden />} title={item.title}>
+    <Shell
+      icon={item.severity === "critical" ? <AlertTriangle className="h-5 w-5" aria-hidden /> : <ClipboardCheck className="h-5 w-5" aria-hidden />}
+      title={item.title}
+    >
+      {item.severity === "critical" ? (
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--clay)]">Urgent</p>
+      ) : null}
       <p className="text-sm font-medium text-[var(--muted)]">{item.summary}</p>
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <FullDetails href={item.fullHref} />
+        <span className="text-xs font-medium text-[var(--faint)]">
+          Raised {new Date(item.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+        </span>
       </div>
+      {item.autoResolve ? (
+        <p className="mt-4 text-sm font-semibold text-[var(--brand)]">
+          Complete the linked work. This job will clear automatically.
+        </p>
+      ) : (
+        <>
+      <label className="mt-4 block">
+        <span className="mb-1.5 block text-xs font-semibold text-[var(--muted)]">What did you do?</span>
+        <textarea
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          rows={2}
+          maxLength={500}
+          disabled={pending}
+          className="w-full rounded-xl border border-[var(--line)] bg-white p-3 text-sm outline-none focus:border-[var(--brand)]"
+          data-testid={`owner-job-note-${item.alertId}`}
+        />
+      </label>
+      <Button type="button" className="mt-3" onClick={resolve} disabled={pending} data-testid={`owner-job-resolve-${item.alertId}`}>
+        <Check className="mr-1.5 h-4 w-4" aria-hidden />
+        {pending ? "Saving…" : "Resolve with note"}
+      </Button>
+        </>
+      )}
+      {error && <p className="mt-3 text-sm font-semibold text-[var(--clay)]">{error}</p>}
     </Shell>
   );
 }

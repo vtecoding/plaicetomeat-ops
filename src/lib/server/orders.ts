@@ -8,7 +8,7 @@ import { log } from "@/lib/server/observability/log";
 import { incrementMetric, noteRpcFault } from "@/lib/server/observability/metrics";
 import { checkRateLimit, clientNetworkHash } from "@/lib/server/rate-limit";
 import { allowDemoFallback } from "@/lib/server/runtime-truth";
-import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 import { createCheckoutSchema, mergeCheckoutBasketItems, type CheckoutInput } from "@/lib/validation/checkout";
 
 type CheckoutResult =
@@ -25,20 +25,31 @@ type CheckoutResult =
     };
 
 type OrderItemRow = {
-  id: string;
-  product_name_snapshot: string;
-  quantity: string | number;
+  source_order_item_id: string;
+  product_id: string | null;
+  product_name: string;
   unit_type: UnitType;
-  unit_price_snapshot: string | number;
-  line_total: string | number;
+  effective_quantity: string | number;
+  effective_unit_price_pence: number;
+  line_total_pence: number;
+  original_product_id: string | null;
+  original_product_name: string;
+  original_unit_type: UnitType;
+  original_quantity: string | number;
+  original_unit_price_pence: number;
+  original_line_total_pence: number;
+  applied_sequence: number;
+  fold_sequence: number;
+  order_subtotal_pence: number;
+  is_removed: boolean;
 };
 
 type OrderRow = {
   id: string;
   branch_id: string;
   order_ref: string;
-  customer_name: string;
-  customer_phone: string;
+  customer_name: string | null;
+  customer_phone: string | null;
   customer_email: string | null;
   status: OrderStatus;
   pickup_window_id: string | null;
@@ -50,7 +61,6 @@ type OrderRow = {
   sms_failure_reason: string | null;
   is_test: boolean | null;
   created_at: string;
-  order_items?: OrderItemRow[];
 };
 
 const ORDER_SELECT = `
@@ -69,15 +79,7 @@ const ORDER_SELECT = `
   sms_status,
   sms_failure_reason,
   is_test,
-  created_at,
-  order_items (
-    id,
-    product_name_snapshot,
-    quantity,
-    unit_type,
-    unit_price_snapshot,
-    line_total
-  )
+  created_at
 `;
 
 /**
@@ -161,7 +163,12 @@ export async function getCounterOrdersResult(branchId: string, now = new Date())
   if (error) {
     return unavailable("Counter orders are temporarily unavailable.", [error.message]);
   }
-  const orders = (data as OrderRow[]).map(mapOrderRow);
+  const hydrated = await Promise.all((data as OrderRow[]).map((row) => hydrateEffectiveOrder(supabase, row)));
+  const failed = hydrated.find((entry) => entry.error);
+  if (failed?.error) {
+    return unavailable("Counter orders are temporarily unavailable.", [failed.error]);
+  }
+  const orders = hydrated.flatMap((entry) => (entry.order ? [entry.order] : []));
   return orders.length === 0 ? noData(orders, "No orders for this pickup date yet.") : healthy(orders);
 }
 
@@ -179,14 +186,18 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
     return allowDemoFallback() ? getDemoOrders().find((order) => order.id === orderId) ?? null : null;
   }
 
-  const supabase = createSupabaseServiceClient();
+  // Staff detail reads must retain the caller's JWT so orders/order-items and
+  // the effective-line fold are constrained by branch RLS. A service client
+  // here would turn knowledge of an order UUID into a cross-branch data leak.
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("orders").select(ORDER_SELECT).eq("id", orderId).maybeSingle();
 
   if (error || !data) {
     return null;
   }
 
-  return mapOrderRow(data as OrderRow);
+  const hydrated = await hydrateEffectiveOrder(supabase, data as OrderRow);
+  return hydrated.order;
 }
 
 // NOTE: getOrderByRef was removed in V11.1. The public order flow must never read
@@ -322,7 +333,22 @@ function toRpcBasketItem(item: BasketItem) {
   };
 }
 
-function mapOrderRow(row: OrderRow): Order {
+async function hydrateEffectiveOrder(
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  row: OrderRow,
+): Promise<{ order: Order | null; error?: string }> {
+  const { data, error } = await supabase.rpc("get_effective_order_lines_v18", {
+    p_order_id: row.id,
+    p_up_to_sequence: null,
+  });
+  if (error) {
+    return { order: null, error: error.message };
+  }
+  return { order: mapOrderRow(row, (data ?? []) as OrderItemRow[]) };
+}
+
+function mapOrderRow(row: OrderRow, lines: OrderItemRow[]): Order {
+  const subtotalPence = lines[0]?.order_subtotal_pence ?? 0;
   return {
     id: row.id,
     branchId: row.branch_id,
@@ -333,25 +359,36 @@ function mapOrderRow(row: OrderRow): Order {
     status: row.status,
     pickupWindowId: row.pickup_window_id,
     pickupDate: row.pickup_date,
-    subtotal: toNumber(row.subtotal),
+    // Never derive final money in TypeScript: PostgreSQL returns the folded subtotal.
+    subtotal: subtotalPence / 100,
     notes: row.notes,
     readySmsSentAt: row.ready_sms_sent_at,
     smsStatus: row.sms_status ?? null,
     smsFailureReason: row.sms_failure_reason,
     isTest: row.is_test ?? false,
     createdAt: row.created_at,
-    items: (row.order_items ?? []).map(mapOrderItemRow),
+    amendmentSequence: lines[0]?.fold_sequence ?? 0,
+    items: lines.map(mapOrderItemRow),
   };
 }
 
 function mapOrderItemRow(row: OrderItemRow): OrderItem {
   return {
-    id: row.id,
-    productNameSnapshot: row.product_name_snapshot,
-    quantity: toNumber(row.quantity),
+    id: row.source_order_item_id,
+    productId: row.product_id,
+    productNameSnapshot: row.product_name,
+    quantity: toNumber(row.effective_quantity),
     unitType: row.unit_type,
-    unitPriceSnapshot: toNumber(row.unit_price_snapshot),
-    lineTotal: toNumber(row.line_total),
+    unitPriceSnapshot: row.effective_unit_price_pence / 100,
+    lineTotal: row.line_total_pence / 100,
+    originalProductId: row.original_product_id,
+    originalProductName: row.original_product_name,
+    originalQuantity: toNumber(row.original_quantity),
+    originalUnitType: row.original_unit_type,
+    originalUnitPrice: row.original_unit_price_pence / 100,
+    originalLineTotal: row.original_line_total_pence / 100,
+    appliedSequence: row.applied_sequence,
+    isRemoved: row.is_removed,
   };
 }
 

@@ -38,6 +38,7 @@ function mapStatus(raw: Record<string, unknown>): PublicOrderStatus {
         name: String(item.name ?? ""),
         quantity: toNumber(item.quantity),
         unitType: String(item.unitType ?? ""),
+        unitPrice: toNumber(item.unitPrice),
         lineTotal: toNumber(item.lineTotal),
       };
     }),

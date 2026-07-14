@@ -18,6 +18,9 @@ app and these docs stay aligned — edit there and reflect the change here.
 | [Supplier compliance](supplier-compliance.md) | Keeping halal certificates current |
 | [Handling low stock](handling-low-stock.md) | Deciding what to re-order |
 | [Reading your briefing](reading-your-briefing.md) | Using the morning briefing |
+| [Resuming operator work](resuming-operator-work.md) | A serve, stock or waste flow was interrupted |
+| [Counter sales and untracked stock](counter-sales-and-untracked-stock.md) | Serving kg, each and box items without inventing stock |
+| [Owner alert delivery](owner-alert-delivery.md) | Phone delivery is missing, uncertain or failing |
 
 > Golden rule (V8.13): the system only ever *suggests*. It never changes stock,
 > prices, orders or costs by itself. You decide.

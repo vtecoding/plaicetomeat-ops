@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { emitAuditLog } from "@/lib/server/audit";
+import { composeOwnerDigest, getOwnerContact } from "@/lib/server/alert-dispatch";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
@@ -20,30 +20,42 @@ export async function setOwnerAwayMode(input: { ownerAway: boolean }): Promise<O
   if (!hasSupabaseServiceEnv()) return { ok: false, message: "Live database is not configured." };
 
   const supabase = createSupabaseServiceClient();
-  const now = new Date().toISOString();
-  const { error } = await supabase.from("branch_operator_settings").upsert(
-    {
-      branch_id: ctx.branchId,
-      owner_away: input.ownerAway,
-      away_since: input.ownerAway ? now : null,
-      updated_at: now,
-      updated_by: ctx.profile.id,
-    },
-    { onConflict: "branch_id" },
-  );
-
-  if (error) {
-    return { ok: false, message: "Could not update Owner Away Mode." };
+  let businessDate: string | null = null;
+  let target = "";
+  let payload: Record<string, unknown> = {};
+  if (input.ownerAway) {
+    const { data: date, error: dateError } = await supabase.rpc("branch_business_date", {
+      p_branch_id: ctx.branchId,
+      p_at: new Date().toISOString(),
+    });
+    if (dateError || !date) return { ok: false, message: "Could not prepare the first Owner Away update." };
+    businessDate = String(date);
+    try {
+      [target, payload] = await Promise.all([
+        getOwnerContact(ctx.branchId).then((value) => value ?? ""),
+        composeOwnerDigest(ctx.branchId, businessDate).then((message) => ({ message, business_date: businessDate })),
+      ]);
+    } catch {
+      return { ok: false, message: "Could not prepare the first Owner Away update." };
+    }
   }
 
-  await emitAuditLog({
-    eventType: "branch_settings_updated",
-    targetType: "branch_operator_settings",
-    targetId: ctx.branchId,
-    branchId: ctx.branchId,
-    metadata: { owner_away: input.ownerAway },
-    systemReason: "owner_away_mode",
+  const { data, error } = await supabase.rpc("set_owner_away_mode_with_digest_v18", {
+    p_branch_id: ctx.branchId,
+    p_owner_away: input.ownerAway,
+    p_updated_by: ctx.profile.id,
+    p_business_date: businessDate,
+    p_target: target,
+    p_payload: payload,
   });
+
+  const state = data as { owner_away?: boolean; away_since?: string | null; changed?: boolean; digest_id?: string | null } | null;
+  if (error || state?.owner_away !== input.ownerAway) {
+    return { ok: false, message: "Could not update Owner Away Mode." };
+  }
+  if (input.ownerAway && (!state.away_since || !state.digest_id)) {
+    return { ok: false, message: "Could not start Owner Away with its first phone update." };
+  }
 
   revalidateOwnerAway();
   return { ok: true, message: input.ownerAway ? "Owner Away is on." : "Owner Away is off." };

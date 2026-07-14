@@ -20,6 +20,6 @@ test.describe("admin no longer hosts a duplicate counter", () => {
 
     // It is the analysis hub.
     await expect(page.getByTestId("owner-dashboard")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Review the business" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Check the shop" })).toBeVisible();
   });
 });

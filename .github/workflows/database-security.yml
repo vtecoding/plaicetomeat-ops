@@ -34,3 +34,22 @@ jobs:
       - run: node scripts/verify-audit-authenticity.mjs
       - run: node scripts/verify-ops.mjs
       - run: node scripts/verify-ops-capture.mjs
+      - name: V18 truth and replay gates
+        run: |
+          corepack pnpm verify:payment-truth
+          corepack pnpm verify:inventory-policy
+          corepack pnpm verify:untracked-isolation
+          corepack pnpm verify:refund-truth
+          corepack pnpm verify:order-corrections
+          corepack pnpm verify:order-correction-concurrency
+          corepack pnpm verify:amendment-depletion
+          corepack pnpm verify:atomic-operator-serve
+          corepack pnpm verify:operator-run-completion
+          corepack pnpm verify:atomic-evidence
+          corepack pnpm verify:operator-drafts
+          corepack pnpm verify:alert-dispatch
+          corepack pnpm verify:owner-jobs
+          corepack pnpm verify:owner-away
+          corepack pnpm verify:shortfall-owner-alert
+          corepack pnpm verify:required-compliance
+          corepack pnpm verify:owner-alert-worker-runtime

@@ -17,11 +17,12 @@ import { useCallback, useMemo, useState } from "react";
 import { addOrderNote, collectOrderWithTender, getCounterSnapshot, updateOrderStatus } from "@/app/actions/counter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AmendOrderPanel, RefundOrderPanel } from "@/components/order-corrections";
 import { Textarea } from "@/components/ui/textarea";
 import { type CounterConnectionState, useCounterRealtime } from "@/lib/client/use-counter-realtime";
 import { getNextOrderActions } from "@/lib/domain/order-state";
 import { getSmsBadgeState, SMS_BADGE_LABELS, type SmsStatus } from "@/lib/domain/sms";
-import type { Order, OrderNote, OrderStatus, PickupWindow } from "@/lib/domain/types";
+import type { Order, OrderNote, OrderStatus, PickupWindow, Product } from "@/lib/domain/types";
 import { getOrderUrgency } from "@/lib/domain/urgency";
 import { cn, formatCurrency, formatRelativeTime, formatTimeRange } from "@/lib/utils";
 
@@ -35,7 +36,7 @@ const columns: { status: OrderStatus; label: string }[] = [
 const CONNECTION_META: Record<CounterConnectionState, { tone: "green" | "amber" | "red" | "neutral"; label: string }> = {
   connecting: { tone: "neutral", label: "Connecting…" },
   live: { tone: "green", label: "Live — new orders appear on their own" },
-  reconnecting: { tone: "amber", label: "Reconnecting…" },
+  reconnecting: { tone: "amber", label: "Auto-updates on — checking every 2s while reconnecting" },
   stale: { tone: "amber", label: "May be behind — tap Refresh" },
   failed: { tone: "red", label: "Not updating on its own — tap Refresh" },
   polling: { tone: "amber", label: "Checking for new orders every 15s" },
@@ -47,12 +48,16 @@ export function CounterDashboard({
   pickupWindows,
   branchId,
   realtimeMode,
+  products,
+  canManageRefunds,
 }: {
   initialOrders: Order[];
   initialNotes: Record<string, OrderNote[]>;
   pickupWindows: PickupWindow[];
   branchId: string;
   realtimeMode: "websocket" | "polling" | "auto";
+  products: Product[];
+  canManageRefunds: boolean;
 }) {
   const [orders, setOrders] = useState(initialOrders);
   const [notesByOrderId, setNotesByOrderId] = useState(initialNotes);
@@ -167,7 +172,7 @@ export function CounterDashboard({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#ded6ca] bg-white p-4">
         <div className="flex items-center gap-3">
-          <Badge tone={connection.tone}>
+          <Badge tone={connection.tone} data-testid="counter-connection" data-state={connectionState}>
             {connectionState === "live" ? (
               <Wifi className="mr-1 h-3 w-3" aria-hidden />
             ) : (
@@ -245,6 +250,9 @@ export function CounterDashboard({
                     onMove={handleMove}
                     onCollect={handleCollect}
                     onAddNote={handleAddNote}
+                    products={products}
+                    canManageRefunds={canManageRefunds}
+                    onAmended={(amended) => setOrders((current) => current.map((item) => item.id === amended.id ? amended : item))}
                   />
                 ))}
               </div>
@@ -264,6 +272,9 @@ function CounterOrderCard({
   onMove,
   onCollect,
   onAddNote,
+  products,
+  canManageRefunds,
+  onAmended,
 }: {
   order: Order;
   notes: OrderNote[];
@@ -272,6 +283,9 @@ function CounterOrderCard({
   onMove: (orderId: string, nextStatus: OrderStatus) => void;
   onCollect: (orderId: string, method: "cash" | "card") => void;
   onAddNote: (orderId: string, note: string) => Promise<string | null>;
+  products: Product[];
+  canManageRefunds: boolean;
+  onAmended: (order: Order) => void;
 }) {
   // V18 A1: collecting asks how the customer paid (one extra tap, D-1).
   const [choosingTender, setChoosingTender] = useState(false);
@@ -322,12 +336,17 @@ function CounterOrderCard({
 
       <div className="mt-4 text-sm">
         <p className="font-semibold">
-          {order.items.length} item{order.items.length === 1 ? "" : "s"} - {formatCurrency(order.subtotal)}
+          {order.items.filter((item) => !item.isRemoved).length} item{order.items.filter((item) => !item.isRemoved).length === 1 ? "" : "s"} - {formatCurrency(order.subtotal)}
         </p>
         <ul className="mt-2 space-y-1 text-[#5c5148]">
           {order.items.map((item) => (
-            <li key={item.id}>
-              {item.quantity} {item.unitType} {item.productNameSnapshot}
+            <li key={item.id} className={item.isRemoved ? "text-[#8a7d70] line-through" : undefined}>
+              {item.isRemoved ? "Removed" : `${item.quantity} ${item.unitType} ${item.productNameSnapshot}`}
+              {(item.appliedSequence ?? 0) > 0 ? (
+                <span className="block text-xs no-underline">
+                  Ordered: {item.originalQuantity} {item.originalUnitType} {item.originalProductName}
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -335,6 +354,9 @@ function CounterOrderCard({
       </div>
 
       <StaffNotes notes={notes} orderId={order.id} onAddNote={onAddNote} />
+
+      {order.status === "ready" ? <AmendOrderPanel order={order} products={products} onSaved={onAmended} /> : null}
+      {order.status === "collected" && canManageRefunds ? <RefundOrderPanel order={order} /> : null}
 
       {order.status === "ready" && smsState !== "sent" && (
         <div

@@ -5,6 +5,7 @@ export const TEST_PASSWORD = "PlaiceTest123!";
 export const USERS = {
   owner: "owner@ptm.test",
   manager: "manager@ptm.test",
+  operator: "operator@ptm.test",
   staff: "staff@ptm.test",
   staffB: "staff.b@ptm.test",
   inactive: "inactive@ptm.test",

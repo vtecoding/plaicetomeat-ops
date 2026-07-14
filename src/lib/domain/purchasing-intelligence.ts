@@ -10,6 +10,8 @@
  * velocity from the depletion forecast, per-product waste, product performance),
  * so it adds no new data sources and no external calls.
  */
+import type { InventoryPolicy } from "@/lib/domain/types";
+
 export type PurchasingConfidence = "low" | "medium" | "high";
 
 const CONFIDENCE_ORDER: Record<PurchasingConfidence, number> = { low: 0, medium: 1, high: 2 };
@@ -37,6 +39,7 @@ export type PurchasingRecommendation = {
 
 export type DepletionRowInput = {
   productName: string;
+  inventoryPolicy?: InventoryPolicy;
   state: string;
   remainingWeightKg: number;
   daysUntilRunout: number | null;
@@ -45,6 +48,7 @@ export type DepletionRowInput = {
 
 export type ProductWasteInput = {
   productName: string;
+  inventoryPolicy?: InventoryPolicy;
   weeklyWasteValue: number;
   weeklyWasteKg: number;
 };
@@ -122,6 +126,7 @@ export function buildPurchasingRecommendations(input: {
 
   // Order LESS — waste risk (priority 3, shown before stock risk).
   for (const waste of input.productWaste) {
+    if (waste.inventoryPolicy === "untracked_manual") continue;
     if (lowConfidence.has(waste.productName.toLowerCase())) continue;
     if (waste.weeklyWasteValue < thresholds.wasteValueThreshold && waste.weeklyWasteKg < thresholds.wasteKgThreshold) {
       continue;
@@ -147,6 +152,7 @@ export function buildPurchasingRecommendations(input: {
 
   // Order MORE — stock risk (priority 4).
   for (const row of input.depletion) {
+    if (row.inventoryPolicy === "untracked_manual") continue;
     if (lowConfidence.has(row.productName.toLowerCase())) continue;
     if (row.state !== "enough_data" || row.daysUntilRunout === null || (row.dailyVelocityKg ?? 0) <= 0) {
       continue;
@@ -237,6 +243,7 @@ export function buildDataQuality(input: DataQualityInput): DataQuality {
 // ---------------------------------------------------------------------------
 export type ProductDataInput = {
   productName: string;
+  inventoryPolicy?: InventoryPolicy;
   isActive: boolean;
   pricePerUnit: number;
   hasCost: boolean;
@@ -257,7 +264,7 @@ export function buildProductsNeedingAttention(products: ProductDataInput[]): Pro
       if (!product.hasCost) issues.push("Add a cost price");
       if (!product.isActive) issues.push("Hidden from the shop");
       if (product.unitsSold <= 0) issues.push("No sales yet");
-      if (!product.hasStockInfo) issues.push("Add stock information");
+      if (product.inventoryPolicy !== "untracked_manual" && !product.hasStockInfo) issues.push("Add stock information");
       return { productName: product.productName, issues };
     })
     .filter((product) => product.issues.length > 0)

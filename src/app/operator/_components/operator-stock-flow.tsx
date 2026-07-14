@@ -4,8 +4,14 @@ import { useEffect, useMemo, useState, useTransition, type ReactNode } from "rea
 import Link from "next/link";
 import { ArrowLeft, Check, Pencil, Truck } from "lucide-react";
 
+import { abandonOperatorDraft } from "@/app/actions/operator/drafts";
 import { confirmSimpleDelivery, reportRanOut, tellOwnerAboutStock } from "@/app/actions/operator/delivery";
 import { uploadOperatorEvidence } from "@/app/actions/operator/evidence";
+import {
+  OperatorDraftPrompt,
+  OperatorDraftStatus,
+  useOperatorDraftSave,
+} from "@/app/operator/_components/operator-draft";
 import {
   hasConfidentSupplier,
   initialSelectionFromDefaults,
@@ -19,6 +25,7 @@ import {
   type ExpiryChoice,
   type StorageChoice,
 } from "@/lib/operator/workflows/stock";
+import { parseOperatorDraftSteps, type OperatorDraftRecord } from "@/lib/operator/workflows/drafts";
 
 type ProductOption = { id: string; name: string; unitType: string };
 type SupplierOption = { id: string; name: string };
@@ -37,15 +44,54 @@ type Mode =
   | "ranout-confirm"
   | "done";
 
+const RESUMABLE_MODES: readonly Mode[] = [
+  "delivery-product",
+  "delivery-amount",
+  "delivery-supplier",
+  "delivery-photo",
+  "delivery-storage",
+  "delivery-expiry",
+  "delivery-review",
+  "delivery-confirm",
+  "ranout-product",
+  "ranout-sure",
+  "ranout-confirm",
+];
+
+const LAST_SAVED_STEP: Record<Mode, string> = {
+  start: "",
+  "delivery-product": "What happened?",
+  "delivery-amount": "What arrived?",
+  "delivery-supplier": "How much arrived?",
+  "delivery-photo": "Who brought it?",
+  "delivery-storage": "Photo of the delivery note?",
+  "delivery-expiry": "Where did you put it?",
+  "delivery-review": "How much arrived?",
+  "delivery-confirm": "When does it go off?",
+  "ranout-product": "What happened?",
+  "ranout-sure": "What ran out?",
+  "ranout-confirm": "Are you sure it is empty?",
+  done: "",
+};
+
 export function OperatorStockFlow({
   products,
   suppliers,
   deliveryDefaults,
+  initialDraft,
 }: {
   products: ProductOption[];
   suppliers: SupplierOption[];
   deliveryDefaults: Record<string, DeliveryDefaults>;
+  initialDraft: OperatorDraftRecord | null;
 }) {
+  const resumable = useMemo(
+    () => initialDraft && parseOperatorDraftSteps(initialDraft.steps, "delivery", RESUMABLE_MODES),
+    [initialDraft],
+  );
+  const [showResumePrompt, setShowResumePrompt] = useState(Boolean(resumable));
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [runId, setRunId] = useState("");
   const [mode, setMode] = useState<Mode>("start");
   const [productId, setProductId] = useState<string | null>(null);
@@ -69,12 +115,71 @@ export function OperatorStockFlow({
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
-  }, []);
+    if (!showResumePrompt && !runId) setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+  }, [runId, showResumePrompt]);
 
   const product = useMemo(() => products.find((item) => item.id === productId) ?? null, [products, productId]);
   const supplier = useMemo(() => suppliers.find((item) => item.id === supplierId) ?? null, [suppliers, supplierId]);
   const unit = product?.unitType ?? "kg";
+  const draftSave = useOperatorDraftSave({
+    runId,
+    workflow: "delivery",
+    mode,
+    lastSavedStep: LAST_SAVED_STEP[mode],
+    answers: {
+      productId,
+      supplierId,
+      quantity,
+      notePhotoName,
+      noteEvidenceId,
+      storageChoice,
+      expiryChoice,
+      supplierSource,
+      storageSource,
+      expirySource,
+      returnToReview,
+      sureRanOut,
+    },
+    enabled: !showResumePrompt && mode !== "start" && mode !== "done",
+  });
+
+  function resumeDraft() {
+    if (!resumable || !initialDraft) return;
+    const answers = resumable.answers;
+    const savedStorage = STORAGE_CHOICES.find((choice) => choice.id === answers.storageChoice)?.id ?? null;
+    const savedExpiry = EXPIRY_CHOICES.find((choice) => choice.id === answers.expiryChoice)?.id ?? null;
+    setRunId(initialDraft.runId);
+    setMode(resumable.mode as Mode);
+    setProductId(typeof answers.productId === "string" ? answers.productId : null);
+    setSupplierId(typeof answers.supplierId === "string" ? answers.supplierId : null);
+    setQuantity(typeof answers.quantity === "string" ? answers.quantity : "");
+    setNotePhotoName(typeof answers.notePhotoName === "string" ? answers.notePhotoName : null);
+    setNoteEvidenceId(typeof answers.noteEvidenceId === "string" ? answers.noteEvidenceId : null);
+    setStorageChoice(savedStorage);
+    setExpiryChoice(savedExpiry);
+    setSupplierSource(typeof answers.supplierSource === "string" ? answers.supplierSource : null);
+    setStorageSource(typeof answers.storageSource === "string" ? answers.storageSource : null);
+    setExpirySource(typeof answers.expirySource === "string" ? answers.expirySource : null);
+    setReturnToReview(answers.returnToReview === true);
+    setSureRanOut(answers.sureRanOut !== false);
+    setDraftError(null);
+    setShowResumePrompt(false);
+    draftSave.markResumed();
+  }
+
+  async function startFresh() {
+    if (!initialDraft) return;
+    setDraftBusy(true);
+    setDraftError(null);
+    const result = await abandonOperatorDraft({ runId: initialDraft.runId, workflow: "delivery" });
+    setDraftBusy(false);
+    if (!result.ok) {
+      setDraftError(result.message);
+      return;
+    }
+    restart("start");
+    setShowResumePrompt(false);
+  }
 
   function restart(next: Mode) {
     setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
@@ -94,6 +199,7 @@ export function OperatorStockFlow({
     setSureRanOut(true);
     setResult(null);
     setError(null);
+    draftSave.reset();
   }
 
   // Pick the product, then seed the supplier/storage/expiry suggestion from its history.
@@ -217,6 +323,7 @@ export function OperatorStockFlow({
     formData.set("sourceType", "operator_workflow_run");
     formData.set("sourceId", runId);
     formData.set("sourceRef", product?.name ?? "Delivery note");
+    formData.set("operationId", runId);
 
     const res = await uploadOperatorEvidence(formData);
     setPhotoSaving(false);
@@ -233,6 +340,18 @@ export function OperatorStockFlow({
   return (
     <div data-testid="operator-stock-flow">
       <TopLink />
+
+      {showResumePrompt && resumable ? (
+        <OperatorDraftPrompt
+          lastSavedStep={resumable.lastSavedStep}
+          onResume={resumeDraft}
+          onStartFresh={() => void startFresh()}
+          busy={draftBusy}
+          error={draftError}
+        />
+      ) : (
+        <>
+          <OperatorDraftStatus status={draftSave.status} />
 
       {mode === "start" && (
         <Panel title="What happened?">
@@ -396,6 +515,9 @@ export function OperatorStockFlow({
             Back to home
           </Link>
         </Panel>
+      )}
+
+        </>
       )}
 
       {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{error}</p> : null}

@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { emitAuditLog } from "@/lib/server/audit";
+import { alertSpecFor, canManuallyResolveAlert } from "@/lib/domain/alert-registry";
 import { resolveStaffContext } from "@/lib/server/staff-context";
-import { createSupabaseServerClient, createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
+import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
 type Result = { ok: true; message: string } | { ok: false; message: string };
 
@@ -18,31 +18,7 @@ function revalidateReconcile() {
   revalidatePath("/admin/today");
   revalidatePath("/admin");
   revalidatePath("/admin/inventory");
-}
-
-/**
- * Mark a reconciliation alert resolved. The alert ROW is preserved (resolved_at stamped,
- * never deleted) and the resolution is audited, so the trail stays intact. Scoped to an
- * OPEN alert of this branch — it can never resolve someone else's or a critical alert that
- * isn't in the tray's query.
- */
-async function resolveAlert(branchId: string, alertId: string): Promise<boolean> {
-  const supabase = createSupabaseServiceClient();
-  const { data } = await supabase
-    .from("owner_alerts")
-    .update({ resolved_at: new Date().toISOString() })
-    .eq("id", alertId)
-    .eq("branch_id", branchId)
-    .is("resolved_at", null)
-    .select("id")
-    .maybeSingle<{ id: string }>();
-  return Boolean(data?.id);
-}
-
-/** Undo a claim when the follow-on write fails, so the item returns to the tray. */
-async function reopenAlert(branchId: string, alertId: string): Promise<void> {
-  const supabase = createSupabaseServiceClient();
-  await supabase.from("owner_alerts").update({ resolved_at: null }).eq("id", alertId).eq("branch_id", branchId);
+  revalidatePath("/admin/away");
 }
 
 /**
@@ -63,33 +39,23 @@ export async function resolveDeliveryCost(input: {
   if (!Number.isFinite(cost) || cost <= 0) return { ok: false, message: "Enter the invoice cost." };
   const rounded = Math.round(cost * 100) / 100;
 
-  // Claim the alert FIRST (compare-and-swap on resolved_at). If it was already
-  // reconciled since the tray loaded — e.g. someone else added the cost — stop here and
-  // never silently overwrite. Same stale-update protection as the stock-count path.
-  const claimed = await resolveAlert(auth.branchId, input.alertId);
-  if (!claimed) return { ok: false, message: "This was already reconciled." };
-
-  // Only now write the cost, through the SECURITY DEFINER RPC under the manager's own JWT
-  // (auth.uid()) — the truth-table lock forbids a direct write. If the write fails, undo
-  // the claim so the item returns to the tray rather than vanishing with no cost saved.
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("admin_set_delivery_cost", {
+  // Cost, lifecycle resolution and both audit facts commit inside one locked DB
+  // transaction. A lost response can replay the exact cost; a stale/different
+  // value can never overwrite a cost another owner already saved.
+  const { error } = await createSupabaseServiceClient().rpc("resolve_delivery_cost_owner_job_v18", {
+    p_branch_id: auth.branchId,
+    p_actor_id: auth.profileId,
+    p_alert_id: input.alertId,
     p_batch_id: input.batchId,
     p_invoice_cost: rounded,
   });
   if (error) {
-    await reopenAlert(auth.branchId, input.alertId);
+    if (/already claimed/i.test(error.message)) return { ok: false, message: "Someone else is already doing this job." };
+    if (/changed|already resolved|no longer matches/i.test(error.message)) {
+      return { ok: false, message: "This delivery job changed. Refresh and check the saved cost." };
+    }
     return { ok: false, message: "Could not save the cost. Please try again." };
   }
-
-  await emitAuditLog({
-    eventType: "inventory_reconciliation_issue",
-    targetType: "owner_alert",
-    targetId: input.alertId,
-    branchId: auth.branchId,
-    metadata: { resolved: true, kind: "operator_delivery_cost_pending", batchId: input.batchId, invoiceCost: rounded },
-    systemReason: "owner_reconcile",
-  });
 
   revalidateReconcile();
   return { ok: true, message: "Cost added." };
@@ -105,18 +71,62 @@ export async function confirmWasteReason(input: { alertId: string }): Promise<Re
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!hasSupabaseServiceEnv()) return { ok: false, message: "Try again." };
 
-  const ok = await resolveAlert(auth.branchId, input.alertId);
-  if (!ok) return { ok: false, message: "Already done." };
-
-  await emitAuditLog({
-    eventType: "inventory_reconciliation_issue",
-    targetType: "owner_alert",
-    targetId: input.alertId,
-    branchId: auth.branchId,
-    metadata: { resolved: true, kind: "operator_waste_reason_check", reviewed: true },
-    systemReason: "owner_reconcile",
+  const { error } = await createSupabaseServiceClient().rpc("resolve_owner_alert_lifecycle_v18", {
+    p_branch_id: auth.branchId,
+    p_actor_id: auth.profileId,
+    p_alert_id: input.alertId,
+    p_expected_kind: "operator_waste_reason_check",
+    p_resolution_note: "Waste reason reviewed and confirmed.",
   });
+  if (error) {
+    if (/already claimed/i.test(error.message)) return { ok: false, message: "Someone else is already doing this job." };
+    if (/already resolved/i.test(error.message)) return { ok: false, message: "Already done." };
+    return { ok: false, message: "Could not confirm this job. Please try again." };
+  }
 
   revalidateReconcile();
   return { ok: true, message: "Reviewed." };
+}
+
+/** Resolve any registry job that has no richer inline transaction. */
+export async function resolveOwnerAlert(input: { alertId: string; note: string }): Promise<Result> {
+  const auth = await requireManager();
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!hasSupabaseServiceEnv()) return { ok: false, message: "Try again." };
+
+  const note = input.note.trim().replace(/\s+/g, " ").slice(0, 500);
+  if (note.length < 2) return { ok: false, message: "Add a short note saying what you did." };
+
+  const supabase = createSupabaseServiceClient();
+  const { data: alert } = await supabase
+    .from("owner_alerts")
+    .select("kind")
+    .eq("id", input.alertId)
+    .eq("branch_id", auth.branchId)
+    .is("resolved_at", null)
+    .maybeSingle<{ kind: string }>();
+  if (!alert) return { ok: false, message: "Already done." };
+  const spec = alertSpecFor(alert.kind);
+  if (spec.action === "inline-cost" || spec.action === "confirm-reason") {
+    return { ok: false, message: "Use the job's own action to clear this." };
+  }
+  if (!canManuallyResolveAlert(alert.kind)) {
+    return { ok: false, message: "Complete the linked work. This job will clear automatically." };
+  }
+
+  const { error } = await supabase.rpc("resolve_owner_alert_lifecycle_v18", {
+    p_branch_id: auth.branchId,
+    p_actor_id: auth.profileId,
+    p_alert_id: input.alertId,
+    p_expected_kind: alert.kind,
+    p_resolution_note: note,
+  });
+  if (error) {
+    if (/already claimed/i.test(error.message)) return { ok: false, message: "Someone else is already doing this job." };
+    if (/already resolved/i.test(error.message)) return { ok: false, message: "Already done." };
+    return { ok: false, message: "Could not clear this job. Please try again." };
+  }
+
+  revalidateReconcile();
+  return { ok: true, message: "Job cleared." };
 }

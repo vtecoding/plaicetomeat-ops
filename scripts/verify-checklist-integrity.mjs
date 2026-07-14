@@ -146,7 +146,7 @@ async function invalidEvidenceRejected(manager) {
 
   const confirmPayload = await manager.rpc("ops_record_step", {
     p_session_id: sessionId,
-    p_step_key: "certs_visible",
+    p_step_key: "display_ready",
     p_state: "done",
     p_payload: { value: true },
     p_source: "verify",
@@ -159,7 +159,6 @@ async function validCompletionCreatesStableEvidence(manager) {
   const sessionId = await start(manager, "opening", 4);
   const steps = [
     ["fridge_temp", { value: 3.5 }],
-    ["certs_visible", {}],
     ["display_ready", {}],
     ["float_ready", { value: 120 }],
     ["open_sign", {}],
@@ -181,7 +180,7 @@ async function validCompletionCreatesStableEvidence(manager) {
   const complete = await manager.rpc("ops_complete_session", { p_session_id: sessionId, p_source: "verify" });
   const row = await sessionRow(sessionId);
   check("completed checklist succeeds after required evidence", !complete.error && complete.data === sessionId, complete.error?.message);
-  check("completed checklist stores definition metadata", row.definition_key === "opening" && Number(row.definition_version) === 1, JSON.stringify(row));
+  check("completed checklist stores definition metadata", row.definition_key === "opening" && Number(row.definition_version) === 2, JSON.stringify(row));
   check("completed checklist records actor/branch/timestamp", !!row.completed_by && row.branch_id === BRANCH_A && !!row.completed_at, JSON.stringify(row));
   check("completion audit emitted only after valid completion", (await auditCount(sessionId)) === beforeAudit + 1);
 }

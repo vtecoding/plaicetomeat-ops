@@ -1,12 +1,14 @@
-import type { Product } from "@/lib/domain/types";
+import type { Product, UnitType } from "@/lib/domain/types";
 
-export type ServeTileId = "chicken" | "lamb" | "beef" | "mutton" | "mince" | "steak" | "other";
+export type ServeTileId = string;
 
 export type ServeTile = {
   id: ServeTileId;
   label: string;
   productId: string | null;
   fallbackName: string;
+  unitType: UnitType;
+  pricePerUnit: number | null;
 };
 
 const TILE_ORDER: Array<{ id: ServeTileId; label: string; words: string[] }> = [
@@ -24,10 +26,11 @@ export const SERVE_AMOUNT_CHOICES = [
   { id: "2kg", label: "2kg", kg: 2 },
 ] as const;
 
+export const SERVE_COUNT_CHOICES = [1, 2, 3, 4, 5, 6] as const;
+
 function tileMatchValue(product: Product, words: string[]) {
-  // F6: Operator Serve is a weight (kg) flow — amounts are entered in grams/kg
-  // and priced per kg. each/box products must NEVER resolve to a serve tile, or
-  // "1kg" would charge price-per-each and move no stock. Exclude them outright.
+  // Familiar meat shortcuts stay weight choices. Counted catalogue items are
+  // appended as their own named tiles below.
   if (product.unitType !== "kg") return -1;
   const name = product.name.toLowerCase();
   const matched = words.some((word) => name.includes(word));
@@ -41,7 +44,7 @@ function tileMatchValue(product: Product, words: string[]) {
 }
 
 export function buildServeTiles(products: Product[]): ServeTile[] {
-  const tiles = TILE_ORDER.map((tile) => {
+  const weightTiles: ServeTile[] = TILE_ORDER.map((tile) => {
     const product = products
       .map((item) => ({ item, value: tileMatchValue(item, tile.words) }))
       .filter((match) => match.value >= 0)
@@ -52,8 +55,26 @@ export function buildServeTiles(products: Product[]): ServeTile[] {
       label: tile.label,
       productId: product?.id ?? null,
       fallbackName: product?.name ?? tile.label,
+      unitType: "kg",
+      pricePerUnit: product?.pricePerUnit ?? null,
     };
   });
 
-  return [...tiles, { id: "other", label: "Other", productId: null, fallbackName: "Other" }];
+  const countedTiles: ServeTile[] = products
+    .filter((product) => product.unitType === "each" || product.unitType === "box")
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+    .map((product) => ({
+      id: `product:${product.id}`,
+      label: product.name,
+      productId: product.id,
+      fallbackName: product.name,
+      unitType: product.unitType,
+      pricePerUnit: product.pricePerUnit,
+    }));
+
+  return [
+    ...weightTiles,
+    ...countedTiles,
+    { id: "other", label: "Other", productId: null, fallbackName: "Other", unitType: "kg", pricePerUnit: null },
+  ];
 }

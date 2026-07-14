@@ -26,6 +26,17 @@ describe("operations intelligence", () => {
     expect(result.valueAtRisk).toBe(142);
   });
 
+  it("keeps untracked products out of stock quantity, value and expiry maths", () => {
+    const result = buildExpiryCommandCentre([
+      { productName: "Chicken", inventoryPolicy: "kg_batch", remainingWeightKg: 2, valueAtRisk: 18, expiryDate: "2026-06-01", daysToExpiry: 0 },
+      { productName: "Eggs", inventoryPolicy: "untracked_manual", remainingWeightKg: 9999, valueAtRisk: 9999, expiryDate: "2026-05-01", daysToExpiry: -31 },
+    ]);
+
+    expect(result.expiresToday.map((item) => item.productName)).toEqual(["Chicken"]);
+    expect(result.expired).toEqual([]);
+    expect(result.valueAtRisk).toBe(18);
+  });
+
   it("builds waste intelligence for product and reason groups", () => {
     const result = buildWasteAnalytics(
       [
@@ -209,6 +220,39 @@ describe("operations intelligence", () => {
     );
 
     expect(result[0]).toMatchObject({ state: "enough_data", daysUntilRunout: 6 });
+  });
+
+  it("excludes untracked products from depletion while retaining their sales performance", () => {
+    const depletion = buildInventoryDepletionForecast(
+      [{
+        batchId: "legacy-eggs-batch",
+        productId: "eggs",
+        productName: "Eggs",
+        inventoryPolicy: "untracked_manual",
+        remainingWeightKg: 9999,
+        status: "active",
+        expiryDate: "2026-06-02",
+        daysToExpiry: 1,
+      }],
+      [
+        { productId: "eggs", quantity: 12, createdAt: "2026-05-30T10:00:00Z" },
+        { productId: "eggs", quantity: 12, createdAt: "2026-05-31T10:00:00Z" },
+        { productId: "eggs", quantity: 12, createdAt: "2026-06-01T10:00:00Z" },
+      ],
+      new Date("2026-06-01T12:00:00Z"),
+    );
+    const performance = buildProductPerformance([{
+      productId: "eggs",
+      productName: "Eggs",
+      unitsSold: 12,
+      unitsWasted: 0,
+      revenue: 30,
+      wasteValue: 0,
+      estimatedCost: 18,
+    }]);
+
+    expect(depletion).toEqual([]);
+    expect(performance.rows[0]).toMatchObject({ productName: "Eggs", unitsSold: 12, revenue: 30 });
   });
 
   it("forecasts supplier certificate health", () => {

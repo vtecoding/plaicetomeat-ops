@@ -53,6 +53,28 @@ describe("purchasing recommendations", () => {
     expect(recs).toHaveLength(0);
   });
 
+  it("never turns untracked quantities, cover or waste into buying advice", () => {
+    const recs = buildPurchasingRecommendations({
+      now: NOW,
+      productWaste: [{
+        productName: "Eggs",
+        inventoryPolicy: "untracked_manual",
+        weeklyWasteValue: 9999,
+        weeklyWasteKg: 9999,
+      }],
+      depletion: [{
+        productName: "Eggs",
+        inventoryPolicy: "untracked_manual",
+        state: "enough_data",
+        remainingWeightKg: 0.1,
+        daysUntilRunout: 1,
+        dailyVelocityKg: 999,
+      }],
+    });
+
+    expect(recs).toEqual([]);
+  });
+
   it("stays silent when there isn't enough sales history (no guessing)", () => {
     const recs = buildPurchasingRecommendations({
       now: NOW,
@@ -160,6 +182,22 @@ describe("products needing attention", () => {
     expect(result.map((p) => p.productName)).toEqual(["Broken Product", "No Cost"]);
     expect(result[0]?.issues).toContain("Add a sale price");
     expect(result[0]?.issues).toContain("Add a cost price");
+  });
+
+  it("does not ask for stock information on an untracked product", () => {
+    const result = buildProductsNeedingAttention([
+      {
+        productName: "Eggs",
+        inventoryPolicy: "untracked_manual",
+        isActive: true,
+        pricePerUnit: 3,
+        hasCost: true,
+        unitsSold: 12,
+        hasStockInfo: false,
+      },
+    ]);
+
+    expect(result).toEqual([]);
   });
 });
 

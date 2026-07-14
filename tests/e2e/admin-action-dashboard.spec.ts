@@ -10,12 +10,18 @@ test.describe("business insights hub (analysis only)", () => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
     await page.goto("/admin");
 
-    // Analysis content remains.
+    // The headline snapshot stays visible; deeper analysis and tools are
+    // deliberately compressed behind separate disclosure groups.
     await expect(page.getByRole("heading", { name: "What happened today?" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "What should I watch?" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Analysis tools" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "What stock do I have?" })).toBeVisible();
     await expect(page.getByTestId("metric-stock-risk")).toBeVisible();
+
+    const detail = page.getByRole("group", { name: "Shop detail" });
+    await detail.getByText("Open what to watch").click();
+    await expect(detail.getByRole("heading", { name: "What expires soon?" })).toBeVisible();
+
+    const tools = page.getByRole("group", { name: "Shop tools" });
+    await tools.getByText("Open buying, pricing and stock").click();
+    await expect(tools.getByRole("link", { name: "What stock do I have?" })).toBeVisible();
 
     // Operational boards now live on Today, not here.
     await expect(page.getByRole("heading", { name: "What needs attention?" })).toHaveCount(0);

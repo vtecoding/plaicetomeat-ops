@@ -12,7 +12,8 @@ function product(input: Partial<Product> & { id: string; name: string; unitType:
     slug: input.name.toLowerCase().replace(/\s+/g, "-"),
     description: null,
     unitType: input.unitType,
-    pricePerUnit: 10,
+    inventoryPolicy: input.inventoryPolicy ?? (input.unitType === "kg" ? "kg_batch" : "untracked_manual"),
+    pricePerUnit: input.pricePerUnit ?? 10,
     minOrderQuantity: 0.1,
     maxOrderQuantity: null,
     imageUrl: null,
@@ -24,49 +25,64 @@ function product(input: Partial<Product> & { id: string; name: string; unitType:
 }
 
 describe("buildServeTiles", () => {
-  it("maps simple tiles to kg products first", () => {
+  it("maps familiar weight shortcuts to kg products and their current prices", () => {
     const tiles = buildServeTiles([
-      product({ id: "whole", name: "Whole Chicken", unitType: "each", sortOrder: 1 }),
-      product({ id: "breast", name: "Chicken Breast Fillets", unitType: "kg", sortOrder: 9 }),
+      product({ id: "whole", name: "Whole Chicken", unitType: "each", sortOrder: 1, pricePerUnit: 6.5 }),
+      product({ id: "breast", name: "Chicken Breast Fillets", unitType: "kg", sortOrder: 9, pricePerUnit: 9 }),
       product({ id: "lamb", name: "Lamb Leg Steaks", unitType: "kg" }),
       product({ id: "steak", name: "Ribeye Steak", unitType: "kg" }),
     ]);
 
-    expect(tiles.find((tile) => tile.id === "chicken")).toMatchObject({ label: "Chicken", productId: "breast" });
-    expect(tiles.find((tile) => tile.id === "lamb")).toMatchObject({ label: "Lamb", productId: "lamb" });
-    expect(tiles.find((tile) => tile.id === "steak")).toMatchObject({ label: "Steak", productId: "steak" });
+    expect(tiles.find((tile) => tile.id === "chicken")).toMatchObject({
+      label: "Chicken",
+      productId: "breast",
+      unitType: "kg",
+      pricePerUnit: 9,
+    });
+    expect(tiles.find((tile) => tile.id === "lamb")?.productId).toBe("lamb");
+    expect(tiles.find((tile) => tile.id === "steak")?.productId).toBe("steak");
   });
 
-  it("keeps simple tiles even when no matching product exists", () => {
+  it("keeps simple weight tiles when no matching product exists", () => {
     const tiles = buildServeTiles([product({ id: "beef", name: "Beef Diced", unitType: "kg" })]);
 
     expect(tiles.find((tile) => tile.id === "mutton")).toMatchObject({
       label: "Mutton",
       productId: null,
       fallbackName: "Mutton",
+      unitType: "kg",
+      pricePerUnit: null,
     });
     expect(tiles.at(-1)).toMatchObject({ id: "other", label: "Other", productId: null });
   });
 
-  // F6 (T4): the weight flow must never resolve an each/box product to a tile.
-  it("never resolves an each/box product to a serve tile", () => {
+  it("adds explicit each and box catalogue tiles without mapping them to weight shortcuts", () => {
     const tiles = buildServeTiles([
-      product({ id: "whole", name: "Whole Chicken", unitType: "each" }),
-      product({ id: "boxbeef", name: "Beef Box", unitType: "box" }),
+      product({ id: "whole", name: "Whole Chicken", unitType: "each", pricePerUnit: 6.5 }),
+      product({ id: "boxbeef", name: "Beef Box", unitType: "box", pricePerUnit: 25 }),
     ]);
 
-    // Each/box products exist, but no tile is allowed to point at one.
     expect(tiles.find((tile) => tile.id === "chicken")?.productId).toBeNull();
     expect(tiles.find((tile) => tile.id === "beef")?.productId).toBeNull();
-    expect(tiles.every((tile) => tile.productId !== "whole" && tile.productId !== "boxbeef")).toBe(true);
+    expect(tiles.find((tile) => tile.productId === "whole")).toMatchObject({
+      label: "Whole Chicken",
+      unitType: "each",
+      pricePerUnit: 6.5,
+    });
+    expect(tiles.find((tile) => tile.productId === "boxbeef")).toMatchObject({
+      label: "Beef Box",
+      unitType: "box",
+      pricePerUnit: 25,
+    });
   });
 
-  it("prefers the kg product even when an each product matches the same word", () => {
+  it("prefers the kg product even when an each product matches the same shortcut", () => {
     const tiles = buildServeTiles([
       product({ id: "whole", name: "Whole Chicken", unitType: "each", sortOrder: 0 }),
       product({ id: "diced", name: "Chicken Diced", unitType: "kg", sortOrder: 9 }),
     ]);
 
     expect(tiles.find((tile) => tile.id === "chicken")?.productId).toBe("diced");
+    expect(tiles.find((tile) => tile.productId === "whole")?.id).toBe("product:whole");
   });
 });

@@ -11,6 +11,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 import type { SmsStatus } from "@/lib/domain/sms";
 
 export type UnitType = "kg" | "each" | "box";
+export type InventoryPolicy = "kg_batch" | "untracked_manual";
 export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
 export type PickupWindowType = "standard" | "commuter" | "weekend";
 export type ComplianceReadingType = "opening" | "midday" | "closing" | "ad_hoc";
@@ -50,6 +51,12 @@ export type Product = {
   slug: string;
   description: string | null;
   unitType: UnitType;
+  /**
+   * Whether this product participates in the kg batch ledger. Products marked
+   * `untracked_manual` remain sellable, but their availability is controlled by
+   * the catalogue's manual availability/stock-status fields only.
+   */
+  inventoryPolicy: InventoryPolicy;
   pricePerUnit: number;
   minOrderQuantity: number;
   maxOrderQuantity: number | null;
@@ -90,11 +97,21 @@ export type Basket = {
 
 export type OrderItem = {
   id: string;
+  /** Effective product after the authoritative SQL amendment fold. */
+  productId?: string | null;
   productNameSnapshot: string;
   quantity: number;
   unitType: UnitType;
   unitPriceSnapshot: number;
   lineTotal: number;
+  originalProductId?: string | null;
+  originalProductName?: string;
+  originalQuantity?: number;
+  originalUnitType?: UnitType;
+  originalUnitPrice?: number;
+  originalLineTotal?: number;
+  appliedSequence?: number;
+  isRemoved?: boolean;
 };
 
 export type Order = {
@@ -116,6 +133,8 @@ export type Order = {
   smsFailureReason?: string | null;
   isTest?: boolean;
   createdAt: string;
+  /** Global sequence frozen/rendered by get_effective_order_lines_v18. */
+  amendmentSequence?: number;
   items: OrderItem[];
 };
 

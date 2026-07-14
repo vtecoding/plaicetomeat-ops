@@ -25,6 +25,7 @@ export type PurchasingPlan = {
   dataQuality: DataQuality;
   recommendations: PurchasingRecommendation[];
   productsNeedingAttention: ProductNeedingAttention[];
+  untrackedProducts: Array<{ id: string; name: string; unitType: "kg" | "each" | "box" }>;
   supplierReadiness: SupplierReadiness;
   seasonalPrep: Array<{ name: string; daysUntil: number; dateConfidence: "fixed" | "estimated"; prepTasks: string[] }>;
   margin: {
@@ -44,7 +45,7 @@ async function getWeeklyWasteByProduct(
   branchId: string,
   now: Date,
   costByProduct: Map<string, number>,
-): Promise<Array<{ productName: string; weeklyWasteValue: number; weeklyWasteKg: number }>> {
+): Promise<Array<{ productName: string; inventoryPolicy: "kg_batch"; weeklyWasteValue: number; weeklyWasteKg: number }>> {
   if (!hasSupabaseServiceEnv()) return [];
 
   const weekStart = new Date(now.getTime() - 7 * 86_400_000).toISOString();
@@ -53,8 +54,9 @@ async function getWeeklyWasteByProduct(
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
       .from("inventory_waste_events")
-      .select("waste_kg, created_at, product:products!inner(id, name, branch_id), batch:inventory_batches(cost_per_kg)")
+      .select("waste_kg, created_at, product:products!inner(id, name, branch_id, inventory_policy), batch:inventory_batches(cost_per_kg)")
       .eq("product.branch_id", branchId)
+      .eq("product.inventory_policy", "kg_batch")
       .gte("created_at", weekStart);
 
     if (error || !data) return [];
@@ -62,7 +64,10 @@ async function getWeeklyWasteByProduct(
     const byProduct = new Map<string, { weeklyWasteValue: number; weeklyWasteKg: number }>();
     for (const row of data as Array<{
       waste_kg: string | number;
-      product: { id: string; name: string | null } | { id: string; name: string | null }[] | null;
+      product:
+        | { id: string; name: string | null; inventory_policy: "kg_batch" | "untracked_manual" }
+        | { id: string; name: string | null; inventory_policy: "kg_batch" | "untracked_manual" }[]
+        | null;
       batch: { cost_per_kg: string | number | null } | { cost_per_kg: string | number | null }[] | null;
     }>) {
       const product = Array.isArray(row.product) ? row.product[0] : row.product;
@@ -78,6 +83,7 @@ async function getWeeklyWasteByProduct(
 
     return [...byProduct.entries()].map(([productName, value]) => ({
       productName,
+      inventoryPolicy: "kg_batch" as const,
       weeklyWasteValue: Math.round(value.weeklyWasteValue * 100) / 100,
       weeklyWasteKg: Math.round(value.weeklyWasteKg * 1000) / 1000,
     }));
@@ -103,6 +109,8 @@ export async function getPurchasingPlan(branchId: string, now = new Date()): Pro
     .map((row) => row.productName);
 
   const weightedBatchCostMap = buildWeightedBatchCostMap(batches);
+  const countedProducts = products.filter((product) => product.inventoryPolicy === "kg_batch");
+  const untrackedProducts = products.filter((product) => product.inventoryPolicy === "untracked_manual");
   const costByProduct = new Map<string, number>();
   const productIdsWithStock = new Set<string>();
   for (const batch of batches) {
@@ -125,7 +133,7 @@ export async function getPurchasingPlan(branchId: string, now = new Date()): Pro
 
   const missingCostCount = products.filter((product) => !costByProduct.has(product.id)).length;
   const missingPriceCount = products.filter((product) => !(product.pricePerUnit > 0)).length;
-  const missingStockInfoCount = products.filter((product) => !productIdsWithStock.has(product.id)).length;
+  const missingStockInfoCount = countedProducts.filter((product) => !productIdsWithStock.has(product.id)).length;
   const expiredCertificateCount = intelligence.compliance.rows.filter(
     (row) => row.daysToExpiry !== null && row.daysToExpiry < 0,
   ).length;
@@ -145,6 +153,7 @@ export async function getPurchasingPlan(branchId: string, now = new Date()): Pro
     confidenceCap: dataQuality.confidenceCap,
     depletion: intelligence.depletion.map((row) => ({
       productName: row.productName,
+      inventoryPolicy: row.inventoryPolicy,
       state: row.state,
       remainingWeightKg: row.remainingWeightKg,
       daysUntilRunout: row.daysUntilRunout,
@@ -157,6 +166,7 @@ export async function getPurchasingPlan(branchId: string, now = new Date()): Pro
   const productsNeedingAttention = buildProductsNeedingAttention(
     products.map((product) => ({
       productName: product.name,
+      inventoryPolicy: product.inventoryPolicy,
       isActive: product.isAvailable,
       pricePerUnit: product.pricePerUnit,
       hasCost: costByProduct.has(product.id),
@@ -189,6 +199,11 @@ export async function getPurchasingPlan(branchId: string, now = new Date()): Pro
     dataQuality,
     recommendations,
     productsNeedingAttention,
+    untrackedProducts: untrackedProducts.map((product) => ({
+      id: product.id,
+      name: product.name,
+      unitType: product.unitType,
+    })),
     supplierReadiness,
     seasonalPrep,
     margin: deriveMargin(intelligence),

@@ -9,12 +9,14 @@ import {
   updateProduct,
   updateProductAvailability,
   updateProductPrice,
+  updateProductStockCounting,
   type AdminProductResult,
 } from "@/app/actions/admin-products";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { isStockCountedProduct, STOCK_NOT_COUNTED_LABEL } from "@/lib/domain/inventory-policy";
 import type { Product, ProductCategory } from "@/lib/domain/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -121,6 +123,7 @@ function AddProductForm({
   const [unitType, setUnitType] = useState<string>("each");
   const [categoryId, setCategoryId] = useState<string>("");
   const [description, setDescription] = useState("");
+  const [stockCounted, setStockCounted] = useState(true);
 
   function submit() {
     startTransition(async () => {
@@ -131,12 +134,14 @@ function AddProductForm({
         unitType,
         categoryId: categoryId || null,
         description: description || null,
+        stockCounted,
       });
       onResult(result);
       if (result.ok) {
         setName("");
         setPrice("");
         setDescription("");
+        setStockCounted(true);
       }
     });
   }
@@ -190,10 +195,26 @@ function AddProductForm({
           </Select>
         </label>
       </div>
-      <label className="grid gap-1 text-sm font-semibold">
-        Description
-        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />
-      </label>
+        <label className="grid gap-1 text-sm font-semibold">
+          Description
+          <Textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />
+        </label>
+        {unitType === "kg" ? (
+          <label className="flex min-h-12 items-center gap-3 rounded-md bg-[#f7f3ed] p-3 text-sm font-semibold text-[#5c5148]">
+            <input
+              type="checkbox"
+              checked={!stockCounted}
+              onChange={(event) => setStockCounted(!event.target.checked)}
+              data-testid="new-product-untracked-kg"
+              className="h-5 w-5"
+            />
+            Do not count stock for this kg product
+          </label>
+        ) : (
+          <p className="rounded-md bg-[#f7f3ed] p-3 text-sm text-[#5c5148]">
+            <strong>{STOCK_NOT_COUNTED_LABEL}.</strong> Customer availability stays under the manual controls on the product.
+          </p>
+        )}
       <div className="flex justify-end">
         <Button type="submit" data-testid="new-product-submit" disabled={isPending}>
           {isPending ? "Creating…" : "Create product"}
@@ -259,6 +280,16 @@ function ProductRow({
     });
   }
 
+  function changeStockCounting(nextCounted: boolean) {
+    if (!nextCounted && !globalThis.confirm("Stop counting stock for this product? Existing batch history stays saved but leaves stock, expiry and buying totals.")) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await updateProductStockCounting({ productId: product.id, stockCounted: nextCounted });
+      onResult(result);
+    });
+  }
+
   return (
     <article
       data-testid="product-row"
@@ -271,6 +302,11 @@ function ProductRow({
       <div className="flex flex-wrap items-center gap-3 text-sm text-[#6c5e52]">
         <span className="font-bold text-[#241f1a]">{formatCurrency(product.pricePerUnit)}</span>
         <span>per {product.unitType}</span>
+        {!isStockCountedProduct(product) ? (
+          <span className="rounded-full bg-[#f7f3ed] px-3 py-1 text-xs font-bold text-[#6c5e52]" data-testid="product-stock-not-counted">
+            {STOCK_NOT_COUNTED_LABEL}
+          </span>
+        ) : null}
         <span
           data-testid="product-availability-state"
           className={
@@ -288,6 +324,25 @@ function ProductRow({
       >
         {editing ? "Close edit controls" : "Open edit controls"}
       </button>
+      {product.unitType === "kg" ? (
+        <div className="mt-3 rounded-lg border border-[#ded6ca] bg-[#fbfaf7] p-3 text-sm text-[#5c5148]">
+          <p>
+            {isStockCountedProduct(product)
+              ? "This product is included in stock, expiry and buying totals."
+              : "This product sells normally, but its stock is not counted."}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3"
+            disabled={isPending}
+            data-testid="product-stock-counting-toggle"
+            onClick={() => changeStockCounting(!isStockCountedProduct(product))}
+          >
+            {isStockCountedProduct(product) ? "Stop counting stock" : "Turn stock counting on"}
+          </Button>
+        </div>
+      ) : null}
       {editing && (
         <div className="mt-4 rounded-lg border border-[#eee5d8] bg-[#fbfaf7] p-3">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -337,7 +392,7 @@ function ProductRow({
       <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-end gap-3">
           <label className="grid gap-1 text-sm font-semibold">
-            Stock status
+            {isStockCountedProduct(product) ? "Stock status" : "Customer availability (manual)"}
             <Select
               data-testid="product-stock-select"
               value={stockStatus}

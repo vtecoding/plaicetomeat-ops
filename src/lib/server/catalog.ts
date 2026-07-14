@@ -32,6 +32,7 @@ type ProductRow = {
   slug: string;
   description: string | null;
   unit_type: Product["unitType"];
+  inventory_policy: Product["inventoryPolicy"];
   price_per_unit: string | number;
   min_order_quantity: string | number | null;
   max_order_quantity: string | number | null;
@@ -52,7 +53,7 @@ type SettingsRow = {
 };
 
 const PRODUCT_SELECT =
-  "id, branch_id, category_id, name, slug, description, unit_type, price_per_unit, min_order_quantity, max_order_quantity, image_url, is_available, stock_status, requires_weight_confirmation, sort_order";
+  "id, branch_id, category_id, name, slug, description, unit_type, inventory_policy, price_per_unit, min_order_quantity, max_order_quantity, image_url, is_available, stock_status, requires_weight_confirmation, sort_order";
 
 function toNum(value: string | number | null, fallback = 0) {
   if (value === null) return fallback;
@@ -68,6 +69,7 @@ function mapProduct(row: ProductRow): Product {
     slug: row.slug,
     description: row.description,
     unitType: row.unit_type,
+    inventoryPolicy: row.inventory_policy,
     pricePerUnit: toNum(row.price_per_unit),
     minOrderQuantity: toNum(row.min_order_quantity, 0.5),
     maxOrderQuantity: row.max_order_quantity === null ? null : toNum(row.max_order_quantity),

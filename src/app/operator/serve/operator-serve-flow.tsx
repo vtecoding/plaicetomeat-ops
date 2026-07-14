@@ -4,29 +4,129 @@ import { useEffect, useMemo, useState, useTransition, type ReactNode } from "rea
 import Link from "next/link";
 import { ArrowLeft, Check, ShoppingBag } from "lucide-react";
 
+import { abandonOperatorDraft } from "@/app/actions/operator/drafts";
 import { saveSimpleSale } from "@/app/actions/operator/serve";
-import { SERVE_AMOUNT_CHOICES, type ServeTile } from "@/lib/operator/workflows/serve";
+import {
+  OperatorDraftPrompt,
+  OperatorDraftStatus,
+  useOperatorDraftSave,
+} from "@/app/operator/_components/operator-draft";
+import type { UnitType } from "@/lib/domain/types";
+import { parseOperatorDraftSteps, type OperatorDraftRecord } from "@/lib/operator/workflows/drafts";
+import {
+  SERVE_AMOUNT_CHOICES,
+  SERVE_COUNT_CHOICES,
+  type ServeTile,
+} from "@/lib/operator/workflows/serve";
+import {
+  expectedServeLineTotal,
+  formatServeLineName,
+  formatServeMoney,
+  formatServePresetLabel,
+  roundServeMoney,
+  savedServeTotalMessage,
+} from "@/lib/operator/workflows/serve-presentation";
 
 type Line = {
   key: string;
   productId: string | null;
   name: string;
-  quantityKg: number;
+  quantity: number;
+  unitType: UnitType;
   label: string;
   priceGbp: number | null;
+  unitPriceGbp: number | null;
+  displayedTotalGbp: number;
 };
 
+type PendingLine = { quantity: number; label: string };
 type Mode = "buy" | "other-name" | "amount" | "other-amount" | "price" | "add-more" | "pay" | "confirm" | "done";
 type PayKind = "cash" | "card";
 
-export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
+const RESUMABLE_MODES: readonly Mode[] = ["buy", "other-name", "amount", "other-amount", "price", "add-more", "pay", "confirm"];
+const LAST_SAVED_STEP: Record<Mode, string> = {
+  buy: "Add more?",
+  "other-name": "What did they buy?",
+  amount: "Item chosen",
+  "other-amount": "How much?",
+  price: "How much?",
+  "add-more": "Item added",
+  pay: "Add more?",
+  confirm: "How did they pay?",
+  done: "",
+};
+
+function newRunId() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+}
+
+function isUnitType(value: unknown): value is UnitType {
+  return value === "kg" || value === "each" || value === "box";
+}
+
+function restoreLines(value: unknown): Line[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 12).flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    const quantity = Number(row.quantity ?? row.quantityKg);
+    const displayedTotalGbp = Number(row.displayedTotalGbp);
+    if (
+      typeof row.name !== "string" ||
+      !row.name.trim() ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !isUnitType(row.unitType) ||
+      typeof row.label !== "string" ||
+      !Number.isFinite(displayedTotalGbp) ||
+      displayedTotalGbp <= 0
+    ) return [];
+    const priceGbp = row.priceGbp == null ? null : Number(row.priceGbp);
+    const unitPriceGbp = row.unitPriceGbp == null ? null : Number(row.unitPriceGbp);
+    return [{
+      key: typeof row.key === "string" ? row.key : newRunId(),
+      productId: typeof row.productId === "string" ? row.productId : null,
+      name: row.name.slice(0, 80),
+      quantity,
+      unitType: row.unitType,
+      label: row.label.slice(0, 30),
+      priceGbp: priceGbp != null && Number.isFinite(priceGbp) ? priceGbp : null,
+      unitPriceGbp: unitPriceGbp != null && Number.isFinite(unitPriceGbp) ? unitPriceGbp : null,
+      displayedTotalGbp,
+    }];
+  });
+}
+
+function restorePending(value: unknown): PendingLine | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const quantity = Number(row.quantity);
+  return Number.isFinite(quantity) && quantity > 0 && typeof row.label === "string"
+    ? { quantity, label: row.label.slice(0, 30) }
+    : null;
+}
+
+export function OperatorServeFlow({
+  tiles,
+  initialDraft,
+}: {
+  tiles: ServeTile[];
+  initialDraft: OperatorDraftRecord | null;
+}) {
+  const resumable = useMemo(
+    () => initialDraft && parseOperatorDraftSteps(initialDraft.steps, "serve", RESUMABLE_MODES),
+    [initialDraft],
+  );
+  const [showResumePrompt, setShowResumePrompt] = useState(Boolean(resumable));
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [runId, setRunId] = useState("");
   const [mode, setMode] = useState<Mode>("buy");
   const [picked, setPicked] = useState<ServeTile | null>(null);
   const [otherName, setOtherName] = useState("");
-  const [grams, setGrams] = useState("");
+  const [amountDigits, setAmountDigits] = useState("");
   const [pounds, setPounds] = useState("");
-  const [pending, setPending] = useState<{ quantityKg: number; label: string } | null>(null);
+  const [pending, setPending] = useState<PendingLine | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [payKind, setPayKind] = useState<PayKind>("cash");
   const [result, setResult] = useState<string | null>(null);
@@ -34,76 +134,150 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
-  }, []);
+    if (!showResumePrompt && !runId) setRunId(newRunId());
+  }, [runId, showResumePrompt]);
 
+  const displayedTotal = useMemo(
+    () => roundServeMoney(lines.reduce((sum, line) => sum + line.displayedTotalGbp, 0)),
+    [lines],
+  );
   const summary = useMemo(
-    () =>
-      lines.map((line) =>
-        line.priceGbp != null ? `${line.name} ${line.label} — £${line.priceGbp.toFixed(2)}` : `${line.name} ${line.label}`,
-      ),
+    () => lines.map((line) => `${formatServeLineName(line.name, line.quantity, line.unitType, line.label)} — ${formatServeMoney(line.displayedTotalGbp)}`),
     [lines],
   );
 
+  const draftSave = useOperatorDraftSave({
+    runId,
+    workflow: "serve",
+    mode,
+    lastSavedStep: LAST_SAVED_STEP[mode],
+    answers: {
+      pickedId: picked?.id ?? null,
+      otherName,
+      amountDigits,
+      pounds,
+      pending,
+      lines,
+      payKind,
+    },
+    enabled: !showResumePrompt && mode !== "done" && (mode !== "buy" || lines.length > 0),
+  });
+
+  function resumeDraft() {
+    if (!resumable || !initialDraft) return;
+    const answers = resumable.answers;
+    const savedLines = restoreLines(answers.lines);
+    const savedPicked = typeof answers.pickedId === "string"
+      ? tiles.find((tile) => tile.id === answers.pickedId) ?? null
+      : null;
+    let restoredMode = resumable.mode as Mode;
+    if (["amount", "other-amount", "price"].includes(restoredMode) && !savedPicked) {
+      restoredMode = savedLines.length > 0 ? "add-more" : "buy";
+    }
+
+    setRunId(initialDraft.runId);
+    setMode(restoredMode);
+    setPicked(savedPicked);
+    setOtherName(typeof answers.otherName === "string" ? answers.otherName.slice(0, 80) : "");
+    setAmountDigits(typeof answers.amountDigits === "string" ? answers.amountDigits.slice(0, 5) : "");
+    setPounds(typeof answers.pounds === "string" ? answers.pounds.slice(0, 7) : "");
+    setPending(restorePending(answers.pending));
+    setLines(savedLines);
+    setPayKind(answers.payKind === "card" ? "card" : "cash");
+    setDraftError(null);
+    setShowResumePrompt(false);
+    draftSave.markResumed();
+  }
+
+  async function startFresh() {
+    if (!initialDraft) return;
+    setDraftBusy(true);
+    setDraftError(null);
+    const closeResult = await abandonOperatorDraft({ runId: initialDraft.runId, workflow: "serve" });
+    setDraftBusy(false);
+    if (!closeResult.ok) {
+      setDraftError(closeResult.message);
+      return;
+    }
+    setRunId(newRunId());
+    setShowResumePrompt(false);
+    draftSave.reset();
+  }
+
   function restart() {
-    setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+    setRunId(newRunId());
     setMode("buy");
     setPicked(null);
     setOtherName("");
-    setGrams("");
+    setAmountDigits("");
     setPounds("");
     setPending(null);
     setLines([]);
     setPayKind("cash");
     setResult(null);
     setError(null);
+    draftSave.reset();
   }
 
   function choose(tile: ServeTile) {
     setPicked(tile);
     setOtherName(tile.id === "other" ? "" : tile.fallbackName);
+    setError(null);
     setMode(tile.id === "other" ? "other-name" : "amount");
   }
 
-  // After an amount is chosen: a matched catalogue product is priced for us and
-  // finalises straight away; a custom line (no product) must go through the price
-  // step first so it can never be saved at £0 (F5).
-  function pickAmount(quantityKg: number, label: string) {
+  function pickAmount(quantity: number, label: string) {
     if (picked?.productId) {
-      commitLine(quantityKg, label, null);
+      commitLine(quantity, label, null);
       return;
     }
-    setPending({ quantityKg, label });
+    setPending({ quantity, label });
     setPounds("");
     setError(null);
     setMode("price");
   }
 
-  function commitLine(quantityKg: number, label: string, priceGbp: number | null) {
-    const name = picked?.productId ? picked.label : otherName.trim() || picked?.fallbackName || "Other";
+  function commitLine(quantity: number, label: string, priceGbp: number | null) {
+    const name = picked?.productId ? picked.fallbackName : otherName.trim() || picked?.fallbackName || "Other";
+    const unitPriceGbp = picked?.productId ? picked.pricePerUnit : null;
+    const displayedTotalGbp = unitPriceGbp != null
+      ? expectedServeLineTotal(quantity, unitPriceGbp)
+      : roundServeMoney(priceGbp ?? 0);
     setLines((items) => [
       ...items,
       {
-        key: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+        key: newRunId(),
         productId: picked?.productId ?? null,
         name,
-        quantityKg,
+        quantity,
+        unitType: picked?.unitType ?? "kg",
         label,
         priceGbp,
+        unitPriceGbp,
+        displayedTotalGbp,
       },
     ]);
     setPicked(null);
     setOtherName("");
-    setGrams("");
+    setAmountDigits("");
     setPounds("");
     setPending(null);
     setMode("add-more");
   }
 
   function addOtherAmount() {
-    const value = Number(grams);
-    if (!Number.isFinite(value) || value <= 0) {
-      setError("Try again.");
+    const value = Number(amountDigits);
+    if (picked?.unitType === "each" || picked?.unitType === "box") {
+      if (!Number.isInteger(value) || value < 1 || value > 99) {
+        setError("Enter a whole number from 1 to 99.");
+        return;
+      }
+      setError(null);
+      pickAmount(value, String(value));
+      return;
+    }
+    if (!Number.isFinite(value) || value <= 0 || value > 50_000) {
+      setError("Enter a valid weight.");
       return;
     }
     setError(null);
@@ -112,35 +286,40 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
 
   function addPrice() {
     const value = Number(pounds);
-    if (!pending || !Number.isFinite(value) || value <= 0) {
+    if (!pending || !Number.isFinite(value) || value <= 0 || value > 1000) {
       setError("Enter the price.");
       return;
     }
     setError(null);
-    commitLine(pending.quantityKg, pending.label, Math.round(value * 100) / 100);
+    commitLine(pending.quantity, pending.label, roundServeMoney(value));
   }
 
   function save() {
     setError(null);
+    const totalBeforeSave = displayedTotal;
     startTransition(async () => {
-      const res = await saveSimpleSale({
+      const saveResult = await saveSimpleSale({
         runId,
         lines: lines.map((line) => ({
           productId: line.productId,
           name: line.name,
-          quantityKg: line.quantityKg,
+          quantity: line.quantity,
           priceGbp: line.priceGbp,
         })),
         payKind,
       });
-      if (!res.ok) {
-        setError(res.message);
+      if (!saveResult.ok) {
+        setError(saveResult.message);
         return;
       }
-      setResult(res.message);
+      const savedMessage = savedServeTotalMessage(totalBeforeSave, saveResult.totalGbp);
+      setResult(saveResult.needsOwner ? `${savedMessage} Owner will check it.` : savedMessage);
       setMode("done");
     });
   }
+
+  const isCount = picked?.unitType === "each" || picked?.unitType === "box";
+  const amountTitle = picked?.unitType === "box" ? "How many boxes?" : picked?.unitType === "each" ? "How many?" : "How much?";
 
   return (
     <div data-testid="operator-serve-flow">
@@ -149,115 +328,151 @@ export function OperatorServeFlow({ tiles }: { tiles: ServeTile[] }) {
         Go back
       </Link>
 
-      {mode === "buy" && (
-        <Panel title="What did they buy?">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {tiles.map((tile) => (
-              <BigButton key={tile.id} onClick={() => choose(tile)} label={tile.label} muted={!tile.productId && tile.id !== "other"} />
-            ))}
-          </div>
-        </Panel>
-      )}
+      {showResumePrompt && resumable ? (
+        <OperatorDraftPrompt
+          lastSavedStep={resumable.lastSavedStep}
+          onResume={resumeDraft}
+          onStartFresh={() => void startFresh()}
+          busy={draftBusy}
+          error={draftError}
+        />
+      ) : (
+        <>
+          <OperatorDraftStatus status={draftSave.status} />
 
-      {mode === "other-name" && (
-        <Panel title="What is it called?">
-          <input
-            value={otherName}
-            onChange={(event) => setOtherName(event.target.value)}
-            autoFocus
-            maxLength={80}
-            className="h-20 rounded-xl border-2 border-[var(--line)] bg-[var(--paper)] px-4 text-2xl font-semibold outline-none focus:border-[var(--brand)]"
-          />
-          <BigButton onClick={() => setMode("amount")} label="Next" disabled={otherName.trim().length < 2} />
-        </Panel>
-      )}
+          {mode === "buy" && (
+            <Panel title="What did they buy?">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {tiles.map((tile) => (
+                  <BigButton
+                    key={tile.id}
+                    onClick={() => choose(tile)}
+                    label={tile.label}
+                    muted={!tile.productId && tile.id !== "other"}
+                    testId={tile.productId ? `serve-product-${tile.productId}` : `serve-tile-${tile.id}`}
+                  />
+                ))}
+              </div>
+            </Panel>
+          )}
 
-      {mode === "amount" && (
-        <Panel title="How much?">
-          {SERVE_AMOUNT_CHOICES.map((choice) => (
-            <BigButton key={choice.id} onClick={() => pickAmount(choice.kg, choice.label)} label={choice.label} />
-          ))}
-          <BigButton onClick={() => setMode("other-amount")} label="Other amount" muted />
-        </Panel>
-      )}
-
-      {mode === "other-amount" && (
-        <Panel title="How much?">
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-center text-4xl font-semibold">
-            {grams || "0"}g
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "00"].map((digit) => (
-              <BigButton key={digit} onClick={() => setGrams((value) => `${value}${digit}`.slice(0, 5))} label={digit} />
-            ))}
-            <BigButton onClick={() => setGrams("")} label="Clear" muted />
-          </div>
-          <BigButton onClick={addOtherAmount} label="Next" disabled={Number(grams) <= 0} />
-        </Panel>
-      )}
-
-      {mode === "price" && (
-        <Panel title="How much did they pay?">
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-center text-4xl font-semibold">
-            £{pounds || "0"}
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map((digit) => (
-              <BigButton
-                key={digit}
-                onClick={() =>
-                  setPounds((value) => {
-                    if (digit === "." && value.includes(".")) return value;
-                    const next = `${value}${digit}`;
-                    return next.length <= 7 ? next : value;
-                  })
-                }
-                label={digit}
+          {mode === "other-name" && (
+            <Panel title="What is it called?">
+              <input
+                value={otherName}
+                onChange={(event) => setOtherName(event.target.value)}
+                autoFocus
+                maxLength={80}
+                className="h-20 rounded-xl border-2 border-[var(--line)] bg-[var(--paper)] px-4 text-2xl font-semibold outline-none focus:border-[var(--brand)]"
               />
-            ))}
-            <BigButton onClick={() => setPounds("")} label="Clear" muted />
-          </div>
-          <BigButton onClick={addPrice} label="Next" disabled={!(Number(pounds) > 0)} />
-        </Panel>
-      )}
+              <BigButton onClick={() => setMode("amount")} label="Next" disabled={otherName.trim().length < 2} />
+            </Panel>
+          )}
 
-      {mode === "add-more" && (
-        <Panel title="Add more?">
-          <Summary lines={summary} />
-          <BigButton onClick={() => setMode("buy")} label="Yes" />
-          <BigButton onClick={() => setMode("pay")} label="No" muted />
-        </Panel>
-      )}
+          {mode === "amount" && (
+            <Panel title={amountTitle}>
+              {isCount
+                ? SERVE_COUNT_CHOICES.map((count) => (
+                    <BigButton
+                      key={count}
+                      onClick={() => pickAmount(count, String(count))}
+                      label={formatServePresetLabel(String(count), count, picked?.pricePerUnit ?? null)}
+                      testId={`serve-count-${count}`}
+                    />
+                  ))
+                : SERVE_AMOUNT_CHOICES.map((choice) => (
+                    <BigButton
+                      key={choice.id}
+                      onClick={() => pickAmount(choice.kg, choice.label)}
+                      label={formatServePresetLabel(choice.label, choice.kg, picked?.pricePerUnit ?? null)}
+                      testId={`serve-weight-${choice.id}`}
+                    />
+                  ))}
+              <BigButton onClick={() => setMode("other-amount")} label={isCount ? "More" : "Other amount"} muted />
+            </Panel>
+          )}
 
-      {mode === "pay" && (
-        <Panel title="How did they pay?">
-          <BigButton onClick={() => { setPayKind("cash"); setMode("confirm"); }} label="Cash" />
-          <BigButton onClick={() => { setPayKind("card"); setMode("confirm"); }} label="Card" />
-        </Panel>
-      )}
+          {mode === "other-amount" && (
+            <Panel title={amountTitle}>
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-center text-4xl font-semibold">
+                {amountDigits || "0"}{isCount ? "" : "g"}
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ...(isCount ? [] : ["00"])].map((digit) => (
+                  <BigButton
+                    key={digit}
+                    onClick={() => setAmountDigits((value) => `${value}${digit}`.slice(0, isCount ? 2 : 5))}
+                    label={digit}
+                  />
+                ))}
+                <BigButton onClick={() => setAmountDigits("")} label="Clear" muted />
+              </div>
+              <BigButton onClick={addOtherAmount} label="Next" disabled={Number(amountDigits) <= 0} />
+            </Panel>
+          )}
 
-      {mode === "confirm" && (
-        <Panel title="Save this sale?">
-          <Summary lines={[...summary, `Paid by ${payKind}`]} />
-          <BigButton onClick={save} label="Save" busy={isPending || !runId} />
-          <BigButton onClick={() => setMode("pay")} label="Go back" muted />
-        </Panel>
-      )}
+          {mode === "price" && (
+            <Panel title="How much did they pay?">
+              <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-center text-4xl font-semibold">
+                £{pounds || "0"}
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map((digit) => (
+                  <BigButton
+                    key={digit}
+                    onClick={() => setPounds((value) => {
+                      if (digit === "." && value.includes(".")) return value;
+                      const next = `${value}${digit}`;
+                      return next.length <= 7 ? next : value;
+                    })}
+                    label={digit}
+                  />
+                ))}
+                <BigButton onClick={() => setPounds("")} label="Clear" muted />
+              </div>
+              <BigButton onClick={addPrice} label="Next" disabled={!(Number(pounds) > 0)} />
+            </Panel>
+          )}
 
-      {mode === "done" && (
-        <Panel title="Done">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand)] text-white">
-            <Check className="h-9 w-9" aria-hidden />
-          </div>
-          {result ? <p className="text-center text-lg font-semibold text-[var(--muted)]">{result}</p> : null}
-          <BigButton onClick={restart} label="Serve next person" />
-          <Link
-            href="/operator"
-            className="flex min-h-[64px] items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 text-lg font-semibold text-[var(--muted)]"
-          >
-            Go home
-          </Link>
-        </Panel>
+          {mode === "add-more" && (
+            <Panel title="Add more?">
+              <Summary lines={summary} total={displayedTotal} />
+              <BigButton onClick={() => setMode("buy")} label="Yes" />
+              <BigButton onClick={() => setMode("pay")} label="No" muted />
+            </Panel>
+          )}
+
+          {mode === "pay" && (
+            <Panel title="How did they pay?">
+              <BigButton onClick={() => { setPayKind("cash"); setMode("confirm"); }} label="Cash" />
+              <BigButton onClick={() => { setPayKind("card"); setMode("confirm"); }} label="Card" />
+            </Panel>
+          )}
+
+          {mode === "confirm" && (
+            <Panel title="Save this sale?">
+              <Summary lines={[...summary, `Paid by ${payKind}`]} total={displayedTotal} />
+              <BigButton onClick={save} label="Save" busy={isPending || !runId} />
+              <BigButton onClick={() => setMode("pay")} label="Go back" muted />
+            </Panel>
+          )}
+
+          {mode === "done" && (
+            <Panel title="Done">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand)] text-white">
+                <Check className="h-9 w-9" aria-hidden />
+              </div>
+              {result ? <p data-testid="serve-saved-total" className="text-center text-lg font-semibold text-[var(--muted)]">{result}</p> : null}
+              <BigButton onClick={restart} label="Serve next person" />
+              <Link
+                href="/operator"
+                className="flex min-h-[64px] items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 text-lg font-semibold text-[var(--muted)]"
+              >
+                Go home
+              </Link>
+            </Panel>
+          )}
+        </>
       )}
 
       {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{error}</p> : null}
@@ -277,12 +492,27 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function BigButton({ label, onClick, muted, disabled, busy }: { label: string; onClick: () => void; muted?: boolean; disabled?: boolean; busy?: boolean }) {
+function BigButton({
+  label,
+  onClick,
+  muted,
+  disabled,
+  busy,
+  testId,
+}: {
+  label: string;
+  onClick: () => void;
+  muted?: boolean;
+  disabled?: boolean;
+  busy?: boolean;
+  testId?: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled || busy}
+      data-testid={testId}
       className={[
         "flex min-h-[72px] w-full items-center justify-center rounded-2xl px-6 text-xl font-semibold transition active:scale-[0.99] disabled:opacity-50",
         muted ? "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]" : "bg-[var(--brand)] text-white",
@@ -293,14 +523,17 @@ function BigButton({ label, onClick, muted, disabled, busy }: { label: string; o
   );
 }
 
-function Summary({ lines }: { lines: string[] }) {
+function Summary({ lines, total }: { lines: string[]; total: number }) {
   return (
-    <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4">
-      {lines.map((line) => (
-        <p key={line} className="text-lg font-semibold text-[var(--ink)]">
+    <div data-testid="serve-line-summary" className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4">
+      {lines.map((line, index) => (
+        <p key={`${index}-${line}`} className="text-lg font-semibold text-[var(--ink)]">
           {line}
         </p>
       ))}
+      <p data-testid="serve-total" className="mt-3 border-t border-[var(--line)] pt-3 text-xl font-bold text-[var(--ink)]">
+        Total {formatServeMoney(total)}
+      </p>
     </div>
   );
 }

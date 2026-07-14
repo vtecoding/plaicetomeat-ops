@@ -269,7 +269,6 @@ async function main() {
     if (error) throw new Error(`step ${key}: ${error.message}`);
   }
   await step(openId, "fridge_temp", "done", { value: 4 });
-  await step(openId, "certs_visible", "done");
   await step(openId, "display_ready", "done");
   await step(openId, "float_ready", "done", { value: 50 });
   await step(openId, "open_sign", "done");

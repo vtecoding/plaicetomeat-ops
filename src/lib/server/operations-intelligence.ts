@@ -14,22 +14,22 @@ import {
   type ProductPerformanceInput,
 } from "@/lib/domain/operations-intelligence";
 import { buildWeightedBatchCostMap, resolveInventoryCost } from "@/lib/domain/cost-sources";
-import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 import { getDemoOrders } from "@/lib/data/demo";
 import { getProductCostMap } from "@/lib/server/catalog";
 import { buildProductMargins } from "@/lib/domain/margin-erosion";
 import { getAllProducts } from "@/lib/server/catalog";
 import { getInventoryBatches, getSuppliers } from "@/lib/server/compliance-inventory";
 import { allowDemoFallback } from "@/lib/server/runtime-truth";
+import { addBusinessCalendarDays, getBranchBusinessDate } from "@/lib/server/payment-truth";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
 export type OpsIntelligence = Awaited<ReturnType<typeof getOperationsIntelligence>>;
 
 type OrderHistoryRow = {
   id: string;
-  customer_name: string;
-  customer_phone: string;
-  subtotal: string | number;
+  customer_name: string | null;
+  customer_phone: string | null;
+  subtotal: number;
   status: string;
   is_test: boolean | null;
   created_at: string;
@@ -43,14 +43,49 @@ type OrderItemHistoryRow = {
   unit_type: string;
   unit_price_snapshot: string | number;
   line_total: string | number;
+  cost_quantity: string | number;
+  depletion_quantity: string | number;
   order: { status: string; is_test: boolean | null; created_at: string } | { status: string; is_test: boolean | null; created_at: string }[] | null;
+};
+
+type EffectiveOrderLineHistoryRow = {
+  order_id: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  order_status: string;
+  is_test: boolean;
+  order_created_at: string;
+  source_order_item_id: string;
+  product_id: string | null;
+  product_name: string;
+  unit_type: string;
+  effective_quantity: string | number;
+  effective_unit_price_pence: number;
+  line_total_pence: number;
+  order_subtotal_pence: number;
+  refunded_quantity: string | number;
+  refunded_amount_pence: number;
+  returned_quantity: string | number;
+  stock_returned_kg: string | number;
+  is_removed: boolean;
+};
+
+type PaymentHistoryRow = {
+  order_id: string;
+  direction: "sale" | "refund";
+  amount_pence: number;
+  business_date: string;
+  order: { is_test: boolean | null } | { is_test: boolean | null }[] | null;
 };
 
 type WasteHistoryRow = {
   reason: string;
   waste_kg: string | number;
   created_at: string;
-  product: { id: string; name: string | null } | { id: string; name: string | null }[] | null;
+  product:
+    | { id: string; name: string | null; inventory_policy: "kg_batch" | "untracked_manual" }
+    | { id: string; name: string | null; inventory_policy: "kg_batch" | "untracked_manual" }[]
+    | null;
   batch: { cost_per_kg: string | number | null } | { cost_per_kg: string | number | null }[] | null;
 };
 
@@ -74,7 +109,7 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
   // Margin erosion (the silent leak): each kg product's price vs its current/prior batch
   // cost. Pure detection happens in the action engine; here we just shape the inputs.
   const marginErosion = buildProductMargins(
-    products.filter((product) => product.unitType === "kg").map((product) => ({ id: product.id, name: product.name, pricePerKg: product.pricePerUnit })),
+    products.filter((product) => product.inventoryPolicy === "kg_batch").map((product) => ({ id: product.id, name: product.name, pricePerKg: product.pricePerUnit })),
     batches.map((batch) => ({ productId: batch.productId, costPerKg: batch.costPerKg, receivedDate: batch.receivedDate })),
   );
   const expiry = buildExpiryCommandCentre(
@@ -82,6 +117,7 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
       .filter((batch) => batch.status === "active")
       .map((batch) => ({
         productName: batch.productName,
+        inventoryPolicy: batch.inventoryPolicy,
         remainingWeightKg: batch.remainingWeightKg,
         valueAtRisk: batch.estimatedValueAtRisk,
         expiryDate: batch.expiryDate,
@@ -102,28 +138,34 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
   }
 
   const supabase = createSupabaseServiceClient();
-  const today = getLocalIsoDate(now);
-  const yesterday = getLocalIsoDate(new Date(now.getTime() - 86_400_000));
+  const today = await getBranchBusinessDate(branchId, now);
+  const yesterday = addBusinessCalendarDays(today, -1);
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
   const since = new Date(now);
   since.setUTCDate(since.getUTCDate() - 120);
+  const sinceBusinessDate = addBusinessCalendarDays(today, -120);
 
   const startOfDay = `${today}T00:00:00.000Z`;
-  const [{ data: orderRows, error: orderError }, { data: itemRows, error: itemError }, { data: wasteRows, error: wasteError }, { count: failedSmsToday }] = await Promise.all([
+  const [
+    { data: effectiveRows, error: effectiveError },
+    { data: paymentRows, error: paymentError },
+    { data: wasteRows, error: wasteError },
+    { count: failedSmsToday },
+  ] = await Promise.all([
+    supabase.rpc("get_branch_effective_order_lines_v18", {
+      p_branch_id: branchId,
+      p_since: since.toISOString(),
+    }),
     supabase
-      .from("orders")
-      .select("id, customer_name, customer_phone, subtotal, status, is_test, created_at")
+      .from("payment_events")
+      .select("order_id, direction, amount_pence, business_date, order:orders!inner(is_test)")
       .eq("branch_id", branchId)
-      .gte("created_at", since.toISOString()),
-    supabase
-      .from("order_items")
-      .select("order_id, product_id, product_name_snapshot, quantity, unit_type, unit_price_snapshot, line_total, order:orders(status, is_test, created_at)")
-      .eq("branch_id", branchId)
-      .gte("created_at", since.toISOString()),
+      .gte("business_date", sinceBusinessDate),
     supabase
       .from("inventory_waste_events")
-      .select("reason, waste_kg, created_at, product:products!inner(id, name, branch_id), batch:inventory_batches(cost_per_kg)")
+      .select("reason, waste_kg, created_at, product:products!inner(id, name, branch_id, inventory_policy), batch:inventory_batches(cost_per_kg)")
       .eq("product.branch_id", branchId)
+      .eq("product.inventory_policy", "kg_batch")
       .gte("created_at", monthStart),
     supabase
       .from("sms_log")
@@ -133,11 +175,74 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
       .gte("created_at", startOfDay),
   ]);
 
-  const orders = ((orderRows ?? []) as OrderHistoryRow[]).filter((order) => !order.is_test && order.status !== "cancelled");
-  const orderItems = ((itemRows ?? []) as OrderItemHistoryRow[]).filter((item) => {
-    const order = first(item.order);
-    return order && !order.is_test && order.status !== "cancelled";
-  });
+  const canonicalRows = (effectiveRows ?? []) as EffectiveOrderLineHistoryRow[];
+  const ordersById = new Map<string, OrderHistoryRow>();
+  for (const row of canonicalRows) {
+    ordersById.set(row.order_id, {
+      id: row.order_id,
+      customer_name: row.customer_name,
+      customer_phone: row.customer_phone,
+      subtotal: row.order_subtotal_pence / 100,
+      status: row.order_status,
+      is_test: row.is_test,
+      created_at: row.order_created_at,
+    });
+  }
+  const orders = [...ordersById.values()].filter((order) => !order.is_test && order.status !== "cancelled");
+  const realOrderIds = new Set(orders.map((order) => order.id));
+  const orderItems = canonicalRows
+    .filter((row) => realOrderIds.has(row.order_id) && !row.is_removed)
+    .map<OrderItemHistoryRow>((row) => {
+      const effectiveQuantity = toNum(row.effective_quantity);
+      return {
+        order_id: row.order_id,
+        product_id: row.product_id,
+        product_name_snapshot: row.product_name,
+        quantity: Math.max(0, effectiveQuantity - toNum(row.refunded_quantity)),
+        cost_quantity: Math.max(0, effectiveQuantity - toNum(row.returned_quantity)),
+        depletion_quantity: Math.max(0, effectiveQuantity - toNum(row.stock_returned_kg)),
+        unit_type: row.unit_type,
+        unit_price_snapshot: row.effective_unit_price_pence / 100,
+        line_total: Math.max(0, row.line_total_pence - row.refunded_amount_pence) / 100,
+        order: {
+          status: row.order_status,
+          is_test: row.is_test,
+          created_at: row.order_created_at,
+        },
+      };
+    });
+  const payments = ((paymentRows ?? []) as PaymentHistoryRow[]).filter((row) => !first(row.order)?.is_test);
+  const grossSalePenceByOrder = new Map<string, number>();
+  const netPenceByOrder = new Map<string, number>();
+  const saleBusinessDateByOrder = new Map<string, string>();
+  for (const payment of payments) {
+    const sign = payment.direction === "sale" ? 1 : -1;
+    netPenceByOrder.set(payment.order_id, (netPenceByOrder.get(payment.order_id) ?? 0) + sign * payment.amount_pence);
+    if (payment.direction === "sale") {
+      grossSalePenceByOrder.set(
+        payment.order_id,
+        (grossSalePenceByOrder.get(payment.order_id) ?? 0) + payment.amount_pence,
+      );
+      saleBusinessDateByOrder.set(payment.order_id, payment.business_date);
+    }
+  }
+  const realisedOrders = orders
+    .filter((order) => grossSalePenceByOrder.has(order.id))
+    .map((order) => ({
+      ...order,
+      subtotal: (netPenceByOrder.get(order.id) ?? 0) / 100,
+      created_at: `${saleBusinessDateByOrder.get(order.id) ?? today}T12:00:00.000Z`,
+    }));
+  const realisedOrderIds = new Set(realisedOrders.map((order) => order.id));
+  const realisedOrderItems = orderItems
+    .filter((item) => realisedOrderIds.has(item.order_id))
+    .map((item) => ({
+      ...item,
+      order: {
+        ...(first(item.order) ?? { status: "collected", is_test: false, created_at: now.toISOString() }),
+        created_at: `${saleBusinessDateByOrder.get(item.order_id) ?? today}T12:00:00.000Z`,
+      },
+    }));
   const wasteEvents = ((wasteRows ?? []) as WasteHistoryRow[]).map((row) => {
     const batch = first(row.batch);
     const product = first(row.product);
@@ -163,14 +268,22 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
     if (!costByProduct.has(productId)) costByProduct.set(productId, cost);
   }
 
-  const todayRevenue = orders
-    .filter((order) => order.created_at.startsWith(today))
-    .reduce((total, order) => total + toNum(order.subtotal), 0);
-  const yesterdayRevenue = orders
-    .filter((order) => order.created_at.startsWith(yesterday))
-    .reduce((total, order) => total + toNum(order.subtotal), 0);
-  const todayInventoryCosts = orderItems
-    .filter((item) => first(item.order)?.created_at.startsWith(today))
+  const todayRevenue =
+    payments
+      .filter((payment) => payment.business_date === today)
+      .reduce(
+        (total, payment) => total + (payment.direction === "sale" ? payment.amount_pence : -payment.amount_pence),
+        0,
+      ) / 100;
+  const yesterdayRevenue =
+    payments
+      .filter((payment) => payment.business_date === yesterday)
+      .reduce(
+        (total, payment) => total + (payment.direction === "sale" ? payment.amount_pence : -payment.amount_pence),
+        0,
+      ) / 100;
+  const todayInventoryCosts = realisedOrderItems
+    .filter((item) => saleBusinessDateByOrder.get(item.order_id) === today)
     .map((item) => estimatedLineCost(item, costByProduct));
   const knownInventoryCosts = todayInventoryCosts.filter((cost): cost is number => cost !== null);
   const todayInventoryCost =
@@ -184,39 +297,45 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
     .filter((event) => event.createdAt.startsWith(yesterday))
     .reduce((total, event) => total + event.value, 0);
 
-  const performanceRows = buildPerformanceRows(orderItems, wasteEvents, costByProduct);
+  const performanceRows = buildPerformanceRows(realisedOrderItems, wasteEvents, costByProduct);
   const productPerformance = buildProductPerformance(performanceRows);
   const itemNamesByOrder = new Map<string, string[]>();
-  for (const item of orderItems) {
+  for (const item of realisedOrderItems) {
+    if (toNum(item.quantity) <= 0) continue;
     itemNamesByOrder.set(item.order_id, [...(itemNamesByOrder.get(item.order_id) ?? []), item.product_name_snapshot]);
   }
   const customerIntelligence = buildCustomerIntelligence(
-    orders.map((order) => ({
+    realisedOrders.map((order) => ({
       customerName: order.customer_name,
       customerPhone: order.customer_phone,
-      subtotal: toNum(order.subtotal),
+      subtotal: order.subtotal,
       createdAt: order.created_at,
       items: itemNamesByOrder.get(order.id) ?? [],
     })),
     now,
   );
-  const basket = buildBasketIntelligence(buildBasketOrders(orders, orderItems));
+  const basketOrders = realisedOrders.map((order) => ({
+    ...order,
+    subtotal: (grossSalePenceByOrder.get(order.id) ?? 0) / 100,
+  }));
+  const basket = buildBasketIntelligence(buildBasketOrders(basketOrders, realisedOrderItems));
   const depletion = buildInventoryDepletionForecast(
     batches.map((batch) => ({
       batchId: batch.id,
       productId: batch.productId,
       productName: batch.productName,
+      inventoryPolicy: batch.inventoryPolicy,
       remainingWeightKg: batch.remainingWeightKg,
       status: batch.status,
       expiryDate: batch.expiryDate,
       daysToExpiry: batch.daysToExpiry,
     })),
-    orderItems
-      .filter((item) => item.unit_type === "kg")
+    realisedOrderItems
+      .filter((item) => item.unit_type === "kg" && toNum(item.depletion_quantity) > 0)
       .map((item) => ({
         productId: item.product_id,
-        quantity: toNum(item.quantity),
-        createdAt: first(item.order)?.created_at ?? now.toISOString(),
+        quantity: toNum(item.depletion_quantity),
+        createdAt: `${saleBusinessDateByOrder.get(item.order_id) ?? today}T12:00:00.000Z`,
       })),
     now,
   );
@@ -226,7 +345,7 @@ export async function getOperationsIntelligence(branchId: string, now = new Date
     wasteCost: todayWasteCost,
   });
   const waste = buildWasteAnalytics(wasteEvents, now);
-  const dataErrorMessages = [orderError?.message, itemError?.message, wasteError?.message].filter(
+  const dataErrorMessages = [effectiveError?.message, paymentError?.message, wasteError?.message].filter(
     (message): message is string => Boolean(message),
   );
   // Raw database errors are for developers only — never shown to the owner.
@@ -389,8 +508,8 @@ function buildFallbackIntelligence(
 
 function estimatedLineCost(item: OrderItemHistoryRow, costByProduct: Map<string, number>) {
   const productCost = item.product_id ? costByProduct.get(item.product_id) : null;
-  if (productCost) {
-    return toNum(item.quantity) * productCost;
+  if (productCost !== null && productCost !== undefined) {
+    return toNum(item.cost_quantity) * productCost;
   }
 
   return null;
@@ -453,9 +572,11 @@ function buildBasketOrders(orders: OrderHistoryRow[], items: OrderItemHistoryRow
     orderId: order.id,
     subtotal: toNum(order.subtotal),
     createdAt: order.created_at,
-    items: (itemsByOrder.get(order.id) ?? []).map((item) => ({
-      productId: item.product_id,
-      productName: item.product_name_snapshot,
-    })),
+    items: (itemsByOrder.get(order.id) ?? [])
+      .filter((item) => toNum(item.quantity) > 0)
+      .map((item) => ({
+        productId: item.product_id,
+        productName: item.product_name_snapshot,
+      })),
   }));
 }

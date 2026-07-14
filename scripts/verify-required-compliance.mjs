@@ -79,8 +79,12 @@ async function main() {
     return error;
   }
 
-  // Complete every required step EXCEPT the fridge temperature, which we skip.
-  await step("certs_visible", "done");
+  // V18 B7: supplier certificates are an owner expiry job, not an operator
+  // opening step. The active DB definition rejects that historical key.
+  const removedCertErr = await step("certs_visible", "done");
+  check("certificate check removed from the active opening ritual", !!removedCertErr, removedCertErr?.message ?? "(no error!)");
+
+  // Complete every current required step EXCEPT the fridge temperature, which we skip.
   await step("display_ready", "done");
   await step("open_sign", "done");
   await step("float_ready", "done", 100);

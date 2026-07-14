@@ -10,8 +10,8 @@ import { getDashboardMetrics } from "@/lib/server/dashboard";
 import { getOperationsIntelligence } from "@/lib/server/operations-intelligence";
 import { getPurchasingPlan } from "@/lib/server/purchasing-intelligence";
 import { getInventoryTruthGuidance } from "@/lib/server/inventory-truth-guidance";
+import { addBusinessCalendarDays, getBranchBusinessDate } from "@/lib/server/payment-truth";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
-import { getLocalIsoDate } from "@/lib/domain/checkout-rules";
 
 export type { ShopIntelligence } from "@/lib/shop-intelligence/types";
 
@@ -47,24 +47,34 @@ function daysSinceLastStockActivity(batches: InventoryBatch[], now: Date): numbe
   return Math.max(0, Math.floor((now.getTime() - Math.max(...times)) / DAY_MS));
 }
 
-/** Best-effort week-to-date revenue (real, non-cancelled orders). Null on any fault. */
+/** Best-effort week-to-date net collected revenue. Null on any fault. */
 async function getWeekToDateRevenue(branchId: string, now: Date): Promise<number | null> {
   if (!hasSupabaseServiceEnv()) return null;
   try {
-    const weekStart = `${getLocalIsoDate(new Date(now.getTime() - 6 * DAY_MS))}T00:00:00.000Z`;
+    const businessDate = await getBranchBusinessDate(branchId, now);
+    const weekStart = addBusinessCalendarDays(businessDate, -6);
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
-      .from("orders")
-      .select("subtotal, status, is_test, created_at")
+      .from("payment_events")
+      .select("direction, amount_pence, order:orders!inner(is_test)")
       .eq("branch_id", branchId)
-      .gte("created_at", weekStart);
+      .gte("business_date", weekStart);
     if (error || !data) return null;
+    const rows = data as Array<{
+      direction: "sale" | "refund";
+      amount_pence: number;
+      order: { is_test: boolean | null } | { is_test: boolean | null }[] | null;
+    }>;
     return (
-      Math.round(
-        (data as Array<{ subtotal: string | number; status: string; is_test: boolean | null }>)
-          .filter((row) => !row.is_test && row.status !== "cancelled")
-          .reduce((sum, row) => sum + (typeof row.subtotal === "number" ? row.subtotal : Number(row.subtotal) || 0), 0) * 100,
-      ) / 100
+      rows
+        .filter((row) => {
+          const order = Array.isArray(row.order) ? row.order[0] : row.order;
+          return !order?.is_test;
+        })
+        .reduce(
+          (sum, row) => sum + (row.direction === "sale" ? row.amount_pence : -row.amount_pence),
+          0,
+        ) / 100
     );
   } catch (error) {
     console.error("[shop-intelligence] week revenue query failed", { branchId, error });
@@ -95,13 +105,14 @@ export async function getShopIntelligence(branchId: string, now = new Date()): P
     if (!costByProduct.has(productId)) costByProduct.set(productId, cost);
   }
   const productIdsWithStock = new Set(batches.map((batch) => batch.productId));
+  const countedProducts = products.filter((product) => product.inventoryPolicy === "kg_batch");
   const unitsSoldById = new Map<string, number>();
   for (const row of intelligence.productPerformance.rows) {
     if (row.productId) unitsSoldById.set(row.productId, row.unitsSold);
   }
 
   const missingCost = products.filter((product) => !costByProduct.has(product.id)).length;
-  const missingStockInfo = products.filter((product) => !productIdsWithStock.has(product.id)).length;
+  const missingStockInfo = countedProducts.filter((product) => !productIdsWithStock.has(product.id)).length;
   const activeSellingNoCost = products.filter(
     (product) => product.isAvailable && !costByProduct.has(product.id) && (unitsSoldById.get(product.id) ?? 0) > 0,
   ).length;

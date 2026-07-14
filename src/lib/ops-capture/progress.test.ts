@@ -10,6 +10,18 @@ function event(stepKey: string, state: OpsEvent["state"], createdAt: string, pay
 
 const opening = getChecklist("opening");
 
+describe("V18 opening ownership", () => {
+  it("keeps supplier certificate expiry out of the operator's morning", () => {
+    expect(opening.steps.map((step) => step.key)).toEqual([
+      "fridge_temp",
+      "display_ready",
+      "float_ready",
+      "open_sign",
+    ]);
+    expect(opening.steps.some((step) => step.key === "certs_visible")).toBe(false);
+  });
+});
+
 describe("latestEventByStep", () => {
   it("keeps the most recent event per step (append-only → current state)", () => {
     const events = [
@@ -32,7 +44,7 @@ describe("summariseChecklist (resume)", () => {
   });
 
   it("resumes at the first un-recorded step after a refresh", () => {
-    // First two steps handled (one done, one skipped) → resume at the third.
+    // First two current steps handled (one done, one skipped) → resume at the third.
     const events = [
       event(opening.steps[0].key, "done", "2026-06-04T08:00:00Z"),
       event(opening.steps[1].key, "skipped", "2026-06-04T08:01:00Z"),

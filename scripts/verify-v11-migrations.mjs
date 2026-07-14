@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY, email text);
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
 CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT current_setting('request.jwt.claim.role', true) $$;
 CREATE SCHEMA IF NOT EXISTS storage;
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 CREATE TABLE IF NOT EXISTS storage.buckets (
   id text PRIMARY KEY,
   name text NOT NULL,

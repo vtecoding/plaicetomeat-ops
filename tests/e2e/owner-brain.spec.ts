@@ -40,9 +40,14 @@ test.describe("v9 owner brain — today", () => {
   test("a decision opens a standardised decision card", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 
-    const rows = page.getByTestId("decision-row");
+    // Some decisions deliberately route one tap straight to their work surface
+    // (for example an expired certificate opens Compliance). Select a decision
+    // whose declared destination is the standardised Today detail card. Detail-
+    // card decisions can sit in the deliberately collapsed Later reserve.
+    await page.getByTestId("later-reserve").locator("summary").click().catch(() => {});
+    const rows = page.locator('[data-testid="decision-row"][href^="/admin/today/"]');
     const count = await rows.count();
-    test.skip(count === 0, "No decisions in the current data set");
+    test.skip(count === 0, "No detail-card decision in the current data set");
 
     await rows.first().click();
     await expect(page).toHaveURL(/\/admin\/today\/.+/);

@@ -19,9 +19,14 @@ test.describe("counter realtime", () => {
     await login(pageA, USERS.staff, { expectLanding: /\/counter/ });
     await login(pageB, USERS.staff, { expectLanding: /\/counter/ });
 
-    // Both should establish a real realtime connection (badge reflects state).
-    await expect(pageA.getByText("new orders appear on their own")).toBeVisible({ timeout: 15_000 });
-    await expect(pageB.getByText("new orders appear on their own")).toBeVisible({ timeout: 15_000 });
+    // Both contexts must be auto-updating. The badge distinguishes a healthy
+    // socket from the fast recovery sweep instead of pretending either is the other.
+    await expect(pageA.getByTestId("counter-connection")).toHaveAttribute("data-state", /^(live|reconnecting)$/, {
+      timeout: 15_000,
+    });
+    await expect(pageB.getByTestId("counter-connection")).toHaveAttribute("data-state", /^(live|reconnecting)$/, {
+      timeout: 15_000,
+    });
 
     // Move PTM-2026-90002 (prepping) -> ready in context A.
     const cardA = columnSection(pageA, "Prepping").locator("article", { hasText: "PTM-2026-90002" });
@@ -42,10 +47,12 @@ test.describe("counter realtime", () => {
 
   test("manual degradation flips the badge to polling honestly", async ({ page }) => {
     await login(page, USERS.staff, { expectLanding: /\/counter/ });
-    await expect(page.getByText("new orders appear on their own")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("counter-connection")).toHaveAttribute("data-state", /^(live|reconnecting)$/, {
+      timeout: 15_000,
+    });
 
     await page.getByRole("button", { name: "Turn off auto-updates" }).click();
+    await expect(page.getByTestId("counter-connection")).toHaveAttribute("data-state", "polling");
     await expect(page.getByText(/every 15s/)).toBeVisible();
-    await expect(page.getByText("new orders appear on their own")).toHaveCount(0);
   });
 });

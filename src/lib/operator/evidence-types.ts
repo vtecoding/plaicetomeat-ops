@@ -14,8 +14,10 @@ export type OperatorEvidenceSourceType =
   | "supplier_document"
   | "compliance_document";
 
-export type OperatorEvidenceStatus = "uploaded" | "linked" | "needs_owner_review" | "deleted" | "failed";
+export type OperatorEvidenceStatus = "uploaded" | "linked" | "needs_owner_review" | "delete_pending" | "deleted" | "failed";
+
+export type OperatorEvidenceUploadFailureCode = "evidence_row_conflict";
 
 export type OperatorEvidenceUploadResult =
   | { ok: true; id: string; fileName: string; message: string }
-  | { ok: false; id?: string; message: string };
+  | { ok: false; id?: string; message: string; code?: OperatorEvidenceUploadFailureCode };

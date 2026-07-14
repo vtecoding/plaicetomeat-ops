@@ -9,12 +9,13 @@ import { HELP_PROBLEM_CHOICES, helpProblemLabel, type HelpProblemId } from "@/li
 
 type Mode = "choose" | "send" | "done";
 
-export function OperatorHelpFlow() {
+export function OperatorHelpFlow({ ownerContact }: { ownerContact: string | null }) {
   const [mode, setMode] = useState<Mode>("choose");
   const [problem, setProblem] = useState<HelpProblemId>("other");
   const [note, setNote] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [operationId, setOperationId] = useState(() => crypto.randomUUID());
   const [isPending, startTransition] = useTransition();
 
   function restart() {
@@ -23,12 +24,13 @@ export function OperatorHelpFlow() {
     setNote("");
     setResult(null);
     setError(null);
+    setOperationId(crypto.randomUUID());
   }
 
   function send() {
     setError(null);
     startTransition(async () => {
-      const res = await tellOwner({ problem, note });
+      const res = await tellOwner({ operationId, problem, note });
       if (!res.ok) {
         setError(res.message);
         return;
@@ -47,6 +49,16 @@ export function OperatorHelpFlow() {
         <ArrowLeft className="h-6 w-6" aria-hidden />
         Back
       </Link>
+
+      {ownerContact ? (
+        <a
+          href={`tel:${ownerContact.replace(/[^+\d]/g, "")}`}
+          className="mb-5 flex min-h-[64px] w-full items-center justify-center rounded-2xl border-2 border-[var(--clay)] bg-[var(--paper)] px-5 text-center text-lg font-semibold text-[var(--clay)]"
+          data-testid="operator-owner-call"
+        >
+          If it&rsquo;s urgent, ring: {ownerContact}
+        </a>
+      ) : null}
 
       {mode === "choose" && (
         <Panel title="What is wrong?" helper="Pick the closest one. The owner will be told.">

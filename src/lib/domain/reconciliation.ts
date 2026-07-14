@@ -10,6 +10,8 @@
  * are deliberately NOT here — they stay as individual items and are never batched away.
  * The reader also filters to severity 'warning', so a critical alert can never be hidden.
  */
+import { ALERT_KINDS } from "./alert-registry";
+
 export type ReconcileClass = "inline" | "link";
 export type ReconcileAction = "delivery-cost" | "waste-reason" | "open";
 
@@ -29,14 +31,14 @@ export const RECONCILE_KINDS: Record<string, ReconcileKindSpec> = {
     kind: "operator_delivery_cost_pending",
     klass: "inline",
     action: "delivery-cost",
-    title: "Add delivery cost",
+    title: ALERT_KINDS.operator_delivery_cost_pending.title,
     fullHref: "/admin/inventory",
   },
   operator_waste_reason_check: {
     kind: "operator_waste_reason_check",
     klass: "inline",
     action: "waste-reason",
-    title: "Confirm waste reason",
+    title: ALERT_KINDS.operator_waste_reason_check.title,
     fullHref: "/admin/inventory",
   },
 };

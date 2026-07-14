@@ -6,9 +6,11 @@ import { PageFrame } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getOrderById } from "@/lib/server/orders";
+import { requireStaffContext } from "@/lib/server/staff-context";
 import { formatCurrency, formatDisplayDate } from "@/lib/utils";
 
 export default async function CounterOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireStaffContext("staff", { branchScoped: true });
   const { id } = await params;
   const order = await getOrderById(id);
 

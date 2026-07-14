@@ -7,6 +7,7 @@ import {
 import { getSuppliers } from "@/lib/server/compliance-inventory";
 import { getAllProducts } from "@/lib/server/catalog";
 import { getDeliveryHistory } from "@/lib/server/operator-defaults";
+import { getLatestOperatorDraft } from "@/lib/server/operator-drafts";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
@@ -27,13 +28,16 @@ function commonOrder(name: string) {
 }
 
 export default async function OperatorStockPage() {
-  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
-  const [products, suppliers, history] = await Promise.all([
+  const { branchId, profile } = await requireStaffContext("manager", { branchScoped: true });
+  const [products, suppliers, history, initialDraft] = await Promise.all([
     getAllProducts(branchId),
     getSuppliers(branchId, { publicOnly: true }),
     getDeliveryHistory(branchId),
+    getLatestOperatorDraft({ branchId, operatorId: profile.id, workflow: "delivery" }),
   ]);
-  const productOptions = [...products].sort((a, b) => commonOrder(a.name) - commonOrder(b.name) || a.name.localeCompare(b.name));
+  const productOptions = products
+    .filter((product) => product.inventoryPolicy === "kg_batch")
+    .sort((a, b) => commonOrder(a.name) - commonOrder(b.name) || a.name.localeCompare(b.name));
 
   const activeSuppliers: ActiveSupplier[] = suppliers
     .filter((supplier) => supplier.active)
@@ -62,6 +66,7 @@ export default async function OperatorStockPage() {
           }))}
           suppliers={activeSuppliers}
           deliveryDefaults={deliveryDefaults}
+          initialDraft={initialDraft}
         />
       </div>
     </div>

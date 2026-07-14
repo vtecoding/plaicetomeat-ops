@@ -115,11 +115,17 @@ export const PLAYBOOK_CONTENT: Record<PlaybookSlug, PlaybookContent> = {
     steps: [
       "Open the Counter screen at the start of service.",
       "Work orders top to bottom: start preparing, then mark ready when bagged.",
-      "When the customer collects, mark it collected.",
+      "Before collection, use Adjust if the final weight, product or quantity changed. Show the customer the final price before confirming a price increase.",
+      "When the customer collects, choose how they paid and mark it collected. The final lines drive both the tender and stock movement.",
+      "After collection, a manager can use Refund / fix. Pick the lines, say what physically happened to the goods, add the reason, then check the money-and-stock summary.",
+      "If you made a mistake in Operator mode, open Help and choose 'I made a mistake just now' so the owner gets a correction job.",
       "If a text fails to send, phone the customer instead — a failed text never blocks the order.",
     ],
     watchFor: [
       "Keep the counter screen open during service so new orders appear live.",
+      "The refund method is shown, not chosen: money goes back the way the customer paid.",
+      "For a refund, choose the physical outcome honestly: customer kept it, returned for resale, or returned and discarded.",
+      "An operator mistake flag does not change money, stock or the order. The manager still completes the correction.",
       "Check weight-confirmed items carefully — the price depends on the real weight.",
     ],
   },

@@ -18,6 +18,7 @@ const SAFE_MESSAGE_PATTERNS = [
   "Cost must be",
   "Unit type must be",
   "Stock status is invalid",
+  "Stock counting",
   "Category does not exist",
   "Product not found",
 ];
@@ -51,6 +52,7 @@ export async function createProduct(input: {
   categoryId?: string | null;
   unitType: string;
   stockStatus?: string;
+  stockCounted?: boolean;
 }): Promise<AdminProductResult> {
   const auth = await requireManager();
   if (!auth.ok) return auth;
@@ -63,7 +65,7 @@ export async function createProduct(input: {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("admin_create_product", {
+  const { data, error } = await supabase.rpc("admin_create_product_v18", {
     p_branch_id: input.branchId,
     p_name: input.name,
     p_description: input.description ?? null,
@@ -71,6 +73,7 @@ export async function createProduct(input: {
     p_category_id: input.categoryId ?? null,
     p_unit_type: input.unitType,
     p_stock_status: input.stockStatus ?? "in_stock",
+    p_untracked_kg: input.unitType === "kg" && input.stockCounted === false,
   });
 
   if (error) {
@@ -79,6 +82,29 @@ export async function createProduct(input: {
 
   revalidateCatalog();
   return { ok: true, message: "Product created.", id: String(data) };
+}
+
+export async function updateProductStockCounting(input: {
+  productId: string;
+  stockCounted: boolean;
+}): Promise<AdminProductResult> {
+  const auth = await requireManager();
+  if (!auth.ok) return auth;
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("admin_set_product_stock_counting_v18", {
+    p_product_id: input.productId,
+    p_stock_counted: input.stockCounted,
+  });
+
+  if (error) {
+    return { ok: false, message: safeMessage(error.message, "Could not change stock counting. Please try again.") };
+  }
+
+  revalidateCatalog();
+  revalidatePath("/admin/inventory");
+  revalidatePath("/admin/purchasing");
+  return { ok: true, message: input.stockCounted ? "Stock counting is on." : "Stock counting is off for this product." };
 }
 
 export async function updateProduct(input: {

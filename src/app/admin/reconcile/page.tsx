@@ -15,9 +15,9 @@ export default async function ReconcilePage() {
       <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8" data-testid="reconcile-page">
         <Masthead
           back={<BackLink href="/admin/today">Back to Today</BackLink>}
-          eyebrow="Reconcile"
-          title="Things to reconcile"
-          subtitle="Quick bookkeeping the shop saved up for you. Clear each one — it keeps your costs and waste honest."
+          eyebrow="Owner jobs"
+          title="Jobs waiting for you"
+          subtitle="Every open shop alert is here. Open the right work, then leave a short note when it is sorted."
         />
         <ReconcileClient initialItems={tray.items} />
       </main>

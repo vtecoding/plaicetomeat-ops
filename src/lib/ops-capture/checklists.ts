@@ -21,13 +21,6 @@ const OPENING: ChecklistDefinition = {
       critical: true,
     },
     {
-      key: "certs_visible",
-      title: "Halal & food-safety certificates on show",
-      why: "Customers trust what they can see. Make sure the certificates are up and in date.",
-      input: { kind: "confirm" },
-      critical: true,
-    },
-    {
       key: "display_ready",
       title: "Counter and display set up",
       why: "A full, tidy counter sells more and tells customers you're open and ready.",

@@ -1,21 +1,24 @@
-# PTM known risks (post 2026-07-10 hardening)
+# PTM known risks (V18 Phase A code, 2026-07-14)
 
 ## Must fix before production
-- **Production DB has NOT received the migrations from phase0 onward** (last prod push
-  was the V14 set, 2026-06-10). The phase0/1/2/3 locks, V17 operator mode, and grants
-  migrations exist only in the repo + local stack. Until `supabase db push --linked`
-  runs (after a backup, per the V15 deploy runbook), production still has the C1
-  direct-write doors OPEN. This is the single highest-value pending operator action.
-- `production-backup.yml` needs repo secrets (BACKUP_ENCRYPTION_KEY,
-  SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_URL, CANONICAL_BRANCH_ID);
-  scheduled backups do not run until set.
+- **V18 migrations and application code are repository/local truth until the linked
+  production schema and application are deployed through the backup-first release
+  runbook.** Verify linked migration history and take a fresh backup before `db push`;
+  never infer production parity from a green local reset.
+- Phase-A field gates are still evidence work: the reconciliation day and timed Gul
+  rehearsal (G-A), real-phone critical alert plus morning digest (G-B1), and the full
+  refund/amendment/mistake/tray/Away trial (G-B). Code and synthetic gates do not
+  substitute for these shop observations.
 
 ## Should fix before wider rollout
-- Counter-sale creation is multi-step (order → items → status event → collect), not
-  one transaction. Mitigated by idempotency + repair-on-retry (serveRepairDecision);
-  the stronger end-state is a single `create_counter_sale` SECURITY DEFINER RPC.
 - No continuous DB check that orders.subtotal = Σ order_items.line_total (writers
-  compute it; a monitor query in inventory_reconciliation_monitor-style would close it).
+  compute it; collection freezes and tenders the canonical SQL fold). Operator serve
+  itself is one `create_operator_serve_order_v18` transaction, with guarded recovery
+  only for facts written by the pre-V18 cutover path.
+- Twilio's outbound Messages API has no documented client idempotency-key parameter.
+  Owner-alert activation therefore requires explicit acceptance of the implemented
+  at-most-once boundary: ambiguous provider outcomes become terminal-visible failures
+  and are never blindly retried.
 - No external telemetry sink (V16 Stream C blocked on owner's sink decision):
   production runtime errors visible only in Vercel logs.
 - Config tables (suppliers, pickup_windows, categories, closures, sms_templates,

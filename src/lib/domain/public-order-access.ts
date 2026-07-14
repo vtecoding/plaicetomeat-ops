@@ -10,6 +10,7 @@ export type PublicOrderItem = {
   name: string;
   quantity: number;
   unitType: string;
+  unitPrice: number;
   lineTotal: number;
 };
 
@@ -39,7 +40,7 @@ export const PUBLIC_ORDER_STATUS_KEYS = [
   "cancellationDeadline",
 ] as const;
 
-export const PUBLIC_ORDER_ITEM_KEYS = ["name", "quantity", "unitType", "lineTotal"] as const;
+export const PUBLIC_ORDER_ITEM_KEYS = ["name", "quantity", "unitType", "unitPrice", "lineTotal"] as const;
 
 // Field names that must NEVER appear in any public response.
 export const FORBIDDEN_PUBLIC_FIELDS = [

@@ -55,10 +55,10 @@ async function setupData() {
   const supplier = await one("suppliers", "id", (q) => q.eq("branch_id", branch.id).eq("active", true).limit(1));
   if (!supplier) throw new Error("No active supplier.");
 
-  const chicken = await one("products", "id,name,branch_id", (q) =>
+  const chicken = await one("products", "id,name,branch_id,price_per_unit", (q) =>
     q.eq("branch_id", branch.id).eq("name", "Chicken Breast Fillets").eq("unit_type", "kg"),
   );
-  const lamb = await one("products", "id,name,branch_id", (q) =>
+  const lamb = await one("products", "id,name,branch_id,price_per_unit", (q) =>
     q.eq("branch_id", branch.id).eq("name", "Lamb Leg Steaks").eq("unit_type", "kg"),
   );
   if (!chicken || !lamb) throw new Error("Expected Chicken Breast Fillets and Lamb Leg Steaks.");
@@ -85,6 +85,38 @@ async function setupData() {
     .single();
   if (muttonError) throw muttonError;
 
+  const countedProducts = [
+    {
+      branch_id: branch.id,
+      name: "Whole Chicken V18 Count Gate",
+      slug: "whole-chicken-v18-count-gate",
+      unit_type: "each",
+      inventory_policy: "untracked_manual",
+      price_per_unit: 6.5,
+      is_available: true,
+      stock_status: "in_stock",
+      requires_weight_confirmation: false,
+      sort_order: -900,
+    },
+    {
+      branch_id: branch.id,
+      name: "Family Box V18 Count Gate",
+      slug: "family-box-v18-count-gate",
+      unit_type: "box",
+      inventory_policy: "untracked_manual",
+      price_per_unit: 25,
+      is_available: true,
+      stock_status: "in_stock",
+      requires_weight_confirmation: false,
+      sort_order: -899,
+    },
+  ];
+  const { data: counted, error: countedError } = await admin
+    .from("products")
+    .upsert(countedProducts, { onConflict: "branch_id,slug" })
+    .select("id,name,branch_id,unit_type,inventory_policy,price_per_unit");
+  if (countedError) throw countedError;
+
   const today = new Date().toISOString().slice(0, 10);
   const future = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
   const batches = [chicken, lamb].map((product) => ({
@@ -103,7 +135,7 @@ async function setupData() {
   const batchInsert = await admin.from("inventory_batches").insert(batches);
   if (batchInsert.error) throw batchInsert.error;
 
-  return { branch, chicken, lamb, mutton };
+  return { branch, chicken, lamb, mutton, counted: counted ?? [] };
 }
 
 async function login(page) {
@@ -118,22 +150,40 @@ async function tapSale(page, items, pay) {
   await page.goto(`${BASE_URL}/operator/serve`);
   for (let i = 0; i < items.length; i += 1) {
     const item = items[i];
-    await page.getByRole("button", { name: item.tile }).click();
+    await page.getByRole("button", { name: item.tile, exact: true }).click();
     if (item.tile === "Other") {
       await page.getByRole("textbox").fill(item.name);
       await page.getByRole("button", { name: "Next" }).click();
     }
-    await page.getByRole("button", { name: item.amount }).click();
-    await page.getByRole("button", { name: i + 1 < items.length ? "Yes" : "No" }).click();
+    const escapedAmount = item.amount.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const amountButton = page.getByRole("button", { name: new RegExp(`^${escapedAmount}(?:\\s|$)`) }).first();
+    if (item.expectApprox) {
+      const amountText = await amountButton.textContent();
+      check(`${item.tile} preset shows an approximate price`, amountText?.includes("≈ £") === true, amountText ?? "");
+    }
+    await amountButton.click();
+    if (item.price) {
+      for (const digit of String(item.price)) {
+        await page.getByRole("button", { name: digit, exact: true }).click();
+      }
+      await page.getByRole("button", { name: "Next", exact: true }).click();
+    }
+    const summaryText = await page.getByTestId("serve-line-summary").innerText();
+    if (item.expectedSummary) {
+      check(`${item.tile} summary uses the sale quantity`, summaryText.includes(item.expectedSummary), summaryText);
+    }
+    await page.getByRole("button", { name: i + 1 < items.length ? "Yes" : "No", exact: true }).click();
   }
-  await page.getByRole("button", { name: pay }).click();
+  await page.getByRole("button", { name: pay, exact: true }).click();
+  const confirmTotal = await page.getByTestId("serve-total").innerText();
   await page.getByRole("button", { name: "Save" }).click();
   await page.getByRole("heading", { name: "Done" }).waitFor();
+  const savedTotal = await page.getByTestId("serve-saved-total").innerText();
   const order = await one("orders", "id,order_ref,status,payment_method,subtotal,idempotency_key", (q) =>
-    q.eq("customer_name", "Shop sale").gt("created_at", marker).order("created_at", { ascending: false }).limit(1),
+    q.is("customer_name", null).gte("created_at", marker).like("idempotency_key", "operator-serve:%").order("created_at", { ascending: false }).limit(1),
   );
   if (!order) throw new Error("No order was created.");
-  return order;
+  return { ...order, confirmTotal, savedTotal };
 }
 
 async function lineCount(orderId) {
@@ -142,14 +192,14 @@ async function lineCount(orderId) {
 }
 
 async function run() {
-  await setupData();
+  const setup = await setupData();
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(25_000);
     await login(page);
 
-    const known = await tapSale(page, [{ tile: "Chicken", amount: "500g" }], "Cash");
+    const known = await tapSale(page, [{ tile: "Chicken", amount: "500g", expectApprox: true, expectedSummary: "Chicken Breast Fillets 500g" }], "Cash");
     check("known product order collected", known.status === "collected", known.status);
     check("known product payment saved", known.payment_method === "cash", known.payment_method);
     check("known product one line", (await lineCount(known.id)) === 1);
@@ -167,12 +217,14 @@ async function run() {
       "known product retry key unique",
       (await many("orders", "id", (q) => q.eq("idempotency_key", known.idempotency_key))).length === 1,
     );
+    check("confirm screen states the total", known.confirmTotal.includes(`£${Number(known.subtotal).toFixed(2)}`), known.confirmTotal);
+    check("done screen states the saved total", known.savedTotal.includes(`Total £${Number(known.subtotal).toFixed(2)}`), known.savedTotal);
 
     const multi = await tapSale(
       page,
       [
         { tile: "Chicken", amount: "500g" },
-        { tile: "Lamb", amount: "1kg" },
+        { tile: "Lamb", amount: "1kg", expectApprox: true },
       ],
       "Card",
     );
@@ -183,7 +235,7 @@ async function run() {
       (await many("inventory_movements", "id", (q) => q.eq("order_id", multi.id).eq("source_event", "SALE_COLLECT"))).length >= 2,
     );
 
-    const unknown = await tapSale(page, [{ tile: "Other", name: "Mystery Cut", amount: "500g" }], "Cash");
+    const unknown = await tapSale(page, [{ tile: "Other", name: "Mystery Cut", amount: "500g", price: "7.50", expectedSummary: "Mystery Cut 500g — £7.50" }], "Cash");
     check("unknown order collected", unknown.status === "collected", unknown.status);
     check(
       "unknown line kept",
@@ -194,6 +246,42 @@ async function run() {
       !!(await one("owner_alerts", "id", (q) => q.eq("entity_ref", `${unknown.id}:check`).is("resolved_at", null))),
     );
 
+    const eachProduct = setup.counted.find((product) => product.unit_type === "each");
+    const boxProduct = setup.counted.find((product) => product.unit_type === "box");
+    if (!eachProduct || !boxProduct) throw new Error("Counted serve products were not created.");
+
+    const eachSale = await tapSale(
+      page,
+      [{
+        tile: eachProduct.name,
+        amount: "6",
+        expectApprox: true,
+        expectedSummary: `${eachProduct.name} ×6 — £39.00`,
+      }],
+      "Cash",
+    );
+    const eachLines = await many("order_items", "product_id,quantity,unit_type,line_total", (q) => q.eq("order_id", eachSale.id));
+    check("each command path saves an integer count", eachLines.length === 1 && eachLines[0].product_id === eachProduct.id && eachLines[0].unit_type === "each" && Number(eachLines[0].quantity) === 6, JSON.stringify(eachLines));
+    check("each command path prices quantity × catalogue price", Number(eachLines[0]?.line_total) === 39, JSON.stringify(eachLines[0]));
+    check("each sale creates no kg movement", (await many("inventory_movements", "id", (q) => q.eq("order_id", eachSale.id))).length === 0);
+    check("each saved total is visible", eachSale.savedTotal.includes("Total £39.00"), eachSale.savedTotal);
+
+    const boxSale = await tapSale(
+      page,
+      [{
+        tile: boxProduct.name,
+        amount: "2",
+        expectApprox: true,
+        expectedSummary: `${boxProduct.name} ×2 — £50.00`,
+      }],
+      "Card",
+    );
+    const boxLines = await many("order_items", "product_id,quantity,unit_type,line_total", (q) => q.eq("order_id", boxSale.id));
+    check("box command path saves an integer count", boxLines.length === 1 && boxLines[0].product_id === boxProduct.id && boxLines[0].unit_type === "box" && Number(boxLines[0].quantity) === 2, JSON.stringify(boxLines));
+    check("box command path prices quantity × catalogue price", Number(boxLines[0]?.line_total) === 50, JSON.stringify(boxLines[0]));
+    check("box sale creates no kg movement", (await many("inventory_movements", "id", (q) => q.eq("order_id", boxSale.id))).length === 0);
+    check("box saved total is visible", boxSale.savedTotal.includes("Total £50.00"), boxSale.savedTotal);
+
     const low = await tapSale(page, [{ tile: "Mutton", amount: "2kg" }], "Card");
     check("low stock order collected", low.status === "collected", low.status);
     check(
@@ -203,8 +291,14 @@ async function run() {
       )),
     );
     check(
-      "low stock owner alert",
-      !!(await one("owner_alerts", "id", (q) => q.eq("entity_ref", `${low.id}:count`).is("resolved_at", null))),
+      "shortfall uses the canonical inventory alert",
+      !!(await one("owner_alerts", "id", (q) =>
+        q.eq("kind", "inventory_shortfall").eq("entity_ref", `order:${low.id}`).is("resolved_at", null),
+      )),
+    );
+    check(
+      "no duplicate low-stock-during-sale alert",
+      !(await one("owner_alerts", "id", (q) => q.eq("kind", "operator_sale_count_needed").eq("entity_ref", `${low.id}:count`))),
     );
 
     await page.goto(`${BASE_URL}/counter`);

@@ -4,14 +4,38 @@ import { useEffect, useMemo, useState, useTransition, type ReactNode } from "rea
 import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
 
+import { abandonOperatorDraft } from "@/app/actions/operator/drafts";
 import { uploadOperatorEvidence } from "@/app/actions/operator/evidence";
 import { recordNoWaste, recordSimpleWaste } from "@/app/actions/operator/waste";
+import {
+  OperatorDraftPrompt,
+  OperatorDraftStatus,
+  useOperatorDraftSave,
+} from "@/app/operator/_components/operator-draft";
+import { parseOperatorDraftSteps, type OperatorDraftRecord } from "@/lib/operator/workflows/drafts";
 import { WASTE_REASON_CHOICES, type WasteReasonChoice } from "@/lib/operator/workflows/waste";
 
 type ProductOption = { id: string; name: string; unitType: string };
 type Mode = "start" | "product" | "amount" | "reason" | "photo" | "confirm" | "done";
+const RESUMABLE_MODES: readonly Mode[] = ["product", "amount", "reason", "photo", "confirm"];
+const LAST_SAVED_STEP: Record<Mode, string> = {
+  start: "",
+  product: "Did you throw anything away?",
+  amount: "What was thrown away?",
+  reason: "How much?",
+  photo: "Why?",
+  confirm: "Photo",
+  done: "",
+};
 
-export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
+export function OperatorWasteFlow({ products, initialDraft }: { products: ProductOption[]; initialDraft: OperatorDraftRecord | null }) {
+  const resumable = useMemo(
+    () => initialDraft && parseOperatorDraftSteps(initialDraft.steps, "waste", RESUMABLE_MODES),
+    [initialDraft],
+  );
+  const [showResumePrompt, setShowResumePrompt] = useState(Boolean(resumable));
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [runId, setRunId] = useState("");
   const [mode, setMode] = useState<Mode>("start");
   const [productId, setProductId] = useState<string | null>(null);
@@ -25,11 +49,50 @@ export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
-  }, []);
+    if (!showResumePrompt && !runId) setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+  }, [runId, showResumePrompt]);
 
   const product = useMemo(() => products.find((item) => item.id === productId) ?? null, [products, productId]);
   const unit = product?.unitType ?? "kg";
+  const draftSave = useOperatorDraftSave({
+    runId,
+    workflow: "waste",
+    mode,
+    lastSavedStep: LAST_SAVED_STEP[mode],
+    answers: { productId, quantity, reason, photoName, photoEvidenceId },
+    enabled: !showResumePrompt && mode !== "start" && mode !== "done",
+  });
+
+  function resumeDraft() {
+    if (!resumable || !initialDraft) return;
+    const answers = resumable.answers;
+    const savedReason = WASTE_REASON_CHOICES.find((choice) => choice.id === answers.reason)?.id;
+    setRunId(initialDraft.runId);
+    setMode(resumable.mode as Mode);
+    setProductId(typeof answers.productId === "string" ? answers.productId : null);
+    setQuantity(typeof answers.quantity === "string" ? answers.quantity : "");
+    setReason(savedReason ?? "expired");
+    setPhotoName(typeof answers.photoName === "string" ? answers.photoName : null);
+    setPhotoEvidenceId(typeof answers.photoEvidenceId === "string" ? answers.photoEvidenceId : null);
+    setDraftError(null);
+    setShowResumePrompt(false);
+    draftSave.markResumed();
+  }
+
+  async function startFresh() {
+    if (!initialDraft) return;
+    setDraftBusy(true);
+    setDraftError(null);
+    const result = await abandonOperatorDraft({ runId: initialDraft.runId, workflow: "waste" });
+    setDraftBusy(false);
+    if (!result.ok) {
+      setDraftError(result.message);
+      return;
+    }
+    setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+    setShowResumePrompt(false);
+    draftSave.reset();
+  }
 
   function restart() {
     setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
@@ -42,6 +105,7 @@ export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
     setPhotoSaving(false);
     setResult(null);
     setError(null);
+    draftSave.reset();
   }
 
   function saveNoWaste() {
@@ -89,6 +153,7 @@ export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
     formData.set("sourceType", "operator_workflow_run");
     formData.set("sourceId", runId);
     formData.set("sourceRef", product?.name ?? "Waste photo");
+    formData.set("operationId", runId);
 
     const res = await uploadOperatorEvidence(formData);
     setPhotoSaving(false);
@@ -107,6 +172,18 @@ export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
         <ArrowLeft className="h-6 w-6" aria-hidden />
         Back
       </Link>
+
+      {showResumePrompt && resumable ? (
+        <OperatorDraftPrompt
+          lastSavedStep={resumable.lastSavedStep}
+          onResume={resumeDraft}
+          onStartFresh={() => void startFresh()}
+          busy={draftBusy}
+          error={draftError}
+        />
+      ) : (
+        <>
+          <OperatorDraftStatus status={draftSave.status} />
 
       {mode === "start" && (
         <Panel title="Did you throw anything away?">
@@ -182,6 +259,9 @@ export function OperatorWasteFlow({ products }: { products: ProductOption[] }) {
             Back to home
           </Link>
         </Panel>
+      )}
+
+        </>
       )}
 
       {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{error}</p> : null}

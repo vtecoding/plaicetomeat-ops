@@ -36,9 +36,12 @@ const INCLUDE = [
   "src/app/admin/guide",
   "src/app/admin/playbooks",
   "src/app/counter",
+  "src/app/operator",
+  "src/app/actions/operator",
   "src/components/admin-inventory-client.tsx",
   "src/lib/owner-brain",
   "src/lib/domain/operator-guidance.ts",
+  "src/lib/operator",
 ];
 
 // Paths that must never be scanned even if nested under an included root.
