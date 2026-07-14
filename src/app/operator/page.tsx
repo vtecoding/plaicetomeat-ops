@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, DoorOpen, FileText, HelpCircle, Moon, ShoppingBag, Truck } from "lucide-react";
+import { CheckCircle2, Coins, DoorOpen, FileText, HelpCircle, Moon, ShoppingBag, Truck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { getTodaysChecklistState } from "@/lib/server/ops-capture";
@@ -84,6 +84,18 @@ export default async function OperatorHomePage() {
           <DoorTile key={door.href} door={door} />
         ))}
       </div>
+
+      <Link
+        href="/operator/till"
+        data-testid="operator-till-link"
+        className="mt-4 flex min-h-[72px] items-center gap-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-5 py-4 text-left shadow-sm transition active:scale-[0.99]"
+      >
+        <Coins className="h-8 w-8 shrink-0 text-[var(--brand)]" aria-hidden />
+        <span>
+          <span className="block text-xl font-semibold">Till money in / out</span>
+          <span className="block text-base text-[var(--muted)]">Change added, supplier paid, owner took cash</span>
+        </span>
+      </Link>
 
       <Link
         href="/operator/help"

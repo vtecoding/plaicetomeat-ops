@@ -24,18 +24,23 @@ function seedStates(summary: ChecklistSummary): Record<string, StepRecord> {
   return out;
 }
 
+/** V18 A1: expected-money context shown above a money step (never prefilled). */
+export type GuidedNumberContext = { heading: string; lines?: string[]; expectedPence?: number | null };
+
 export function GuidedChecklist({
   branchId,
   kind,
   initialSessionId,
   initialSummary,
   initialReceipt,
+  numberContexts,
 }: {
   branchId: string;
   kind: "opening" | "closing";
   initialSessionId: string | null;
   initialSummary: ChecklistSummary;
   initialReceipt: ChecklistReceipt | null;
+  numberContexts?: Record<string, GuidedNumberContext>;
 }) {
   const definition = useMemo(() => getChecklist(kind), [kind]);
 
@@ -78,9 +83,14 @@ export function GuidedChecklist({
       return;
     }
 
+    const context = numberContexts?.[activeStep.key];
     const payload: Record<string, unknown> =
       state === "done" && activeStep.input.kind === "number" && numberValue.trim() !== ""
-        ? { value: Number(numberValue) }
+        ? {
+            value: Number(numberValue),
+            // V18 A1: persist what "expected" was shown at the moment of counting.
+            ...(typeof context?.expectedPence === "number" ? { expected_pence: context.expectedPence } : {}),
+          }
         : {};
 
     const res = await recordChecklistStep({
@@ -157,6 +167,7 @@ export function GuidedChecklist({
                   step={step}
                   busy={busy}
                   numberValue={numberValue}
+                  context={numberContexts?.[step.key]}
                   onNumber={setNumberValue}
                   onDone={() => record("done")}
                   onSkip={() => record("skipped")}
@@ -191,6 +202,7 @@ function ActiveStep({
   step,
   busy,
   numberValue,
+  context,
   onNumber,
   onDone,
   onSkip,
@@ -198,6 +210,7 @@ function ActiveStep({
   step: ReturnType<typeof getChecklist>["steps"][number];
   busy: boolean;
   numberValue: string;
+  context?: GuidedNumberContext;
   onNumber: (v: string) => void;
   onDone: () => void;
   onSkip: () => void;
@@ -229,6 +242,17 @@ function ActiveStep({
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
           )}
+
+          {step.input.kind === "number" && context ? (
+            <div className="mt-3 rounded-xl border border-[#d6cdc0] bg-[#fbfaf7] p-3" data-testid="step-money-context">
+              <p className="text-sm font-bold text-[#241f1a]">{context.heading}</p>
+              {(context.lines ?? []).map((line) => (
+                <p key={line} className="mt-1 text-sm text-[#5c5148]">
+                  {line}
+                </p>
+              ))}
+            </div>
+          ) : null}
 
           {step.input.kind === "number" && (
             <label className="mt-3 block">

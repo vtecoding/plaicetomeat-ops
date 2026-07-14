@@ -1,9 +1,11 @@
 import Link from "next/link";
 
+import { AdminTillPanel } from "@/components/admin-till-panel";
 import { PageFrame } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { BackLink, Masthead, Surface } from "@/components/ui/page";
 import { getCounterOrders } from "@/lib/server/orders";
+import { getDayPaymentPicture } from "@/lib/server/payment-truth";
 import { requireStaffContext } from "@/lib/server/staff-context";
 import { formatCurrency } from "@/lib/utils";
 
@@ -11,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminOrdersPage() {
   const { branchId } = await requireStaffContext("manager", { branchScoped: true });
-  const orders = await getCounterOrders(branchId);
+  const [orders, picture] = await Promise.all([getCounterOrders(branchId), getDayPaymentPicture(branchId)]);
 
   return (
     <PageFrame>
@@ -30,6 +32,11 @@ export default async function AdminOrdersPage() {
             </>
           }
         />
+        {/* V18 A1: the day's money picture + recorded drawer movements (D-9). */}
+        <div className="mt-6">
+          <AdminTillPanel picture={picture} />
+        </div>
+
         <Surface className="mt-6 overflow-hidden">
           {orders.map((order) => (
             <div key={order.id} className="grid gap-3 border-b border-[var(--line)] p-4 last:border-b-0 md:grid-cols-5">

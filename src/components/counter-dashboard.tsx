@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
-import { addOrderNote, getCounterSnapshot, updateOrderStatus } from "@/app/actions/counter";
+import { addOrderNote, collectOrderWithTender, getCounterSnapshot, updateOrderStatus } from "@/app/actions/counter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -102,6 +102,38 @@ export function CounterDashboard({
       setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, status: nextStatus } : order)));
 
       const result = await updateOrderStatus({ orderId, nextStatus });
+      setPendingFor(orderId, false);
+
+      if (!result.ok) {
+        setOrders(previousOrders);
+        setError(result.message);
+        return;
+      }
+
+      setOrders((current) => current.map((order) => (order.id === orderId ? result.order : order)));
+
+      // Collected orders move stock (V14.1). Show the plain-English confirmation.
+      if (result.stockNote) {
+        setNotice(result.stockNote);
+      }
+    },
+    [orders, setPendingFor],
+  );
+
+  // V18 A1: collection records the tender in the same transaction — the UI
+  // asks Cash or Card and the server derives the amount. Double taps replay
+  // by the per-order key and record exactly one payment event.
+  const handleCollect = useCallback(
+    async (orderId: string, method: "cash" | "card") => {
+      setError(null);
+      setNotice(null);
+      setPendingFor(orderId, true);
+
+      const previousOrders = orders;
+      // Optimistic move; rolled back on failure.
+      setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, status: "collected" } : order)));
+
+      const result = await collectOrderWithTender({ orderId, method });
       setPendingFor(orderId, false);
 
       if (!result.ok) {
@@ -211,6 +243,7 @@ export function CounterDashboard({
                     pickupWindow={order.pickupWindowId ? windowsById.get(order.pickupWindowId) : undefined}
                     isPending={pending.has(order.id)}
                     onMove={handleMove}
+                    onCollect={handleCollect}
                     onAddNote={handleAddNote}
                   />
                 ))}
@@ -229,6 +262,7 @@ function CounterOrderCard({
   pickupWindow,
   isPending,
   onMove,
+  onCollect,
   onAddNote,
 }: {
   order: Order;
@@ -236,8 +270,11 @@ function CounterOrderCard({
   pickupWindow: PickupWindow | undefined;
   isPending: boolean;
   onMove: (orderId: string, nextStatus: OrderStatus) => void;
+  onCollect: (orderId: string, method: "cash" | "card") => void;
   onAddNote: (orderId: string, note: string) => Promise<string | null>;
 }) {
+  // V18 A1: collecting asks how the customer paid (one extra tap, D-1).
+  const [choosingTender, setChoosingTender] = useState(false);
   const urgency = getOrderUrgency(order, pickupWindow);
   const nextActions = getNextOrderActions(order.status);
   const smsState = getSmsBadgeState(order.readySmsSentAt, order.smsFailureReason, order.smsStatus);
@@ -308,7 +345,7 @@ function CounterOrderCard({
         </div>
       )}
 
-      {nextActions.length > 0 && (
+      {nextActions.length > 0 && !choosingTender && (
         <div className="mt-4 grid gap-2">
           {nextActions.map((action) => (
             <Button
@@ -316,8 +353,14 @@ function CounterOrderCard({
               variant={action === "cancelled" ? "destructive" : "default"}
               size="lg"
               disabled={isPending}
+              data-testid={action === "collected" ? "counter-collect-start" : undefined}
               onClick={() => {
                 if (action === "cancelled" && !window.confirm("Cancel this order?")) {
+                  return;
+                }
+                if (action === "collected") {
+                  // Tender of record first — the collect happens with Cash/Card.
+                  setChoosingTender(true);
                   return;
                 }
                 onMove(order.id, action);
@@ -330,6 +373,41 @@ function CounterOrderCard({
               {isPending ? "Working..." : labelForAction(action)}
             </Button>
           ))}
+        </div>
+      )}
+
+      {choosingTender && (
+        <div className="mt-4 grid gap-2" data-testid="counter-tender-choice">
+          <p className="text-sm font-bold text-[#5c5148]">
+            How did they pay? {formatCurrency(order.subtotal)}
+          </p>
+          <Button
+            size="lg"
+            disabled={isPending}
+            data-testid="counter-tender-cash"
+            onClick={() => {
+              setChoosingTender(false);
+              onCollect(order.id, "cash");
+            }}
+          >
+            <CheckCircle2 className="h-4 w-4" aria-hidden />
+            Cash
+          </Button>
+          <Button
+            size="lg"
+            disabled={isPending}
+            data-testid="counter-tender-card"
+            onClick={() => {
+              setChoosingTender(false);
+              onCollect(order.id, "card");
+            }}
+          >
+            <CheckCircle2 className="h-4 w-4" aria-hidden />
+            Card
+          </Button>
+          <Button variant="outline" size="lg" disabled={isPending} onClick={() => setChoosingTender(false)}>
+            Back
+          </Button>
         </div>
       )}
     </article>

@@ -21,9 +21,11 @@ import {
 
 import { PageFrame } from "@/components/site-header";
 import type { DataState } from "@/lib/domain/data-result";
+import { buildYesterdayMoneyLines } from "@/lib/ops-capture/money-context";
 import { buildDayShape, buildMorningBriefing } from "@/lib/owner-brain/brain";
 import { getOperationalSnapshotV1 } from "@/lib/server/operational-snapshot";
 import { getOwnerAwaySummary, type OwnerAwaySummary } from "@/lib/server/owner-away";
+import { getYesterdayMoneyCard, type YesterdayMoneyCard } from "@/lib/server/payment-truth";
 import { getReconciliationItems, type ReconcileTray } from "@/lib/server/reconciliation";
 import { requireStaffContext } from "@/lib/server/staff-context";
 import type {
@@ -39,10 +41,12 @@ export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
   const { profile, branchId } = await requireStaffContext("manager", { branchScoped: true });
-  const [snapshot, ownerAway, reconcile] = await Promise.all([
+  const [snapshot, ownerAway, reconcile, moneyCard] = await Promise.all([
     getOperationalSnapshotV1(branchId),
     profile.role === "owner" ? getOwnerAwaySummary(branchId) : Promise.resolve(null),
     getReconciliationItems(branchId),
+    // V18 A1 (PTM-OPS-001): yesterday's money — takings split + till result.
+    profile.role === "owner" ? getYesterdayMoneyCard(branchId) : Promise.resolve(null),
   ]);
   const brain = snapshot.result.data?.brain;
   const morning = snapshot.result.data?.intelligence.morning;
@@ -78,6 +82,11 @@ export default async function TodayPage() {
                 Today / Ignore); it never decides. Compact by design so the actions stay
                 dominant and reachable without scrolling. */}
             {briefing && <MorningBriefingPanel briefing={briefing} />}
+
+            {/* V18 A1 — the money line (audit PTM-OPS-001). Deliberately a Today card
+                OUTSIDE buildMorningBriefing (the briefing engine is doctrine-bound to
+                zero numbers). Plain sentences only: "Till matched" / "Till was £9 short". */}
+            {moneyCard && <YesterdayMoneyPanel card={moneyCard} />}
 
             {/* V15.1 TODAY OS — Do Now dominates the page. It is the first and largest thing
                 the operator acts on; the day-shape + guided walk fold in as a slim lead-in so
@@ -245,6 +254,29 @@ function SetupMode({ gettingStarted }: { gettingStarted: GettingStarted }) {
  * Yesterday (context) · Today (the shape) · what to ignore (reassurance). Deliberately
  * lighter than Do Now — it explains, it never decides, and it never shows a number.
  */
+function YesterdayMoneyPanel({ card }: { card: YesterdayMoneyCard }) {
+  const lines = buildYesterdayMoneyLines(card);
+
+  return (
+    <section
+      className="mt-5 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm"
+      data-testid="yesterday-money"
+    >
+      <p className="eyebrow text-[var(--brand)]">Yesterday&rsquo;s money</p>
+      <div className="mt-2 space-y-1">
+        {lines.map((line) => (
+          <p key={line} className="text-[15px] leading-6 text-[var(--ink)]">
+            {line}
+          </p>
+        ))}
+      </div>
+      <Link href="/admin/orders" className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[var(--brand)] hover:underline">
+        See yesterday&rsquo;s orders
+      </Link>
+    </section>
+  );
+}
+
 function MorningBriefingPanel({ briefing }: { briefing: MorningBriefing }) {
   const rows: Array<{ label: string; text: string; testid: string }> = [
     { label: "Yesterday", text: briefing.yesterday, testid: "briefing-yesterday" },

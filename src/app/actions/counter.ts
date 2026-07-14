@@ -29,6 +29,9 @@ const SAFE_MESSAGE_PATTERNS = [
   "Not authorised",
   "Not authenticated",
   "Unknown order status",
+  "Unknown payment method",
+  "Order already collected",
+  "Order has no positive amount",
   "Note cannot be empty",
   "Note is too long",
 ];
@@ -62,6 +65,13 @@ export async function updateOrderStatus(input: {
     return { ok: false, message: "Unknown order status." };
   }
 
+  // V18 A1: collection must record the tender in the same transaction —
+  // the bare transition path can no longer produce a collected-without-tender
+  // order from this surface. Use collectOrderWithTender instead.
+  if (input.nextStatus === "collected") {
+    return { ok: false, message: "Choose Cash or Card to collect this order." };
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("transition_order_status", {
     p_order_id: input.orderId,
@@ -77,20 +87,6 @@ export async function updateOrderStatus(input: {
 
   if (!order) {
     return { ok: false, message: "Order updated, but it could not be reloaded. Please refresh." };
-  }
-
-  // On collection, stock moved (V14.1). Surface a calm, plain-English confirmation
-  // of what happened to stock — including a gentle "count this" nudge if the order
-  // took more than the system believed it had. Never blocks; never technical.
-  if (input.nextStatus === "collected") {
-    // Collection depletes inventory (V14.1), so the owner's stock surfaces —
-    // TODAY ("Do now"), Stock and Purchasing — must be invalidated too.
-    revalidatePath("/admin");
-    revalidatePath("/admin/today");
-    revalidatePath("/admin/inventory");
-    revalidatePath("/admin/purchasing");
-    const stockNote = await getCollectionStockMessage(supabase, input.orderId);
-    return { ok: true, order, stockNote };
   }
 
   // On transition to "ready", attempt the ready SMS. Business rule: the status
@@ -119,6 +115,54 @@ export async function updateOrderStatus(input: {
   }
 
   return { ok: true, order };
+}
+
+/**
+ * V18 A1 (PTM-OPS-001): collect an online order WITH its tender of record.
+ * One RPC transaction locks the order, performs ready→collected (depletion
+ * stays coupled exactly as today) and inserts the sale payment event — a
+ * collected-without-tender row is impossible on this path. Double taps replay
+ * by the deterministic per-order key and record exactly one event.
+ */
+export async function collectOrderWithTender(input: {
+  orderId: string;
+  method: "cash" | "card";
+}): Promise<UpdateOrderStatusResult> {
+  const ctx = await resolveStaffContext("staff");
+
+  if (!ctx.ok) {
+    return { ok: false, message: ctx.message };
+  }
+
+  if (input.method !== "cash" && input.method !== "card") {
+    return { ok: false, message: "Choose Cash or Card." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("collect_order_with_tender", {
+    p_order_id: input.orderId,
+    p_method: input.method,
+    p_idempotency_key: `counter-collect:${input.orderId}`,
+  });
+
+  if (error) {
+    return { ok: false, message: safeMessage(error.message, "Could not collect this order. Please refresh and try again.") };
+  }
+
+  const order = await getOrderById(input.orderId);
+
+  if (!order) {
+    return { ok: false, message: "Order collected, but it could not be reloaded. Please refresh." };
+  }
+
+  // Collection depletes inventory (V14.1), so the owner's stock surfaces —
+  // TODAY ("Do now"), Stock and Purchasing — must be invalidated too.
+  revalidatePath("/admin");
+  revalidatePath("/admin/today");
+  revalidatePath("/admin/inventory");
+  revalidatePath("/admin/purchasing");
+  const stockNote = await getCollectionStockMessage(supabase, input.orderId);
+  return { ok: true, order, stockNote };
 }
 
 export async function addOrderNote(input: { orderId: string; note: string }): Promise<AddOrderNoteResult> {

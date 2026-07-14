@@ -99,19 +99,18 @@ async function nextRef(branchId: string, date: string) {
   return String(data);
 }
 
-async function collectOrder(order: OrderRow): Promise<{ ok: true } | { ok: false; message: string }> {
+async function collectOrder(
+  order: OrderRow,
+  payKind: PayKind,
+  runId: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
   if (order.status === "collected") return { ok: true };
   if (order.status === "cancelled") return { ok: false, message: "Try again." };
 
   const supabase = await createSupabaseServerClient();
-  const path =
-    order.status === "incoming"
-      ? ["prepping", "ready", "collected"]
-      : order.status === "prepping"
-        ? ["ready", "collected"]
-        : ["collected"];
+  const hops = order.status === "incoming" ? ["prepping", "ready"] : order.status === "prepping" ? ["ready"] : [];
 
-  for (const next of path) {
+  for (const next of hops) {
     const { error } = await supabase.rpc("transition_order_status", {
       p_order_id: order.id,
       p_next_status: next,
@@ -126,6 +125,25 @@ async function collectOrder(order: OrderRow): Promise<{ ok: true } | { ok: false
       if (data?.status === "collected") return { ok: true };
       return { ok: false, message: "Try again." };
     }
+  }
+
+  // V18 A1: the final hop records collection AND the tender of record in one
+  // RPC transaction. Retries replay by the run-scoped key — a run can never
+  // write a second payment event (verified by the serve retry unit path).
+  const { error: tenderError } = await supabase.rpc("collect_order_with_tender", {
+    p_order_id: order.id,
+    p_method: payKind,
+    p_idempotency_key: `operator-serve:${runId}:tender`,
+    p_note: "Shop sale.",
+  });
+  if (tenderError) {
+    const { data } = await createSupabaseServiceClient()
+      .from("orders")
+      .select("id,order_ref,status")
+      .eq("id", order.id)
+      .maybeSingle<OrderRow>();
+    if (data?.status === "collected") return { ok: true };
+    return { ok: false, message: "Try again." };
   }
 
   return { ok: true };
@@ -255,7 +273,7 @@ export async function saveSimpleSale(input: {
   if (existing) {
     const repaired = await repairMissingItems(existing, orderLines, auth);
     if (!repaired.ok) return repaired;
-    const collected = await collectOrder(existing);
+    const collected = await collectOrder(existing, payKind, input.runId);
     if (!collected.ok) return collected;
     await saveOperatorRun({
       runId: input.runId,
@@ -322,7 +340,7 @@ export async function saveSimpleSale(input: {
     systemReason: "operator_serve",
   });
 
-  const collected = await collectOrder(order);
+  const collected = await collectOrder(order, payKind, input.runId);
   if (!collected.ok) return collected;
 
   const afterCare = await getAfterCare(order.id);

@@ -27,6 +27,14 @@ type Kind = "opening" | "closing";
 /** A suggested value for a number step, drawn from history, that the operator confirms. */
 export type NumberPrefill = { value: number; hint: string; source: string | null };
 
+/**
+ * V18 A1: server-provided context shown ABOVE a money step's input — e.g.
+ * "Expected in till: £142.50" plus the day's recorded till movements. The value
+ * is deliberately NOT prefilled (the operator must count); when the step saves,
+ * expectedPence is persisted in the payload as evidence of what was shown.
+ */
+export type NumberContext = { heading: string; lines?: string[]; expectedPence?: number | null };
+
 function seedStates(summary: ChecklistSummary): Record<string, StepRecord> {
   const out: Record<string, StepRecord> = {};
   for (const step of summary.steps) {
@@ -42,6 +50,7 @@ export function OperatorChecklist({
   initialSummary,
   initialReceipt,
   numberPrefills,
+  numberContexts,
 }: {
   branchId: string;
   kind: Kind;
@@ -49,6 +58,7 @@ export function OperatorChecklist({
   initialSummary: ChecklistSummary;
   initialReceipt: ChecklistReceipt | null;
   numberPrefills?: Record<string, NumberPrefill>;
+  numberContexts?: Record<string, NumberContext>;
 }) {
   const definition = useMemo(() => getChecklist(kind), [kind]);
   const steps = definition.steps;
@@ -66,6 +76,7 @@ export function OperatorChecklist({
   const handledCount = Object.keys(states).length;
 
   const activePrefill = activeStep ? numberPrefills?.[activeStep.key] : undefined;
+  const activeContext = activeStep ? numberContexts?.[activeStep.key] : undefined;
 
   // Seed the number field with a suggested value when a prefilled step opens (e.g. the
   // opening float). The operator can edit it before saving, so nothing is silently kept.
@@ -107,6 +118,8 @@ export function OperatorChecklist({
             ...(activePrefill && Number(numberValue) === activePrefill.value && activePrefill.source
               ? { source: activePrefill.source }
               : {}),
+            // V18 A1: persist what "expected" was shown at the moment of counting.
+            ...(typeof activeContext?.expectedPence === "number" ? { expected_pence: activeContext.expectedPence } : {}),
           }
         : {};
 
@@ -196,6 +209,20 @@ export function OperatorChecklist({
             {activeStep.title}
           </h2>
           <p className="mt-2 text-base leading-7 text-[var(--muted)]">{activeStep.why}</p>
+
+          {activeStep.input.kind === "number" && activeContext ? (
+            <div
+              className="mt-5 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4"
+              data-testid="operator-step-money-context"
+            >
+              <p className="text-lg font-semibold text-[var(--ink)]">{activeContext.heading}</p>
+              {(activeContext.lines ?? []).map((line) => (
+                <p key={line} className="mt-1 text-base text-[var(--muted)]">
+                  {line}
+                </p>
+              ))}
+            </div>
+          ) : null}
 
           {activeStep.input.kind === "number" && (
             <label className="mt-5 block">

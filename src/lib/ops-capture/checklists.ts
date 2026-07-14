@@ -80,6 +80,13 @@ const CLOSING: ChecklistDefinition = {
       critical: false,
     },
     {
+      key: "terminal_total",
+      title: "Card machine total (Z report)",
+      why: "The card machine's end-of-day total is the other half of today's money. Reading it off makes card takings real, not assumed.",
+      input: { kind: "number", unit: "£", label: "Card machine total" },
+      critical: false,
+    },
+    {
       key: "fridges_closed",
       title: "Fridges shut and still cold",
       why: "Stock has to stay cold overnight to be safe to sell tomorrow.",

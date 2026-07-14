@@ -2,7 +2,9 @@ import { GuidedChecklist } from "@/components/ops-capture/guided-checklist";
 import { PageFrame } from "@/components/site-header";
 import { Masthead } from "@/components/ui/page";
 import { getChecklist } from "@/lib/ops-capture/checklists";
+import { buildCloseMoneyContexts } from "@/lib/ops-capture/money-context";
 import { getTodaysChecklistState, type ChecklistKind } from "@/lib/server/ops-capture";
+import { getDayPaymentPicture } from "@/lib/server/payment-truth";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
 /** Shared server shell for the opening and closing ritual screens. */
@@ -10,6 +12,8 @@ export async function ChecklistPage({ kind, testid }: { kind: ChecklistKind; tes
   const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const state = await getTodaysChecklistState(branchId, kind);
   const def = getChecklist(kind);
+  // V18 A1: closing money steps show expected-vs-counted context (never prefilled).
+  const numberContexts = kind === "closing" ? buildCloseMoneyContexts(await getDayPaymentPicture(branchId)) : undefined;
 
   return (
     <PageFrame>
@@ -23,6 +27,7 @@ export async function ChecklistPage({ kind, testid }: { kind: ChecklistKind; tes
             initialSessionId={state.sessionId}
             initialSummary={state.summary}
             initialReceipt={state.receipt}
+            numberContexts={numberContexts}
           />
         </div>
       </main>
