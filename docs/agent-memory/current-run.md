@@ -1,39 +1,54 @@
-# PTM Production Hardening Run — 2026-07-10 — COMPLETE
+# PTM V18 Phase A2 + B repository run - 2026-07-14
 
 ## Outcome
-Diverged main reconciled with origin, six audit findings fixed, every validation tier
-green (static 7/7, db 6/6, live 7/7, unit 620/620, lint, build, typecheck).
 
-## Commits this run (local main, on top of merge base 91488cd)
-1. `fe482c8` merge: reconcile pilot-candidate main with origin/main hardening line
-2. `e85f2d0` fix: lock products + event tables to audited write paths (phase 3)  [N7]
-3. `8296f22` fix: repair header-only serve orders on retry instead of collecting them  [N1]
-4. `31eca30` fix: derive cost-pending visibility from batch state, not one alert write  [N2]
-5. `112102b` test: add RLS-coverage guard; wire orphaned truth guards into the gate  [N3+N5]
-6. `297d9bb` fix: correct the root error surface copy and recovery paths  [N4]
-7. (docs commit) architecture doc + agent-memory docs
+A2 and B1-B7 are code-complete on `codex/v18-phase-a2-b`. The implementation commit is
+`151d2818fbd2a0ebd0ce41f938489e9ff8a83212` (187 files, 21,395 insertions, 2,015
+deletions). All automated tiers are green. Formal shop-floor gates remain open and are
+listed in `docs/audits/v18-phase-a2-b-implementation-report.md`.
 
-## Validation evidence (all on the final tree)
-- `corepack pnpm typecheck` — PASS (0 errors)
-- `corepack pnpm test` — PASS 620/620 (79 files; +9 new serve-repair/failure-surface tests)
-- `corepack pnpm lint` — PASS (0 errors, 5 pre-existing warnings)
-- `corepack pnpm build` — PASS
-- `architecture:check` static — PASS 7/7 (now incl. rls-coverage + operational-truth)
-- `architecture:check --tier=db` — PASS 6/6 (now incl. compliance-integrity 14/14;
-  truth-table-lock extended to 12 adversarial checks incl. phase3 tables)
-- `architecture:check --tier=live` vs next start :3001 + seeded local Supabase —
-  PASS 7/7 (route-lock, journeys, action-compression, today-os, one-tap, briefing,
-  win-back)
-- Reconcile self-heal live probe — 3/3 PASS (cost-0 OP batch with deleted alert →
-  alert recreated on tray read, batch visible, audited) — throwaway script, logic now
-  covered by the fix itself
-- Migration `202607101200` applied cleanly to local stack; fresh-DB order safe
-  (policies it drops are created by earlier migrations; REVOKEs idempotent).
+## Shipped scope
 
-## Notes for the next run
-- `.env.local` intentionally lacks CANONICAL_BRANCH_ID; set it in-process when
-  running `next start` locally or /api/health returns 503 CONFIGURATION_REQUIRED.
-- The two legacy guard scripts are now first-class constitution articles; don't
-  re-orphan them when editing package.json / architecture-check.
-- Remaining known risks live in §21 of docs/architecture/ptm-production-architecture.md
-  and docs/agent-memory/known-risks.md.
+- constrained each/box and deliberately untracked inventory policy;
+- transactional owner-alert outbox, gated Twilio worker, digest, heartbeat and phone fallback;
+- one Owner jobs tray with complete lifecycle and truth-backed auto-resolution;
+- atomic manager refunds, operator mistake flag and exact inventory dispositions;
+- append-only canonical SQL order-amendment fold frozen across tender and depletion;
+- price-visible operator serve for kg and count products;
+- awaited, honest resume drafts plus atomic run-completion receipts;
+- certificate removal from new opening sessions, expiry jobs and atomic evidence finalization;
+- authenticated Counter Realtime with honest reconnect state and two-second safety refresh.
+
+## Final validation evidence
+
+- typecheck: PASS;
+- unit: 712 passed, 1 skipped (96 passed files, 1 skipped file);
+- lint: PASS with zero errors and six accepted pre-existing warnings;
+- production build: PASS;
+- architecture static: 8/8;
+- architecture DB: 8/8;
+- architecture live: 7/7;
+- Playwright full: 105/105;
+- Counter Realtime/recovery repeat: 6/6;
+- clean database reset: 53/53 migrations through `202607142400`;
+- V11 clean/upgrade migration harness and manifest verification: PASS;
+- local release/readiness gates: PASS; production-only checks skipped without authority;
+- staged scope, whitespace, secret, debug and artifact audit: PASS.
+
+The local database was reset and left in deterministic seeded-development state after the
+full validation run.
+
+## Required next evidence
+
+- G-A real reconciliation day and timed Gul kg+each serve rehearsal with zero abandoned sales;
+- G-B1 critical alert on Dad's handset in under five minutes and a real morning digest;
+- G-B real refund/amendment/mistake correction, Owner Away stages 1-2, and Dad clearing the tray unaided;
+- OR-11 only after Owner Away stage 3 / one week;
+- backup-first production migration/deploy, strict release mode and post-deploy parity checks.
+
+## Worktree boundary
+
+The following pre-existing user edits were preserved and excluded from both V18 commits:
+
+- `docs/audits/ptm-operational-audit-input.md`
+- `docs/reports/disaster-recovery-certification.md`
