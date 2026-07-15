@@ -1,8 +1,10 @@
 # V18 B1 Phase 3.5 — Web Push Shadow Validation
 
-Date: 2026-07-15
+Date: 2026-07-15 to 2026-07-16
 
-Release under test: `b80de87876a376798d4f3dfb7f0efe21ad67835f`
+Phase 3 release under test: `b80de87876a376798d4f3dfb7f0efe21ad67835f`
+
+Deployed field-fix checkpoint: `edcee6ede6fb86e9863374cbb81129f1280a9178`
 
 Supabase project: `qwvlzcqmicedxhfafiar`
 
@@ -15,12 +17,19 @@ Mode: manual Edge invocation; dispatcher cron unscheduled; GitHub worker retaine
 - Restore result: 49 public tables, RLS 49/49, five Auth users, zero orphaned profiles, five orders.
 - Production upgraded from 41 to 55 migrations and application build `b80de87` deployed.
 - Real Edge health: ready, Web Push implemented/configured, schema `202607151500`.
+- Before deploying the field fixes, encrypted backup run `29457631282` was restored into
+  `ptm_phase35_fix_scratch_20260715`: 61 public tables, RLS 61/61, five Auth users, zero orphaned
+  profiles, and five orders.
+- Post-fix production health: application build `edcee6e`, 56/56 migrations at head `202607152315`,
+  verified backup current, one verified active device, and an empty dispatch queue.
 
 ## Real delivery evidence
 
-Device `6d80b9e2-e8b5-45fa-ada1-09c1324253e7` was registered from the real owner browser,
+Device `6d80b9e2-e8b5-45fa-ada1-09c1324253e7` was registered from the owner's real Windows PC browser,
 received provider-accepted verification notifications, and was explicitly confirmed at
 `2026-07-15T22:53:12.680005Z`. The device became eligible only after that confirmation.
+
+This proves the real browser/desktop chain. It is not evidence of delivery to a handset.
 
 Measured evidence:
 
@@ -36,7 +45,9 @@ Measured evidence:
 | Controlled alert Edge sweep | 430 ms |
 | Controlled alert accepted → authenticated open | 234.56 s (deliberate human wait included) |
 | Duplicate suppression | PASS — two provider accepts with one payload `dispatchId`, one visible notification |
-| Open vs acknowledgement | PASS — open recorded while `acknowledged_at` and `resolved_at` remained null |
+| Authenticated open evidence | PASS — primary dispatch opened at `2026-07-15T22:58:41.526126Z` |
+| Explicit acknowledgement | PASS — owner acknowledged at `2026-07-15T23:14:06.608931Z` |
+| Acknowledgement vs resolution | PASS — `resolved_at` and `resolution_note` remained null after acknowledgement |
 
 Controlled alert: `f3369425-519c-43ba-9b88-f469a4f3dca0`.
 
@@ -87,5 +98,22 @@ delivery truth and is not expanded into a new feature during Phase 3.5.
 - Typecheck and production build: pass.
 - Lint: zero errors; six existing warnings.
 
-Final field retest after deploying the fix remains required for the deep-linked acknowledge action and
-channel-scoped production Edge lease. No production cutover is claimed.
+## Post-fix production field retest
+
+- The deployed deep link rendered the authorized alert in a focused **Opened from notification** card.
+- The owner explicitly acknowledged it in PTM. The authoritative `owner_alerts` row recorded
+  `acknowledged_at` and `acknowledged_by`, while `resolved_at` and `resolution_note` remained null.
+- Provider acceptance, notification open, acknowledgement, and resolution therefore remain four distinct facts.
+- Production Edge invocation `edge:9e9d9aa4` ran while an inert `twilio_whatsapp` probe was eligible. Edge
+  leased and processed zero rows; the probe remained `pending` with `attempt_count = 0` and no lease owner.
+  The probe was removed immediately afterward. This proves the deployed Edge worker leases only its owned
+  `web_push` channel while the retained GitHub/server path owns `twilio_whatsapp`.
+
+## Verdict
+
+- Phase 3.5 real desktop-browser shadow chain: **PASS**.
+- Phase 3.5 field defects P3.5-01 through P3.5-04: **FIXED AND DEPLOYED**.
+- Generic notification presentation P3.5-05: **RECORDED, NON-BLOCKING**.
+- Real owner handset delivery certification: **OPEN**.
+- Production cutover: **NOT CLAIMED**.
+- Dispatcher cron remains unscheduled and the GitHub worker remains available.
