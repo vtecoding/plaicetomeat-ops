@@ -1,31 +1,52 @@
-export const MAX_ALERT_DISPATCH_ATTEMPTS = 5;
+export const MAX_ALERT_DISPATCH_ATTEMPTS = 6;
 export const MAX_ALERT_DISPATCH_BATCH = 25;
+export const ALERT_DISPATCH_LEASE_SECONDS = 60;
 
-export type DispatchEnvelope = {
-  id: string;
-  channel: string;
-  target: string;
-  providerIdempotencyKey: string;
-  message: string;
+/** Delay in seconds before attempt N (attempt-relative, per the B1 redesign).
+ * The dispatcher wakes every 30 seconds, so a scheduled retry actually runs on
+ * the first sweep at or after next_attempt_at — tests assert the schedule, not
+ * a wall-clock promise. */
+export const ALERT_DISPATCH_RETRY_DELAY_SECONDS = [0, 15, 30, 60, 120, 240] as const;
+
+export type AlertDispatchOutcome =
+  | "accepted"
+  | "skipped"
+  | "rejected_permanent"
+  | "failed_transient"
+  | "ambiguous";
+
+export type ProviderSendResult = {
+  providerMessageId: string | null;
+  providerStatusCode: string | null;
 };
 
-export type ProviderSendResult = { providerResponse: string | null };
-export type ClaimedAlertDispatch = {
+export type LeasedAlertDispatch = {
   id: string;
   kind: "critical_alert" | "daily_digest";
   channel: string;
+  device_id: string | null;
   target: string;
-  provider_idempotency_key: string;
+  dispatch_key: string;
+  priority: number;
+  attempt_count: number;
   payload: Record<string, unknown> | null;
 };
-export type AlertDispatchResult = {
-  status: "sent" | "failed" | "skipped";
-  lastError: string | null;
-  providerResponse: string | null;
-  retryable: boolean;
-  ambiguous: boolean;
+
+export type AlertDispatchResultRecord = {
+  outcome: AlertDispatchOutcome;
+  providerMessageId: string | null;
+  providerStatusCode: string | null;
+  errorCode: string | null;
+  errorDetail: string | null;
+  invalidateDevice: boolean;
 };
-export type AlertDispatchTotals = { claimed: number; sent: number; failed: number; skipped: number };
+
+export type AlertDispatchTotals = {
+  claimed: number;
+  accepted: number;
+  failed: number;
+  skipped: number;
+};
 
 export type AlertBranchRow = { id: string; timezone: string | null };
 export type AlertBranchSettingRow = {
@@ -61,65 +82,78 @@ export function mergeAlertBranchSchedules(
   });
 }
 
-export function dispatchBackoffSeconds(completedAttempts: number): number | null {
-  if (completedAttempts >= MAX_ALERT_DISPATCH_ATTEMPTS) return null;
-  return Math.min(3600, 30 * 2 ** Math.max(0, completedAttempts - 1));
+/** Mirror of alert_dispatch_retry_delay_seconds in SQL: the delay scheduled
+ * before attempt `nextAttempt`, or null once the bounded budget is exhausted. */
+export function dispatchRetryDelaySeconds(nextAttempt: number): number | null {
+  if (!Number.isInteger(nextAttempt) || nextAttempt < 1) return null;
+  if (nextAttempt > MAX_ALERT_DISPATCH_ATTEMPTS) return null;
+  return ALERT_DISPATCH_RETRY_DELAY_SECONDS[nextAttempt - 1];
 }
 
 export function boundDispatchBatch(value: number | null | undefined): number {
-  if (!Number.isFinite(value)) return 10;
+  if (!Number.isFinite(value)) return 20;
   return Math.max(1, Math.min(MAX_ALERT_DISPATCH_BATCH, Math.trunc(value!)));
 }
 
-export function fieldProofSucceeded(totals: { claimed: number; sent: number }): boolean {
-  return totals.claimed > 0 && totals.claimed === totals.sent;
+export function fieldProofSucceeded(totals: { claimed: number; accepted: number }): boolean {
+  return totals.claimed > 0 && totals.claimed === totals.accepted;
 }
 
 /**
- * One orchestration contract shared by the scheduled worker and any server-side
- * sweep. The durable send boundary is deliberately outside the provider catch:
- * a database failure before network I/O is not an ambiguous provider outcome,
- * and a database failure after provider acceptance must not be rewritten as a
+ * One orchestration contract shared by every dispatcher runtime (the interim
+ * scheduled worker and the Edge Function sweep). Rows arrive already leased —
+ * the lease opened the physical attempt record — so the only work here is
+ * send, classify and record.
+ *
+ * At-least-once boundary: when recording an acceptance fails, the error
+ * propagates and the row stays leased. The lease expires into delivery_unknown
+ * and the dispatch retries under the same identity; the receiving client
+ * deduplicates on the dispatch id. Provider acceptance is never rewritten as a
  * failed send.
  */
-export async function processClaimedAlertDispatches(input: {
-  rows: ClaimedAlertDispatch[];
-  channelConfigured: boolean;
+export async function processLeasedAlertDispatches(input: {
+  rows: LeasedAlertDispatch[];
+  channelConfigured: (row: LeasedAlertDispatch) => boolean;
   disabledReason: string;
-  begin: (dispatchId: string) => Promise<void>;
-  send: (row: ClaimedAlertDispatch) => Promise<ProviderSendResult>;
-  record: (dispatchId: string, result: AlertDispatchResult) => Promise<void>;
-  classifySendError: (error: unknown) => { message: string; retryable: boolean; ambiguous: boolean };
-  onSkipped?: (row: ClaimedAlertDispatch) => void;
-  onFailed?: (row: ClaimedAlertDispatch, message: string) => void;
+  send: (row: LeasedAlertDispatch) => Promise<ProviderSendResult>;
+  record: (dispatchId: string, result: AlertDispatchResultRecord) => Promise<void>;
+  classifySendError: (error: unknown) => {
+    message: string;
+    outcome: Exclude<AlertDispatchOutcome, "accepted" | "skipped">;
+    errorCode: string | null;
+    invalidateDevice: boolean;
+  };
+  onSkipped?: (row: LeasedAlertDispatch) => void;
+  onFailed?: (row: LeasedAlertDispatch, message: string) => void;
 }): Promise<AlertDispatchTotals> {
-  const totals: AlertDispatchTotals = { claimed: input.rows.length, sent: 0, failed: 0, skipped: 0 };
+  const totals: AlertDispatchTotals = { claimed: input.rows.length, accepted: 0, failed: 0, skipped: 0 };
   for (const row of input.rows) {
-    if (!input.channelConfigured || !row.target.trim()) {
+    if (!input.channelConfigured(row)) {
       await input.record(row.id, {
-        status: "skipped",
-        lastError: input.disabledReason,
-        providerResponse: null,
-        retryable: false,
-        ambiguous: false,
+        outcome: "skipped",
+        providerMessageId: null,
+        providerStatusCode: null,
+        errorCode: input.disabledReason,
+        errorDetail: null,
+        invalidateDevice: false,
       });
       totals.skipped += 1;
       input.onSkipped?.(row);
       continue;
     }
 
-    await input.begin(row.id);
     let sent: ProviderSendResult;
     try {
       sent = await input.send(row);
     } catch (error) {
       const classified = input.classifySendError(error);
       await input.record(row.id, {
-        status: "failed",
-        lastError: classified.message.slice(0, 1000),
-        providerResponse: null,
-        retryable: classified.retryable,
-        ambiguous: classified.ambiguous,
+        outcome: classified.outcome,
+        providerMessageId: null,
+        providerStatusCode: null,
+        errorCode: classified.errorCode,
+        errorDetail: classified.message.slice(0, 1000),
+        invalidateDevice: classified.invalidateDevice,
       });
       totals.failed += 1;
       input.onFailed?.(row, classified.message);
@@ -127,27 +161,14 @@ export async function processClaimedAlertDispatches(input: {
     }
 
     await input.record(row.id, {
-      status: "sent",
-      lastError: null,
-      providerResponse: sent.providerResponse,
-      retryable: false,
-      ambiguous: false,
+      outcome: "accepted",
+      providerMessageId: sent.providerMessageId,
+      providerStatusCode: sent.providerStatusCode,
+      errorCode: null,
+      errorDetail: null,
+      invalidateDevice: false,
     });
-    totals.sent += 1;
+    totals.accepted += 1;
   }
   return totals;
-}
-
-/**
- * Contract for adapters with documented provider-side idempotency. The current
- * Twilio adapter does not claim this capability; it uses a durable send boundary
- * and terminal-visible ambiguous outcome instead (owner-alert-channel.ts).
- */
-export async function deliverWithStableKey(
-  envelope: DispatchEnvelope,
-  sender: (input: DispatchEnvelope) => Promise<ProviderSendResult>,
-  recorder: (result: ProviderSendResult) => Promise<void>,
-): Promise<void> {
-  const result = await sender(envelope);
-  await recorder(result);
 }

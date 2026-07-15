@@ -104,7 +104,7 @@ async function verifyChecklistLifecycle() {
     .single();
   const { data: criticalDispatch } = await admin
     .from("alert_dispatches")
-    .select("status,provider_idempotency_key")
+    .select("status,dispatch_key")
     .eq("alert_id", critical.id)
     .single();
   check(

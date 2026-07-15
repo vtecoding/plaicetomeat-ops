@@ -385,6 +385,13 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# V18 B1 Phase 2 — owner-alert dispatcher, invoked by Supabase Cron every 30s.
+# verify_jwt is off because the function enforces a stricter check itself:
+# constant-time equality against the service role key / ALERT_DISPATCHER_TOKEN.
+[functions.alert-dispatcher]
+enabled = true
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

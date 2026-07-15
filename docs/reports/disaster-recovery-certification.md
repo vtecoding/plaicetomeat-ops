@@ -8,26 +8,26 @@ NOT VALID FOR LAUNCH CERTIFICATION
 - environment: LOCAL
 - drill type: TEST
 - operator: Mara Manager <manager@ptm.test>
-- timestamp: 2026-07-09T23:35:29.239234+00:00
-- restore completed: 2026-07-09T23:35:29.256+00:00
+- timestamp: 2026-07-15T11:03:12.582504+00:00
+- restore completed: 2026-07-15T11:03:12.604+00:00
 
 ## Backup Evidence
 
 - artifact: local-test-backup-evidence.json
-- backup size: 923 bytes
-- checksum: 94f0c1e6549b99be0ac51036d1ffbcc171f9b88e2305ce9360714c9f19b3dfc0
-- timestamp: 2026-07-09T23:35:29.242Z
+- backup size: 917 bytes
+- checksum: b8739ccb59f3fa287ae5906409542d6ff6f51336f4f878a362b0f7ee21280f26
+- timestamp: 2026-07-15T11:03:12.587Z
 
 ## Parity Results
 
 | Table | Source | Restored | Variance | Status |
 | --- | ---: | ---: | ---: | --- |
 | profiles | 6 | 6 | 0 | PASS |
-| orders | 6 | 6 | 0 | PASS |
-| order_items | 6 | 6 | 0 | PASS |
-| products | 17 | 17 | 0 | PASS |
-| inventory | 35 | 35 | 0 | PASS |
-| audit_logs | 338 | 338 | 0 | PASS |
+| orders | 7 | 7 | 0 | PASS |
+| order_items | 7 | 7 | 0 | PASS |
+| products | 8 | 8 | 0 | PASS |
+| inventory | 6 | 6 | 0 | PASS |
+| audit_logs | 79 | 79 | 0 | PASS |
 | compliance_logs | 1 | 1 | 0 | PASS |
 | pricing_validations | 1 | 1 | 0 | PASS |
 
@@ -35,13 +35,13 @@ NOT VALID FOR LAUNCH CERTIFICATION
 
 | Sample | Identifier | Status |
 | --- | --- | --- |
-| latest order | c93c185b-fe75-498d-8cdc-a185b8c054b8 | PASS |
-| oldest order | 5192e315-aefc-49a0-a343-aeb970d64aa4 | PASS |
-| random order | c93c185b-fe75-498d-8cdc-a185b8c054b8 | PASS |
-| latest audit event | 5ed87517-f16f-4669-9809-d9c2198e82a2 | PASS |
-| oldest audit event | bdf3fa99-bbd2-4059-b0db-da0841ff3ec4 | PASS |
-| latest compliance log | 22e46458-98e0-4606-a1e3-a774db0c73bc | PASS |
-| latest pricing validation | 2e014b0c-9b29-43ab-9386-f99b4abf7cea | PASS |
+| latest order | 59abc826-d6a7-426f-b26c-f6a844bd0a56 | PASS |
+| oldest order | 928fac57-a300-4485-917b-b97ff6446d27 | PASS |
+| random order | a2e88598-184c-453b-8fac-954c4878008a | PASS |
+| latest audit event | ef97dea7-008d-487b-86ac-b713cf0064c8 | PASS |
+| oldest audit event | f5716591-f607-46aa-8ab3-1506af0a7669 | PASS |
+| latest compliance log | d723c2ea-0bd0-45c0-8142-3113d1d4c12f | PASS |
+| latest pricing validation | 6b7b060b-3ff6-4d17-99fc-b42280c6592f | PASS |
 
 ## Final Verdict
 

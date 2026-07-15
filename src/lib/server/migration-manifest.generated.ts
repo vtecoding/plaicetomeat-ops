@@ -241,7 +241,7 @@ export const REQUIRED_MIGRATIONS: readonly MigrationManifestEntry[] = [
   {
     "version": "202607141400",
     "file": "202607141400_v18_alert_dispatch.sql",
-    "checksum": "068da600b1e90bae55c61ea8eb0a6a4086e1a376bbcdcb25a7f49657f4bc68fe"
+    "checksum": "75966e2bbe7926147be8b92c71f0fe67ca44775fdc45de1407aede8b80e0d638"
   },
   {
     "version": "202607141500",
@@ -277,6 +277,11 @@ export const REQUIRED_MIGRATIONS: readonly MigrationManifestEntry[] = [
     "version": "202607142400",
     "file": "202607142400_v18_atomic_evidence_finalize.sql",
     "checksum": "c1bad18ad64a50a1a80b7195465c3cf83692f06a849207cba12ef0f089ddabc5"
+  },
+  {
+    "version": "202607150900",
+    "file": "202607150900_v18_edge_dispatcher.sql",
+    "checksum": "592a7f5c94e7c7fcad659be122881b7043365333f6769c91f39736fe9045a9bb"
   }
 ] as const;
 
@@ -333,11 +338,12 @@ export const REQUIRED_MIGRATION_VERSIONS: readonly string[] = [
   "202607142100",
   "202607142200",
   "202607142300",
-  "202607142400"
+  "202607142400",
+  "202607150900"
 ] as const;
 
-export const REQUIRED_MIGRATION_HEAD = "202607142400" as const;
+export const REQUIRED_MIGRATION_HEAD = "202607150900" as const;
 
-export const MIGRATION_MANIFEST_CHECKSUM = "b5c03b7895e1530f2c3fcc3c828a1eadb880921bc2e7d93aca3f27e71f390fd4" as const;
+export const MIGRATION_MANIFEST_CHECKSUM = "346d620afcf5eed3e7a0bd4301286a435713821c998cf9610bb117321be23100" as const;
 
-export const REQUIRED_MIGRATION_COUNT = 53 as const;
+export const REQUIRED_MIGRATION_COUNT = 54 as const;

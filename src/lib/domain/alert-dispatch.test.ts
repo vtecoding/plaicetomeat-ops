@@ -1,28 +1,48 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  MAX_ALERT_DISPATCH_ATTEMPTS,
   boundDispatchBatch,
-  deliverWithStableKey,
-  dispatchBackoffSeconds,
+  dispatchRetryDelaySeconds,
   fieldProofSucceeded,
   mergeAlertBranchSchedules,
-  processClaimedAlertDispatches,
+  processLeasedAlertDispatches,
+  type LeasedAlertDispatch,
 } from "./alert-dispatch";
 
+function leasedRow(overrides: Partial<LeasedAlertDispatch> = {}): LeasedAlertDispatch {
+  return {
+    id: "dispatch-1",
+    kind: "critical_alert",
+    channel: "twilio_whatsapp",
+    device_id: null,
+    target: "+447700900001",
+    dispatch_key: "critical-alert:1",
+    priority: 100,
+    attempt_count: 1,
+    payload: { message: "Help" },
+    ...overrides,
+  };
+}
+
 describe("owner alert dispatch contract", () => {
-  it("bounds every sweep and makes the fifth failure terminal", () => {
+  it("bounds every sweep and the attempt-relative retry schedule ends in dead-letter", () => {
     expect(boundDispatchBatch(0)).toBe(1);
     expect(boundDispatchBatch(500)).toBe(25);
-    expect(dispatchBackoffSeconds(1)).toBe(30);
-    expect(dispatchBackoffSeconds(4)).toBe(240);
-    expect(dispatchBackoffSeconds(5)).toBeNull();
+    expect(dispatchRetryDelaySeconds(1)).toBe(0);
+    expect(dispatchRetryDelaySeconds(2)).toBe(15);
+    expect(dispatchRetryDelaySeconds(3)).toBe(30);
+    expect(dispatchRetryDelaySeconds(4)).toBe(60);
+    expect(dispatchRetryDelaySeconds(5)).toBe(120);
+    expect(dispatchRetryDelaySeconds(6)).toBe(240);
+    expect(dispatchRetryDelaySeconds(MAX_ALERT_DISPATCH_ATTEMPTS + 1)).toBeNull();
   });
 
-  it("fails field proof whenever any claimed dispatch is not confirmed sent", () => {
-    expect(fieldProofSucceeded({ claimed: 2, sent: 2 })).toBe(true);
-    expect(fieldProofSucceeded({ claimed: 2, sent: 1 })).toBe(false);
-    expect(fieldProofSucceeded({ claimed: 1, sent: 0 })).toBe(false);
-    expect(fieldProofSucceeded({ claimed: 0, sent: 0 })).toBe(false);
+  it("fails field proof whenever any claimed dispatch is not provider-accepted", () => {
+    expect(fieldProofSucceeded({ claimed: 2, accepted: 2 })).toBe(true);
+    expect(fieldProofSucceeded({ claimed: 2, accepted: 1 })).toBe(false);
+    expect(fieldProofSucceeded({ claimed: 1, accepted: 0 })).toBe(false);
+    expect(fieldProofSucceeded({ claimed: 0, accepted: 0 })).toBe(false);
   });
 
   it("schedules every branch even when Owner Away settings were never saved", () => {
@@ -56,90 +76,74 @@ describe("owner alert dispatch contract", () => {
     ]);
   });
 
-  it("does not double-send after a crash between provider success and recording", async () => {
-    const providerOperations = new Map<string, string>();
-    let physicalSends = 0;
-    const sender = vi.fn(async (input: { providerIdempotencyKey: string }) => {
-      let providerResponse = providerOperations.get(input.providerIdempotencyKey);
-      if (!providerResponse) {
-        physicalSends += 1;
-        providerResponse = `message-${physicalSends}`;
-        providerOperations.set(input.providerIdempotencyKey, providerResponse);
-      }
-      return { providerResponse };
-    });
-    const envelope = {
-      id: "dispatch-1",
-      channel: "idempotent_test_provider",
-      target: "+447700900000",
-      providerIdempotencyKey: "critical-alert:stable",
-      message: "Fridge needs help.",
-    };
-
-    await expect(
-      deliverWithStableKey(envelope, sender, async () => {
-        throw new Error("database unavailable after send");
-      }),
-    ).rejects.toThrow("database unavailable");
-
+  it("records an unconfigured channel as skipped without touching the provider", async () => {
+    const send = vi.fn();
     const recorded: string[] = [];
-    await deliverWithStableKey(envelope, sender, async (result) => {
-      recorded.push(result.providerResponse ?? "");
+    const totals = await processLeasedAlertDispatches({
+      rows: [leasedRow({ target: "" })],
+      channelConfigured: (row) => Boolean(row.target.trim()),
+      disabledReason: "CHANNEL_DISABLED",
+      send,
+      record: async (_id, result) => {
+        recorded.push(`${result.outcome}:${result.errorCode}`);
+      },
+      classifySendError: () => ({
+        message: "provider",
+        outcome: "ambiguous",
+        errorCode: null,
+        invalidateDevice: false,
+      }),
     });
-
-    expect(sender).toHaveBeenCalledTimes(2);
-    expect(physicalSends).toBe(1);
-    expect(recorded).toEqual(["message-1"]);
+    expect(send).not.toHaveBeenCalled();
+    expect(recorded).toEqual(["skipped:CHANNEL_DISABLED"]);
+    expect(totals).toEqual({ claimed: 1, accepted: 0, failed: 0, skipped: 1 });
   });
 
-  it("never misclassifies a send-boundary database failure as a provider attempt", async () => {
-    const send = vi.fn();
-    const record = vi.fn();
-    await expect(
-      processClaimedAlertDispatches({
-        rows: [{
-          id: "dispatch-1",
-          kind: "critical_alert",
-          channel: "test",
-          target: "+447700900001",
-          provider_idempotency_key: "critical-alert:1",
-          payload: { message: "Help" },
-        }],
-        channelConfigured: true,
-        disabledReason: "disabled",
-        begin: async () => { throw new Error("begin RPC unavailable"); },
-        send,
-        record,
-        classifySendError: () => ({ message: "provider", retryable: false, ambiguous: true }),
+  it("classifies provider failures into the recorded outcome, preserving device invalidation", async () => {
+    const recorded: Array<{ outcome: string; invalidateDevice: boolean }> = [];
+    const totals = await processLeasedAlertDispatches({
+      rows: [leasedRow()],
+      channelConfigured: () => true,
+      disabledReason: "CHANNEL_DISABLED",
+      send: async () => {
+        throw new Error("410 subscription gone");
+      },
+      record: async (_id, result) => {
+        recorded.push({ outcome: result.outcome, invalidateDevice: result.invalidateDevice });
+      },
+      classifySendError: () => ({
+        message: "subscription gone",
+        outcome: "rejected_permanent",
+        errorCode: "410",
+        invalidateDevice: true,
       }),
-    ).rejects.toThrow("begin RPC unavailable");
-    expect(send).not.toHaveBeenCalled();
-    expect(record).not.toHaveBeenCalled();
+    });
+    expect(recorded).toEqual([{ outcome: "rejected_permanent", invalidateDevice: true }]);
+    expect(totals.failed).toBe(1);
   });
 
   it("never rewrites provider acceptance as a failed send when result recording fails", async () => {
-    const statuses: string[] = [];
+    const outcomes: string[] = [];
     await expect(
-      processClaimedAlertDispatches({
-        rows: [{
-          id: "dispatch-2",
-          kind: "daily_digest",
-          channel: "test",
-          target: "+447700900001",
-          provider_idempotency_key: "digest:2",
-          payload: { message: "Digest" },
-        }],
-        channelConfigured: true,
-        disabledReason: "disabled",
-        begin: async () => undefined,
-        send: async () => ({ providerResponse: "accepted" }),
+      processLeasedAlertDispatches({
+        rows: [leasedRow({ id: "dispatch-2", kind: "daily_digest", dispatch_key: "digest:2" })],
+        channelConfigured: () => true,
+        disabledReason: "CHANNEL_DISABLED",
+        send: async () => ({ providerMessageId: "SM1", providerStatusCode: "201" }),
         record: async (_id, result) => {
-          statuses.push(result.status);
+          outcomes.push(result.outcome);
           throw new Error("result RPC unavailable");
         },
-        classifySendError: () => ({ message: "provider", retryable: false, ambiguous: true }),
+        classifySendError: () => ({
+          message: "provider",
+          outcome: "ambiguous",
+          errorCode: null,
+          invalidateDevice: false,
+        }),
       }),
     ).rejects.toThrow("result RPC unavailable");
-    expect(statuses).toEqual(["sent"]);
+    // The dispatch stays leased; the expired lease becomes delivery_unknown and
+    // retries under the same dispatch identity. It is never recorded as failed.
+    expect(outcomes).toEqual(["accepted"]);
   });
 });

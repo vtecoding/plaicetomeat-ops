@@ -1,11 +1,14 @@
-import type { OwnerDigestInput } from "./owner-digest";
+// Explicit .ts extensions keep this module importable by the Deno edge
+// dispatcher as well as the Node toolchain.
+import type { AlertDispatchOutcome } from "./alert-dispatch.ts";
+import type { OwnerDigestInput } from "./owner-digest.ts";
 
 export const CHANNEL_DISABLED = "CHANNEL_DISABLED";
 
 export type OwnerAlertEnvironment = Record<string, string | undefined>;
 export type OwnerAlertChannelConfig = {
   enabled: boolean;
-  atMostOnceAccepted: boolean;
+  duplicateDeliveryAccepted: boolean;
   accountSid: string;
   authToken: string;
   from: string;
@@ -39,7 +42,10 @@ function pounds(pence: number) {
 export function resolveOwnerAlertChannel(env: OwnerAlertEnvironment): OwnerAlertChannelConfig {
   return {
     enabled: env.OWNER_ALERT_CHANNEL_ENABLED === "true",
-    atMostOnceAccepted: env.OWNER_ALERT_TWILIO_AT_MOST_ONCE_ACCEPTED === "true",
+    // B1 redesign: delivery is at-least-once under a stable dispatch identity.
+    // WhatsApp cannot deduplicate on the handset, so the owner explicitly
+    // accepts that a retried ambiguous send may arrive twice.
+    duplicateDeliveryAccepted: env.OWNER_ALERT_DUPLICATE_DELIVERY_ACCEPTED === "true",
     accountSid: env.TWILIO_ACCOUNT_SID ?? "",
     authToken: env.TWILIO_AUTH_TOKEN ?? "",
     from: env.TWILIO_OWNER_FROM ?? env.TWILIO_FROM_NUMBER ?? "",
@@ -47,7 +53,9 @@ export function resolveOwnerAlertChannel(env: OwnerAlertEnvironment): OwnerAlert
 }
 
 export function ownerAlertChannelConfigured(config: OwnerAlertChannelConfig) {
-  return Boolean(config.enabled && config.atMostOnceAccepted && config.accountSid && config.authToken && config.from);
+  return Boolean(
+    config.enabled && config.duplicateDeliveryAccepted && config.accountSid && config.authToken && config.from,
+  );
 }
 
 function whatsapp(value: string) {
@@ -102,8 +110,9 @@ export function localBusinessClock(now: Date, timezone = "Europe/London") {
 export class OwnerAlertProviderError extends Error {
   constructor(
     message: string,
-    readonly retryable: boolean,
-    readonly ambiguous: boolean,
+    readonly outcome: Exclude<AlertDispatchOutcome, "accepted" | "skipped">,
+    readonly errorCode: string | null = null,
+    readonly invalidateDevice = false,
   ) {
     super(message);
     this.name = "OwnerAlertProviderError";
@@ -114,7 +123,6 @@ export async function sendOwnerAlertViaTwilio(input: {
   config: OwnerAlertChannelConfig;
   target: string;
   message: string;
-  providerIdempotencyKey: string;
   fetcher?: typeof fetch;
 }) {
   const body = new URLSearchParams({
@@ -137,19 +145,32 @@ export async function sendOwnerAlertViaTwilio(input: {
       },
     );
   } catch (error) {
-    // Twilio Messages has no documented client idempotency key. A transport
-    // error after send is therefore terminal-visible and must never be retried.
+    // Twilio Messages has no documented client idempotency key, so a transport
+    // failure after the request left this process is genuinely ambiguous. It
+    // stays retryable under the same dispatch identity (bounded, visible), and
+    // the owner has explicitly accepted a possible duplicate message.
     throw new OwnerAlertProviderError(
       `Ambiguous Twilio result: ${error instanceof Error ? error.message : "transport failed"}`,
-      false,
-      true,
+      "ambiguous",
+      "TRANSPORT_FAILED",
     );
   }
   const responseText = (await response.text()).slice(0, 1000);
   if (!response.ok) {
-    const retryable = response.status === 429;
-    const ambiguous = response.status >= 500;
-    throw new OwnerAlertProviderError(`Twilio ${response.status}: ${responseText}`, retryable, ambiguous);
+    if (response.status === 429 || response.status === 408) {
+      throw new OwnerAlertProviderError(`Twilio ${response.status}: ${responseText}`, "failed_transient", String(response.status));
+    }
+    if (response.status >= 500) {
+      throw new OwnerAlertProviderError(`Twilio ${response.status}: ${responseText}`, "ambiguous", String(response.status));
+    }
+    throw new OwnerAlertProviderError(`Twilio ${response.status}: ${responseText}`, "rejected_permanent", String(response.status));
   }
-  return { providerResponse: responseText || null };
+  let providerMessageId: string | null = null;
+  try {
+    const parsed = JSON.parse(responseText) as { sid?: unknown };
+    providerMessageId = typeof parsed.sid === "string" ? parsed.sid : null;
+  } catch {
+    providerMessageId = null;
+  }
+  return { providerMessageId, providerStatusCode: String(response.status) };
 }

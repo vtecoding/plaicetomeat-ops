@@ -63,9 +63,9 @@ export function AdminOwnerAwayClient({ summary, deliveryHealth }: { summary: Own
         </div>
       )}
 
-      {deliveryHealth.failingCount > 0 ? (
+      {deliveryHealth.deadLetterCount > 0 ? (
         <div className="mt-4 rounded-lg border border-[#e8a5a5] bg-[#fff1f1] p-4 text-sm font-semibold text-[#7a1b1b]" data-testid="owner-alert-delivery-failing">
-          Phone delivery needs attention. {deliveryHealth.failingCount} {deliveryHealth.failingCount === 1 ? "message ended" : "messages ended"} without a confirmed send. Uncertain Twilio sends are not retried automatically, so they cannot duplicate silently.
+          Phone delivery needs attention. {deliveryHealth.deadLetterCount} {deliveryHealth.deadLetterCount === 1 ? "message used" : "messages used"} every retry without a confirmed send. The alerts stay in the jobs list below until they are handled.
         </div>
       ) : !deliveryHealth.configured ? (
         <div className="mt-4 rounded-lg border border-[#f0c66e] bg-[#fff8e6] p-4 text-sm font-semibold text-[#5a3900]" data-testid="owner-alert-channel-warning">

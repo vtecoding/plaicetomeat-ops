@@ -18,6 +18,8 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Deno runtime (npm: specifiers, Deno globals) — outside the Node/Next lint world.
+      "supabase/functions/**",
     ],
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),

@@ -1,10 +1,10 @@
-# PTM Operational Audit Input
+# oPTM Operational Audit Input
 
 ## 1. Document Control
 
 | Field | Value | Evidence state and source |
 | --- | --- | --- |
-| Generated | 2026-07-13T14:18:59+01:00 (Europe/London) | `VERIFIED_IMPLEMENTATION` — local `Get-Date` during generation |
+| Generated | 2026-07-13T14:18:59+01:00 (Eurpe/London) | `VERIFIED_IMPLEMENTATION` — local `Get-Date` during generation |
 | Audited branch | `main`, tracking `origin/main` | `VERIFIED_IMPLEMENTATION` — `git status --short --branch` |
 | Audited commit | `f7d4380f12648cf6495675fd0941f519a38d5093` | `VERIFIED_IMPLEMENTATION` — `git rev-parse HEAD` |
 | Working-tree state before this dossier | Dirty: pre-existing modification to `docs/reports/disaster-recovery-certification.md`; no other change | `VERIFIED_IMPLEMENTATION` — `git status --porcelain=v1`; the modified file is local test output and is not part of this dossier's commit |

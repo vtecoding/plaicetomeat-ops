@@ -1,5 +1,8 @@
-// V18 B1/B7 scheduled worker: scan certificate expiry, enqueue due daily
-// digests, then lease and deliver a bounded outbox sweep.
+// V18 B1 interim scheduled dispatcher: scan certificate expiry, enqueue due
+// daily digests, recover expired leases, then lease and deliver a bounded
+// outbox sweep. The same lease/record contract is shared with the Supabase
+// Edge Function dispatcher; this runner remains only until Phase 7 cutover
+// (and afterwards for non-urgent reconciliation).
 import { existsSync, readFileSync } from "node:fs";
 
 import { createClient } from "@supabase/supabase-js";
@@ -9,10 +12,11 @@ import ownerAlertChannel from "../src/lib/domain/owner-alert-channel.ts";
 import ownerDigest from "../src/lib/domain/owner-digest.ts";
 
 const {
+  ALERT_DISPATCH_LEASE_SECONDS,
   boundDispatchBatch,
   fieldProofSucceeded,
   mergeAlertBranchSchedules,
-  processClaimedAlertDispatches,
+  processLeasedAlertDispatches,
 } = alertDispatch;
 const {
   CHANNEL_DISABLED,
@@ -40,6 +44,7 @@ if (!URL_ || !SERVICE) throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SE
 
 const supabase = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const channel = resolveOwnerAlertChannel(process.env);
+const workerId = `scheduled-worker:${process.env.GITHUB_RUN_ID ?? "local"}:${crypto.randomUUID().slice(0, 8)}`;
 let workerSchedules = [];
 
 async function callRpc(name, args) {
@@ -81,7 +86,7 @@ async function enqueueDueDigests(now = new Date()) {
       p_business_date: clock.businessDate,
       p_target: schedule.ownerContact,
       p_payload: { message, business_date: clock.businessDate },
-      p_provider_idempotency_key: null,
+      p_dispatch_key: null,
     });
     enqueued += 1;
   }
@@ -89,38 +94,42 @@ async function enqueueDueDigests(now = new Date()) {
 }
 
 async function sweep() {
-  await callRpc("finalize_ambiguous_alert_dispatches_v18", {});
-  const rows = (await callRpc("claim_alert_dispatches_v18", {
-    p_limit: boundDispatchBatch(Number(process.env.ALERT_DISPATCH_BATCH_SIZE ?? 10)),
+  await callRpc("recover_expired_alert_dispatch_leases_v18", {});
+  const rows = (await callRpc("lease_alert_dispatches_v18", {
+    p_worker_id: workerId,
+    p_limit: boundDispatchBatch(Number(process.env.ALERT_DISPATCH_BATCH_SIZE ?? 20)),
+    p_lease_seconds: ALERT_DISPATCH_LEASE_SECONDS,
   })) ?? [];
-  return processClaimedAlertDispatches({
+  const channelReady = ownerAlertChannelConfigured(channel);
+  return processLeasedAlertDispatches({
     rows,
-    channelConfigured: ownerAlertChannelConfigured(channel),
+    channelConfigured: (row) => row.channel === "twilio_whatsapp" && channelReady && Boolean(row.target.trim()),
     disabledReason: CHANNEL_DISABLED,
-    begin: (dispatchId) => callRpc("begin_alert_dispatch_attempt_v18", { p_dispatch_id: dispatchId }).then(() => undefined),
     send: async (row) => {
       const message = typeof row.payload?.message === "string" ? row.payload.message : "";
       return sendOwnerAlertViaTwilio({
         config: channel,
         target: row.target,
         message: row.kind === "critical_alert" ? `Urgent from PlaiceToMeat\n${message}` : message,
-        providerIdempotencyKey: row.provider_idempotency_key,
       });
     },
     record: (dispatchId, result) => callRpc("record_alert_dispatch_result_v18", {
       p_dispatch_id: dispatchId,
-      p_status: result.status,
-      p_last_error: result.lastError,
-      p_provider_response: result.providerResponse,
-      p_retryable: result.retryable,
-      p_ambiguous: result.ambiguous,
+      p_worker_id: workerId,
+      p_outcome: result.outcome,
+      p_provider_message_id: result.providerMessageId,
+      p_provider_status_code: result.providerStatusCode,
+      p_error_code: result.errorCode,
+      p_error_detail: result.errorDetail,
+      p_invalidate_device: result.invalidateDevice,
     }).then(() => undefined),
     classifySendError: (error) => {
       const providerError = error instanceof OwnerAlertProviderError ? error : null;
       return {
         message: error instanceof Error ? error.message : "Provider send failed",
-        retryable: providerError?.retryable ?? false,
-        ambiguous: providerError?.ambiguous ?? true,
+        outcome: providerError?.outcome ?? "ambiguous",
+        errorCode: providerError?.errorCode ?? null,
+        invalidateDevice: providerError?.invalidateDevice ?? false,
       };
     },
     onSkipped: (row) => console.warn(`OWNER_ALERT_DISPATCH_SKIPPED id=${row.id} reason=${CHANNEL_DISABLED}`),
@@ -155,7 +164,7 @@ try {
 
   if (process.env.OWNER_ALERT_FIELD_PROOF === "true" && !fieldProofSucceeded(totals)) {
     throw new Error(
-      `Field proof requested but only ${totals.sent} of ${totals.claimed} claimed owner alerts were confirmed sent.`,
+      `Field proof requested but only ${totals.accepted} of ${totals.claimed} claimed owner alerts were provider-accepted.`,
     );
   }
 } catch (error) {
