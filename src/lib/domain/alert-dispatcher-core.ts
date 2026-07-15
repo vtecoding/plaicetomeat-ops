@@ -21,9 +21,13 @@ import {
 } from "./alert-dispatch.ts";
 import { OwnerAlertProviderError } from "./owner-alert-channel.ts";
 
-export const DISPATCHER_VERSION = "v18-b1-phase2.1";
+export const DISPATCHER_VERSION = "v18-b1-phase2.5";
 
-export const CHANNEL_UNSUPPORTED = "CHANNEL_UNSUPPORTED";
+/** Transient: no adapter is compiled into this dispatcher build yet. These
+ * dispatches are replay candidates once the channel ships (Phases 3–4). */
+export const CHANNEL_NOT_IMPLEMENTED = "CHANNEL_NOT_IMPLEMENTED";
+/** Permanent: the adapter exists but the channel is switched off or has no
+ * usable target. Not a replay candidate when new channels ship. */
 export const CHANNEL_DISABLED = "CHANNEL_DISABLED";
 
 export type DispatcherRpc = (name: string, args: Record<string, unknown>) => Promise<unknown>;
@@ -44,6 +48,8 @@ export type DispatcherConfig = {
   softDeadlineMs: number;
   /** Lease duration passed to the lease RPC. */
   leaseSeconds: number;
+  /** Per-provider request timeout; also drives the over-lease guard. */
+  providerTimeoutMs: number;
 };
 
 export const DEFAULT_DISPATCHER_CONFIG: DispatcherConfig = {
@@ -51,7 +57,10 @@ export const DEFAULT_DISPATCHER_CONFIG: DispatcherConfig = {
   maxConcurrentSends: 5,
   softDeadlineMs: 20_000,
   leaseSeconds: ALERT_DISPATCH_LEASE_SECONDS,
+  providerTimeoutMs: 8_000,
 };
+
+export type DispatcherStopReason = "queue_drained" | "soft_deadline" | "insufficient_budget";
 
 export type DispatchAttemptLog = {
   event: "alert_dispatch_attempt";
@@ -81,6 +90,7 @@ export type DispatcherMetrics = {
   record_failures: number;
   batches: number;
   soft_deadline_hit: boolean;
+  stopped_reason: DispatcherStopReason;
   duration_ms: number;
   remaining_budget_ms: number;
 };
@@ -128,6 +138,7 @@ export async function runDispatcherSweep(input: {
     record_failures: 0,
     batches: 0,
     soft_deadline_hit: false,
+    stopped_reason: "queue_drained",
     duration_ms: 0,
     remaining_budget_ms: 0,
   };
@@ -204,9 +215,9 @@ export async function runDispatcherSweep(input: {
           outcome: result.outcome,
           providerMessageId: result.providerMessageId,
           providerStatusCode: result.providerStatusCode,
-          errorCode: missingAdapter ? CHANNEL_UNSUPPORTED : result.errorCode,
+          errorCode: missingAdapter ? CHANNEL_NOT_IMPLEMENTED : result.errorCode,
           errorDetail: missingAdapter
-            ? `No ${row.channel} adapter is registered in this dispatcher build; replay after the channel ships.`
+            ? `No ${row.channel} adapter is compiled into this dispatcher build; replay once the channel ships.`
             : result.errorDetail,
           invalidateDevice: result.invalidateDevice,
           latencyMs: timing.latencyMs,
@@ -225,9 +236,23 @@ export async function runDispatcherSweep(input: {
     });
   };
 
+  // Worst case for one wave of concurrent sends. The first batch is always
+  // allowed (the dispatcher must make progress; leases + recovery bound the
+  // damage), but a SUBSEQUENT batch is only leased when the remaining budget
+  // could absorb every send hitting its full provider timeout — the
+  // dispatcher never knowingly over-leases.
+  const worstCaseWaveMs = config.maxConcurrentSends * config.providerTimeoutMs;
+
   while (true) {
-    if (elapsed() >= config.softDeadlineMs) {
+    // Recovery plus the first lease are always allowed to make progress. Only
+    // subsequent leasing is constrained by the deadline and wave budget.
+    if (metrics.batches > 0 && elapsed() >= config.softDeadlineMs) {
       metrics.soft_deadline_hit = true;
+      metrics.stopped_reason = "soft_deadline";
+      break;
+    }
+    if (metrics.batches > 0 && config.softDeadlineMs - elapsed() <= worstCaseWaveMs) {
+      metrics.stopped_reason = "insufficient_budget";
       break;
     }
 

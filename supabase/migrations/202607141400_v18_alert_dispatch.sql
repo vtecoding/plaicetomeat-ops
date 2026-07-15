@@ -281,6 +281,7 @@ CREATE TABLE IF NOT EXISTS public.alert_delivery_attempts (
   provider_status_code text,
   error_code text,
   error_detail text,
+  invalidate_device boolean NOT NULL DEFAULT false,
 
   request_fingerprint text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -680,6 +681,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_row public.alert_dispatches%ROWTYPE;
+  v_attempt public.alert_delivery_attempts%ROWTYPE;
   v_worker text := nullif(btrim(coalesce(p_worker_id, '')), '');
   v_next_delay integer;
   v_jitter numeric;
@@ -700,18 +702,47 @@ BEGIN
   IF v_row.id IS NULL THEN
     RAISE EXCEPTION 'Dispatch not found.' USING ERRCODE = 'P0002';
   END IF;
-  IF v_row.status IN ('accepted', 'skipped', 'cancelled', 'dead_letter') THEN
-    RETURN v_row;
-  END IF;
-  IF v_row.status <> 'leased' OR v_row.lease_owner IS DISTINCT FROM v_worker THEN
-    RAISE EXCEPTION 'Dispatch lease is not held by this worker.' USING ERRCODE = '55000';
-  END IF;
-
   v_attempt_outcome := CASE p_outcome
     WHEN 'accepted' THEN 'accepted'
     WHEN 'skipped' THEN 'rejected_permanent'
     ELSE p_outcome
   END;
+
+  -- Terminal states accept only a TRUE replay of the completed attempt: same
+  -- outcome and the same normalized provider/error payload. Exactly one state
+  -- transition ever happens; a divergent replay is a duplicate-send or
+  -- ordering bug and must surface, never be absorbed. A late result for
+  -- cancelled work is irrelevant by definition and returns quietly.
+  IF v_row.status IN ('accepted', 'skipped', 'cancelled', 'dead_letter') THEN
+    IF v_row.status = 'cancelled' THEN
+      RETURN v_row;
+    END IF;
+
+    SELECT * INTO v_attempt
+    FROM public.alert_delivery_attempts
+    WHERE dispatch_id = v_row.id
+      AND attempt_number = v_row.attempt_count
+      AND completed_at IS NOT NULL;
+
+    IF v_attempt.id IS NOT NULL
+       AND ((v_row.status = 'accepted' AND p_outcome = 'accepted')
+         OR (v_row.status = 'skipped' AND p_outcome = 'skipped')
+         OR (v_row.status = 'dead_letter' AND p_outcome IN ('rejected_permanent', 'failed_transient', 'ambiguous')))
+       AND v_attempt.outcome = v_attempt_outcome
+       AND v_attempt.provider_message_id IS NOT DISTINCT FROM nullif(btrim(coalesce(p_provider_message_id, '')), '')
+       AND v_attempt.provider_status_code IS NOT DISTINCT FROM nullif(btrim(coalesce(p_provider_status_code, '')), '')
+       AND v_attempt.error_code IS NOT DISTINCT FROM nullif(btrim(coalesce(p_error_code, '')), '')
+       AND v_attempt.error_detail IS NOT DISTINCT FROM nullif(left(btrim(coalesce(p_error_detail, '')), 1000), '')
+       AND v_attempt.invalidate_device = p_invalidate_device THEN
+      RETURN v_row;
+    END IF;
+    RAISE EXCEPTION 'DIVERGENT_RESULT_REPLAY: dispatch % is already % and cannot record a different result.',
+      v_row.id, v_row.status
+      USING ERRCODE = '55000';
+  END IF;
+  IF v_row.status <> 'leased' OR v_row.lease_owner IS DISTINCT FROM v_worker THEN
+    RAISE EXCEPTION 'Dispatch lease is not held by this worker.' USING ERRCODE = '55000';
+  END IF;
 
   UPDATE public.alert_delivery_attempts a
   SET completed_at = now(),
@@ -719,7 +750,8 @@ BEGIN
       provider_message_id = nullif(btrim(coalesce(p_provider_message_id, '')), ''),
       provider_status_code = nullif(btrim(coalesce(p_provider_status_code, '')), ''),
       error_code = nullif(btrim(coalesce(p_error_code, '')), ''),
-      error_detail = nullif(left(btrim(coalesce(p_error_detail, '')), 1000), '')
+      error_detail = nullif(left(btrim(coalesce(p_error_detail, '')), 1000), ''),
+      invalidate_device = p_invalidate_device
   WHERE a.dispatch_id = v_row.id
     AND a.attempt_number = v_row.attempt_count
     AND a.completed_at IS NULL;

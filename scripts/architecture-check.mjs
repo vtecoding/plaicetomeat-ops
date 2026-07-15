@@ -58,6 +58,7 @@ const GUARDS = [
   { id: "disaster-recovery", principle: "Recovery", tier: "db", script: "scripts/verify-disaster-recovery.mjs", what: "backup/restore schema & objects exist" },
   { id: "disaster-recovery-integrity", principle: "Security", tier: "db", script: "scripts/verify-disaster-recovery-integrity.mjs", what: "recovery RPCs deny anonymous access" },
   { id: "edge-dispatcher", principle: "Truth", tier: "db", script: "scripts/verify-edge-dispatcher.mjs", nodeArgs: ["--import", "tsx"], what: "edge dispatcher sweep: lease/recover/record orchestration, concurrent invocations never share a dispatch, cron helpers round-trip" },
+  { id: "dispatcher-certification", principle: "Truth", tier: "db", script: "scripts/verify-dispatcher-certification.mjs", nodeArgs: ["--import", "tsx"], what: "crash injection converges to legal states; replay idempotency; overlap, Vault fail-closed and global sanity invariants" },
 
   // ── live: drive the running app (need a booted server + seeded DB) ──
   { id: "operator-route-lock", principle: "Security", tier: "live", script: "scripts/verify-operator-route-lock.mjs", what: "operator routes are role-protected" },

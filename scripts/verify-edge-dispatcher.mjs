@@ -11,7 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import dispatcherCore from "../src/lib/domain/alert-dispatcher-core.ts";
 
-const { runDispatcherSweep, CHANNEL_UNSUPPORTED } = dispatcherCore;
+const { runDispatcherSweep, CHANNEL_NOT_IMPLEMENTED } = dispatcherCore;
 
 const BRANCH = "00000000-0000-4000-8000-000000000001";
 const DB_CONTAINER = process.env.AUDIT_DB_CONTAINER ?? "supabase_db_plaicetomeat-ops";
@@ -216,8 +216,8 @@ try {
   const { data: skippedRow } = await admin
     .from("alert_dispatches").select("status,last_error_code").eq("id", pushDispatch.id).single();
   check(
-    "a channel without an adapter is skipped as CHANNEL_UNSUPPORTED (replayable), never dead-lettered",
-    skippedRow?.status === "skipped" && skippedRow.last_error_code === CHANNEL_UNSUPPORTED,
+    "a channel without an adapter is skipped as CHANNEL_NOT_IMPLEMENTED (a replay candidate), never dead-lettered",
+    skippedRow?.status === "skipped" && skippedRow.last_error_code === CHANNEL_NOT_IMPLEMENTED,
     JSON.stringify(skippedRow),
   );
 

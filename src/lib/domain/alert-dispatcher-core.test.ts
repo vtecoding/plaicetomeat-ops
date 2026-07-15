@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { LeasedAlertDispatch } from "./alert-dispatch";
 import {
-  CHANNEL_UNSUPPORTED,
+  CHANNEL_NOT_IMPLEMENTED,
   DEFAULT_DISPATCHER_CONFIG,
   runDispatcherSweep,
   type DispatchAttemptLog,
@@ -136,8 +136,69 @@ describe("edge dispatcher sweep", () => {
     expect(metrics.batches).toBe(1);
     expect(metrics.leased).toBe(2);
     expect(metrics.soft_deadline_hit).toBe(true);
+    expect(metrics.stopped_reason).toBe("soft_deadline");
     expect(metrics.remaining_budget_ms).toBe(0);
     expect(callRpc.mock.calls.filter(([name]) => name === "lease_alert_dispatches_v18")).toHaveLength(1);
+  });
+
+  it("never leases another batch it cannot absorb at full provider timeout", async () => {
+    const fullBatch = [row(), row()];
+    const secondBatch = [row()];
+    const { callRpc } = fakeRpc([fullBatch, secondBatch]);
+    let clock = 0;
+    const now = () => clock;
+
+    const metrics = await runDispatcherSweep({
+      invocationId: "edge:test-budget",
+      callRpc,
+      adapters: {
+        twilio_whatsapp: {
+          ...acceptAll,
+          send: async () => {
+            clock += 1_000; // 2s elapsed after the first batch — well inside the deadline
+            return { providerMessageId: "SM1", providerStatusCode: "201" };
+          },
+        },
+      },
+      // Remaining budget after batch 1 = worst-case wave = 18s. The contract
+      // requires strictly greater remaining budget, so equality must stop.
+      config: { batchSize: 2, maxConcurrentSends: 2, providerTimeoutMs: 9_000, softDeadlineMs: 20_000 },
+      now,
+    });
+
+    expect(metrics.batches).toBe(1);
+    expect(metrics.stopped_reason).toBe("insufficient_budget");
+    expect(metrics.soft_deadline_hit).toBe(false);
+    expect(callRpc.mock.calls.filter(([name]) => name === "lease_alert_dispatches_v18")).toHaveLength(1);
+  });
+
+  it("keeps leasing while the remaining budget can absorb a full wave", async () => {
+    const fullBatch = [row(), row()];
+    const secondBatch = [row()];
+    const { callRpc } = fakeRpc([fullBatch, secondBatch]);
+    let clock = 0;
+    const now = () => clock;
+
+    const metrics = await runDispatcherSweep({
+      invocationId: "edge:test-budget-ok",
+      callRpc,
+      adapters: {
+        twilio_whatsapp: {
+          ...acceptAll,
+          send: async () => {
+            clock += 100;
+            return { providerMessageId: "SM1", providerStatusCode: "201" };
+          },
+        },
+      },
+      // Worst-case wave 2 × 1s = 2s, always affordable inside 20s.
+      config: { batchSize: 2, maxConcurrentSends: 2, providerTimeoutMs: 1_000, softDeadlineMs: 20_000 },
+      now,
+    });
+
+    expect(metrics.batches).toBe(2);
+    expect(metrics.leased).toBe(3);
+    expect(metrics.stopped_reason).toBe("queue_drained");
   });
 
   it("never exceeds the configured send concurrency", async () => {
@@ -179,7 +240,7 @@ describe("edge dispatcher sweep", () => {
     });
 
     expect(recorded).toEqual([
-      { dispatchId: pushRow.id, outcome: "skipped", errorCode: CHANNEL_UNSUPPORTED },
+      { dispatchId: pushRow.id, outcome: "skipped", errorCode: CHANNEL_NOT_IMPLEMENTED },
     ]);
     expect(metrics.skipped).toBe(1);
     expect(metrics.failed_sends).toBe(0);
@@ -248,6 +309,7 @@ describe("edge dispatcher sweep", () => {
       maxConcurrentSends: 5,
       softDeadlineMs: 20_000,
       leaseSeconds: 60,
+      providerTimeoutMs: 8_000,
     });
   });
 });

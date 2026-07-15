@@ -1,7 +1,7 @@
-# V18 B1 — Alert Delivery Redesign (amended contract, v1.1)
+# V18 B1 — Alert Delivery Redesign (amended contract, v1.2)
 
-Status: **Phases 1–2 implemented** (database foundation + contract rewiring + Edge
-dispatcher, 2026-07-15).
+Status: **Phases 1–2 implemented and Phase 2.5 dispatcher certification green**
+(2026-07-15). Checkpoint commit `13922da`, tag `v18-phase2-alert-dispatcher-foundation`.
 Supersedes the original B1 delivery design certified in `65a389f`, which was rejected for
 four verified defects: free-form WhatsApp outside the 24-hour session window, GitHub
 Actions cron as the timing authority, ambiguous provider outcomes converted to terminal
@@ -130,7 +130,10 @@ lease_alert_dispatches_v18(worker_id, limit=20, lease_seconds=60) → SETOF disp
 recover_expired_alert_dispatch_leases_v18() → recovered count
 record_alert_dispatch_result_v18(dispatch_id, worker_id, outcome,
     provider_message_id?, provider_status_code?, error_code?, error_detail?,
-    invalidate_device?) → dispatch      (lease-checked; terminal states idempotent)
+    invalidate_device?) → dispatch
+    (lease-checked; terminal states are idempotent ONLY for a true replay —
+     same attempt, outcome, normalized provider/error payload and device-invalidation flag. A divergent replay raises
+     DIVERGENT_RESULT_REPLAY; a late result for cancelled work returns quietly.)
 record_alert_notification_opened_v18(dispatch_id) → dispatch (idempotent)
 replay_alert_dispatch_v18(dispatch_id) → dispatch (terminal-only, audited)
 enqueue_owner_digest_dispatch_v18(branch, date, target, payload, dispatch_key?) 
@@ -192,12 +195,21 @@ GitHub worker in shadow mode) safely coexist.
 **Shared core**: `src/lib/domain/alert-dispatcher-core.ts` (`runDispatcherSweep`) is the
 whole orchestration, importable by Deno, vitest and the DB guard alike — business rules
 stay in the Phase 1 SQL RPCs and domain modules; the Deno entry only wires auth, the
-Supabase client, the 8-second provider-timeout fetcher and JSON logging. Batch loop:
+Supabase client, the provider-timeout fetcher (`providerTimeoutMs`, default 8,000 ms;
+configured by `ALERT_PROVIDER_TIMEOUT_MS`) and JSON logging. Batch loop:
 lease up to `batchSize`, process, lease again only while the previous batch was full
 **and** the 20-second soft deadline has not passed (`soft_deadline_hit` is reported).
-Sends run in at most `maxConcurrentSends` lanes. Channels without a shipped adapter
-(web_push/fcm/telegram/ntfy until Phases 3–4) are recorded `skipped` with
-`CHANNEL_UNSUPPORTED` — terminal-visible and replayable, never dead-lettered or lost.
+Sends run in at most `maxConcurrentSends` lanes, and the dispatcher never knowingly
+over-leases: a *subsequent* batch is leased only while
+`remaining budget > maxConcurrentSends × providerTimeoutMs` (one full worst-case send
+wave); metrics report why the loop stopped
+(`stopped_reason: queue_drained | soft_deadline | insufficient_budget`).
+
+Skipped-channel codes are deliberately two different facts:
+`CHANNEL_NOT_IMPLEMENTED` (transient — no adapter compiled into this build; these
+dispatches are the replay candidates when Web Push/Telegram/ntfy ship) versus
+`CHANNEL_DISABLED` (permanent — the adapter exists but the channel is off or has no
+target; not replay candidates). Neither is ever dead-lettered or lost.
 A record-RPC failure aborts only its lane: the rows stay leased, expire, and recover as
 `delivery_unknown` — the no-silent-loss path.
 
@@ -210,7 +222,10 @@ outcome, status_after, provider_code, latency_ms, duration_ms`.
 **Health**: `GET …/alert-dispatcher` (service token) → `ready` plus
 `database_reachable`, `lease_rpc / recovery_rpc / record_rpc` (via the read-only
 `alert_dispatcher_health_v18`, which checks the catalog instead of mutating the outbox),
-`provider_configuration_loaded`, `version`, `registered_channels`.
+`provider_configuration_loaded`, `version`, `build` (deployment id), `schema_version`
+(applied migration head) and the production-support `queue` block: depth per state
+(`pending / leased / retry_wait / delivery_unknown / dead_letter`), `expired_leases`,
+`oldest_pending_seconds`, `oldest_dead_letter_seconds`.
 
 **Security**: the function performs a constant-time Bearer-token comparison against
 `ALERT_DISPATCHER_TOKEN` (default: the service role key). `verify_jwt` is off in
@@ -218,8 +233,11 @@ outcome, status_after, provider_code, latency_ms, duration_ms`.
 weaker than this check. Service credentials never reach a browser.
 
 **Scheduling** (migration `202607150900_v18_edge_dispatcher.sql`): timing authority is
-Supabase Cron every 30 seconds. The cron command resolves the invoke URL and bearer
-token from Vault at execution time. Per-environment runbook:
+Supabase Cron every 30 seconds, executing `invoke_alert_dispatcher_v18()`. That function
+resolves the invoke URL and bearer token from Vault at execution time and **raises when
+either secret is missing** — a broken configuration produces visibly failed cron runs in
+`cron.job_run_details`, never the silent no-op that `net.http_post(url := NULL)` would
+be, and no lease is ever claimed. Per-environment runbook:
 
 ```sql
 select vault.create_secret('https://<ref>.supabase.co/functions/v1/alert-dispatcher', 'alert_dispatcher_url');
@@ -265,40 +283,46 @@ pre-emptively).
 | Phase | Content | State |
 | --- | --- | --- |
 | 1 | DB foundation: registry, devices, dispatch lifecycle, attempts, leases, dead-letter, replay, ack; contract rewiring; guards | **Done** |
-| 2 | Edge Function dispatcher + Supabase Cron 30 s + health endpoint + cron helpers (§4b) | **Done (this change)** |
-| 3 | PWA: service worker, registration/verification flow, dedupe, deep links, `notification_opened` | Pending |
+| 2 | Edge Function dispatcher + Supabase Cron 30 s + health endpoint + cron helpers (§4b) | **Done** (`13922da`, tag `v18-phase2-alert-dispatcher-foundation`) |
+| 2.5 | Dispatcher certification: crash injection at every boundary, replay idempotency + divergent-replay hardening, over-lease budget invariant, staggered cron overlap, Vault fail-closed via `invoke_alert_dispatcher_v18`, health queue metrics, channel-code split | **Done (this change)** |
+| 3 | Web Push: service worker, registration/verification flow, dedupe, deep links, `notification_opened` | Next |
+| 3.5 | Real handset shadow mode (owner device, field-proven) | Pending |
 | 4 | Fallback channel (Telegram or ntfy) + escalation timeline | Pending |
 | 5 | Edge fixes from the redesign spec §19–22: checked `seen_at` updates, inventory-policy advisory-lock serialization, synchronous draft-saving state + flush, mistake-request rejection without a completed run | **Not yet implemented** |
-| 6–8 | Shadow mode → cutover (remove GH Actions from critical path) → certification incl. G-B1 handset gate | Pending |
+| 6 | Shadow-mode and field certification/cutover as defined by the project plan | Pending |
 
 The interim GitHub-Actions worker keeps running through shadow mode on the new
 lease/record contract, so alert delivery never regresses below the previous baseline
 while Phases 2–3 land.
 
-## 7. Verification (2026-07-15, Phases 1–2)
+## 7. Verification (2026-07-15, Phases 1–2 + 2.5 certification)
 
-- Unit: 721 passed / 1 skipped (Phase 1 dispatch-contract + adapter-classification
-  tests; Phase 2 dispatcher-core tests: orchestration, soft deadline, bounded
-  concurrency, unsupported-channel skip, classification pass-through, record-failure
-  lane isolation, worker identity, default budget).
+- Unit: 723 passed / 1 skipped (dispatch contract, adapter classification,
+  dispatcher-core orchestration incl. soft deadline, over-lease budget invariant both
+  ways, bounded concurrency, channel-code skip, classification pass-through,
+  record-failure lane isolation).
 - Static constitution tier: 9/9 (includes the `alert-registry` parity guard).
 - Clean rebuild: `supabase db reset` applies all 54 migrations from scratch.
-- DB tier: constitution 9/9 (now includes `edge-dispatcher`); `verify:alert-dispatch`
-  21/21 (fail-closed registry, SKIP LOCKED exclusivity, lease-holder check,
-  provider-acceptance stamping, retry schedule, ambiguous-retry identity, bounded
-  dead-letter with full history, replay, lease recovery, device fan-out + visible
-  invalidation, idempotent acknowledgement, Owner Away digest contract);
-  `verify:edge-dispatcher` 8/8 (health RPC, end-to-end sweep to provider-accepted,
-  crash → lease recovery → redelivery under the same dispatch, two concurrent sweeps
-  never sharing a dispatch, CHANNEL_UNSUPPORTED skip, cron helpers failing closed
-  without Vault secrets, 30-second schedule/unschedule round-trip on real pg_cron);
+- DB tier: constitution 10/10 (now includes `edge-dispatcher` and
+  `dispatcher-certification`); `verify:alert-dispatch` 21/21; `verify:edge-dispatcher`
+  8/8; **`verify:dispatcher-certification` 9/9** — crash injection at each boundary
+  (after lease; after provider acceptance / before record; after record commit)
+  converges to exactly one legal state with no orphan lease or attempt; a crashed
+  worker's late result is rejected once the lease is lost; identical replay is exactly
+  one transition while a different outcome or normalized provider/error payload raises
+  `DIVERGENT_RESULT_REPLAY`; concurrent sweeps and a staggered second invocation
+  mid-sweep produce zero duplicate sends, zero starvation and exactly one attempt per
+  dispatch (without requiring a fixed work split); a missing Vault secret makes the cron invocation
+  fail loudly with zero leases claimed; and the global sanity invariants
+  (leased ⇔ lease fields, open attempt ⇒ leased, attempt_number ≤ attempt_count,
+  attempt_count ≤ attempt_budget) hold over the whole table;
   `verify:owner-jobs` 40/40; payment-truth 39/39; refund-truth,
   operator-run-completion, atomic-evidence, atomic-operator-serve all green.
-- Live tier: not run (no app server booted; the only UI delta across both phases is one
+- Live tier: not run (no app server booted; the only UI delta across all phases is one
   Owner Away banner string).
 - Not exercised locally: an actual Edge-runtime invocation (`supabase functions serve` /
   a deployed function) — the Deno entry is thin wiring over the fully-tested core and is
-  proven at Phase 6 shadow mode; and upgrade-from-prod-head, which stays enforced by
+  proven at Phase 3.5/6 shadow mode; and upgrade-from-prod-head, which stays enforced by
   `.github/workflows/migration-upgrade.yml` before merge.
 - Upgrade-from-prod-head: enforced by `.github/workflows/migration-upgrade.yml` in CI —
   must be green before merge.

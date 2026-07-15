@@ -19,15 +19,26 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- 1. Dispatcher health ---------------------------------------------------------
 -- Readiness must not mutate the outbox: the lease/recover RPCs do real work,
--- so presence is checked against the catalog instead of by invocation.
+-- so presence is checked against the catalog instead of by invocation. The
+-- queue block is the production-support view: depth per state, the oldest
+-- in-flight age, expired leases awaiting recovery, and dead-letter age.
 CREATE OR REPLACE FUNCTION public.alert_dispatcher_health_v18()
 RETURNS jsonb
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT jsonb_build_object(
+DECLARE
+  v_schema_version text;
+BEGIN
+  BEGIN
+    SELECT max(version) INTO v_schema_version FROM supabase_migrations.schema_migrations;
+  EXCEPTION WHEN undefined_table OR insufficient_privilege THEN
+    v_schema_version := NULL;
+  END;
+
+  RETURN jsonb_build_object(
     'lease_rpc',
       to_regprocedure('public.lease_alert_dispatches_v18(text,integer,integer)') IS NOT NULL,
     'recovery_rpc',
@@ -36,14 +47,73 @@ AS $$
       to_regprocedure('public.record_alert_dispatch_result_v18(uuid,text,text,text,text,text,text,boolean)') IS NOT NULL,
     'replay_rpc',
       to_regprocedure('public.replay_alert_dispatch_v18(uuid)') IS NOT NULL,
-    'registry_kinds', (SELECT count(*) FROM public.owner_alert_kinds)
+    'registry_kinds', (SELECT count(*) FROM public.owner_alert_kinds),
+    'schema_version', v_schema_version,
+    'queue', (
+      SELECT jsonb_build_object(
+        'pending', count(*) FILTER (WHERE status = 'pending'),
+        'leased', count(*) FILTER (WHERE status = 'leased'),
+        'retry_wait', count(*) FILTER (WHERE status = 'retry_wait'),
+        'delivery_unknown', count(*) FILTER (WHERE status = 'delivery_unknown'),
+        'dead_letter', count(*) FILTER (WHERE status = 'dead_letter'),
+        'expired_leases', count(*) FILTER (WHERE status = 'leased' AND lease_expires_at < now()),
+        'oldest_pending_seconds', coalesce(extract(epoch FROM now() - min(created_at)
+          FILTER (WHERE status IN ('pending', 'leased', 'retry_wait', 'delivery_unknown')))::bigint, 0),
+        'oldest_dead_letter_seconds', coalesce(extract(epoch FROM now() - min(updated_at)
+          FILTER (WHERE status = 'dead_letter'))::bigint, 0)
+      )
+      FROM public.alert_dispatches
+    )
   );
+END;
 $$;
 
 REVOKE ALL ON FUNCTION public.alert_dispatcher_health_v18() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.alert_dispatcher_health_v18() TO service_role;
 
--- 2. Cron scheduling helpers -----------------------------------------------------
+-- 2. Cron invocation ------------------------------------------------------------
+-- The single runtime entry the cron job executes. It RAISES when the Vault
+-- secrets are missing, so a broken configuration produces visibly failed
+-- cron runs (cron.job_run_details) instead of the silent no-op that
+-- net.http_post(url := NULL) would be. Failing closed here means: no request
+-- is sent, no lease is claimed, and the failure is operationally loud.
+CREATE OR REPLACE FUNCTION public.invoke_alert_dispatcher_v18()
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_url text;
+  v_token text;
+BEGIN
+  SELECT decrypted_secret INTO v_url FROM vault.decrypted_secrets WHERE name = 'alert_dispatcher_url';
+  SELECT decrypted_secret INTO v_token FROM vault.decrypted_secrets WHERE name = 'alert_dispatcher_token';
+  IF nullif(btrim(coalesce(v_url, '')), '') IS NULL THEN
+    RAISE EXCEPTION 'Vault secret alert_dispatcher_url is missing; the alert dispatcher cannot be invoked.'
+      USING ERRCODE = '22023';
+  END IF;
+  IF nullif(btrim(coalesce(v_token, '')), '') IS NULL THEN
+    RAISE EXCEPTION 'Vault secret alert_dispatcher_token is missing; the alert dispatcher cannot be invoked.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  RETURN net.http_post(
+    url := v_url,
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || v_token,
+      'Content-Type', 'application/json'
+    ),
+    body := jsonb_build_object('source', 'cron'),
+    timeout_milliseconds := 25000
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.invoke_alert_dispatcher_v18() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.invoke_alert_dispatcher_v18() TO service_role;
+
+-- 3. Cron scheduling helpers -----------------------------------------------------
 CREATE OR REPLACE FUNCTION public.schedule_alert_dispatcher_v18(
   p_schedule text DEFAULT '30 seconds'
 )
@@ -75,17 +145,7 @@ BEGIN
   v_job_id := cron.schedule(
     'ptm-alert-dispatcher',
     v_schedule,
-    $cmd$
-    SELECT net.http_post(
-      url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'alert_dispatcher_url'),
-      headers := jsonb_build_object(
-        'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'alert_dispatcher_token'),
-        'Content-Type', 'application/json'
-      ),
-      body := jsonb_build_object('source', 'cron'),
-      timeout_milliseconds := 25000
-    )
-    $cmd$
+    'SELECT public.invoke_alert_dispatcher_v18();'
   );
 
   RETURN jsonb_build_object('job_id', v_job_id, 'jobname', 'ptm-alert-dispatcher', 'schedule', v_schedule);

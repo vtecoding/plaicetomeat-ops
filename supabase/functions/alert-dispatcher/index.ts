@@ -65,7 +65,7 @@ const twilioAdapter: DispatchChannelAdapter = {
 const ADAPTERS: Record<string, DispatchChannelAdapter> = {
   twilio_whatsapp: twilioAdapter,
   // web_push / fcm / telegram / ntfy adapters arrive with Phases 3–4. Until
-  // then the core records their dispatches as skipped CHANNEL_UNSUPPORTED
+  // then the core records their dispatches as skipped CHANNEL_NOT_IMPLEMENTED
   // (terminal-visible, replayable) rather than dead-lettering or crashing.
 };
 
@@ -96,6 +96,7 @@ async function health(): Promise<Response> {
   const supabase = serviceClient();
   const checks: Record<string, unknown> = {
     version: DISPATCHER_VERSION,
+    build: Deno.env.get("ALERT_DISPATCHER_BUILD") ?? Deno.env.get("DENO_DEPLOYMENT_ID") ?? null,
     database_reachable: false,
     lease_rpc: false,
     recovery_rpc: false,
@@ -116,6 +117,8 @@ async function health(): Promise<Response> {
       checks.recovery_rpc = rpcHealth.recovery_rpc === true;
       checks.record_rpc = rpcHealth.record_rpc === true;
       checks.registry_kinds = rpcHealth.registry_kinds;
+      checks.schema_version = rpcHealth.schema_version;
+      checks.queue = rpcHealth.queue;
     }
   } catch (error) {
     checks.error = error instanceof Error ? error.message : String(error);
@@ -146,6 +149,7 @@ async function sweep(): Promise<Response> {
       softDeadlineMs: Number(
         Deno.env.get("ALERT_DISPATCH_SOFT_DEADLINE_MS") ?? DEFAULT_DISPATCHER_CONFIG.softDeadlineMs,
       ),
+      providerTimeoutMs: PROVIDER_TIMEOUT_MS,
     },
     log: (entry) => console.log(JSON.stringify(entry)),
   });

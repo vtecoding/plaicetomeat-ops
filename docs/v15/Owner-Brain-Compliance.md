@@ -2,7 +2,7 @@
 
 _V15.5 · Maturity Audit & Continuous Reduction Guard_
 
-Generated: 2026-07-15T10:49:32.530Z — by `node scripts/verify-owner-brain-compliance.mjs` (static, no app/DB).
+Generated: 2026-07-15T14:02:22.210Z — by `node scripts/verify-owner-brain-compliance.mjs` (static, no app/DB).
 
 > Every release before V15.5 asked "what should we add?". V15.5 asks "what should
 > never return?". This report is regenerated on every run of the guard, so the

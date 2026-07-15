@@ -8,15 +8,15 @@ NOT VALID FOR LAUNCH CERTIFICATION
 - environment: LOCAL
 - drill type: TEST
 - operator: Mara Manager <manager@ptm.test>
-- timestamp: 2026-07-15T11:03:12.582504+00:00
-- restore completed: 2026-07-15T11:03:12.604+00:00
+- timestamp: 2026-07-15T14:02:25.240697+00:00
+- restore completed: 2026-07-15T14:02:25.271+00:00
 
 ## Backup Evidence
 
 - artifact: local-test-backup-evidence.json
 - backup size: 917 bytes
-- checksum: b8739ccb59f3fa287ae5906409542d6ff6f51336f4f878a362b0f7ee21280f26
-- timestamp: 2026-07-15T11:03:12.587Z
+- checksum: 9619646c170f4826a8b1f6969b81b47451b2db4a653fc9b7677175a2bb291419
+- timestamp: 2026-07-15T14:02:25.245Z
 
 ## Parity Results
 
@@ -27,7 +27,7 @@ NOT VALID FOR LAUNCH CERTIFICATION
 | order_items | 7 | 7 | 0 | PASS |
 | products | 8 | 8 | 0 | PASS |
 | inventory | 6 | 6 | 0 | PASS |
-| audit_logs | 79 | 79 | 0 | PASS |
+| audit_logs | 40 | 40 | 0 | PASS |
 | compliance_logs | 1 | 1 | 0 | PASS |
 | pricing_validations | 1 | 1 | 0 | PASS |
 
@@ -35,13 +35,13 @@ NOT VALID FOR LAUNCH CERTIFICATION
 
 | Sample | Identifier | Status |
 | --- | --- | --- |
-| latest order | 59abc826-d6a7-426f-b26c-f6a844bd0a56 | PASS |
-| oldest order | 928fac57-a300-4485-917b-b97ff6446d27 | PASS |
-| random order | a2e88598-184c-453b-8fac-954c4878008a | PASS |
-| latest audit event | ef97dea7-008d-487b-86ac-b713cf0064c8 | PASS |
-| oldest audit event | f5716591-f607-46aa-8ab3-1506af0a7669 | PASS |
-| latest compliance log | d723c2ea-0bd0-45c0-8142-3113d1d4c12f | PASS |
-| latest pricing validation | 6b7b060b-3ff6-4d17-99fc-b42280c6592f | PASS |
+| latest order | 5dbd3342-50f2-4887-827f-fc40827563ac | PASS |
+| oldest order | fa3645fd-cefa-403c-b4b2-4eb2976317d4 | PASS |
+| random order | 8358181e-b518-49b6-b641-58adce2bd151 | PASS |
+| latest audit event | 5a5998f0-dfaa-40cd-a6a3-bef81f760d8b | PASS |
+| oldest audit event | 2220be03-8d02-42ad-b81a-c67114a675d9 | PASS |
+| latest compliance log | 57ad5cea-e2e6-4687-bb2d-1e9cf17e7bdc | PASS |
+| latest pricing validation | f4d70520-5c39-449f-afb6-b82d179a5469 | PASS |
 
 ## Final Verdict
 

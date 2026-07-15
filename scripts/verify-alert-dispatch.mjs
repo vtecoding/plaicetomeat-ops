@@ -161,8 +161,22 @@ ROLLBACK;
       && acceptedAttempt?.outcome === "accepted" && Boolean(acceptedAttempt.completed_at),
     JSON.stringify({ status: accepted.status, attempt: acceptedAttempt }),
   );
-  const replayAccepted = await recordResult(atomic.dispatch.id, "accepted");
-  check("re-recording a terminal dispatch is idempotent", replayAccepted.status === "accepted" && replayAccepted.provider_message_id === "SM-probe-1");
+  const replayAccepted = await recordResult(atomic.dispatch.id, "accepted", {
+    providerMessageId: "SM-probe-1", providerStatusCode: "201",
+  });
+  const { error: divergentReplayError } = await admin.rpc("record_alert_dispatch_result_v18", {
+    p_dispatch_id: atomic.dispatch.id,
+    p_worker_id: WORKER,
+    p_outcome: "accepted",
+    p_provider_message_id: "SM-probe-1",
+    p_provider_status_code: "202",
+  });
+  check(
+    "an identical terminal result replay is idempotent while a conflicting payload fails loudly",
+    replayAccepted.status === "accepted" && replayAccepted.provider_message_id === "SM-probe-1"
+      && Boolean(divergentReplayError) && /DIVERGENT_RESULT_REPLAY/.test(divergentReplayError.message),
+    divergentReplayError?.message ?? "conflicting replay did not fail",
+  );
 
   // 4. Transient failure backs off on the attempt-relative schedule.
   const transient = await createCritical("Transient retry probe");
