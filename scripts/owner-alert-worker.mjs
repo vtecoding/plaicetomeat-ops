@@ -95,8 +95,9 @@ async function enqueueDueDigests(now = new Date()) {
 
 async function sweep() {
   await callRpc("recover_expired_alert_dispatch_leases_v18", {});
-  const rows = (await callRpc("lease_alert_dispatches_v18", {
+  const rows = (await callRpc("lease_alert_dispatches_for_channels_v18", {
     p_worker_id: workerId,
+    p_channels: ["twilio_whatsapp"],
     p_limit: boundDispatchBatch(Number(process.env.ALERT_DISPATCH_BATCH_SIZE ?? 20)),
     p_lease_seconds: ALERT_DISPATCH_LEASE_SECONDS,
   })) ?? [];

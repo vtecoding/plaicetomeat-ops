@@ -25,7 +25,14 @@ try{
   check("concurrent registration converges on one unverified device",regA.device_id===regB.device_id&&sameRows.count===1&&regA.status==="unverified",JSON.stringify({deviceId,count:sameRows.count}));
   check("unverified device is not eligible",await eligible(deviceId)===0);
 
-  const first=await verify(deviceId);check("provider-accepted verification makes the device eligible",first.confirmed.status==="active"&&await eligible(deviceId)===1);
+  const superseded=await rpc(owner,"create_owner_notification_verification_v18",{p_device_id:deviceId});
+  const current=await rpc(owner,"create_owner_notification_verification_v18",{p_device_id:deviceId});
+  const oldDispatch=(await admin.from("alert_dispatches").select("status").eq("id",superseded.dispatch_id).single()).data;
+  const currentDispatch=(await admin.from("alert_dispatches").select("payload").eq("id",current.dispatch_id).single()).data;
+  check("superseded verification dispatch debt is cancelled",oldDispatch.status==="cancelled");
+  check("verification deep link carries challenge and device identity",currentDispatch.payload.route.includes(`verify=${current.challenge_id}`)&&currentDispatch.payload.route.includes(`device=${deviceId}`));
+  await accept(current.dispatch_id,`verify:${deviceId.slice(0,6)}`);const first={challenge:current,confirmed:await rpc(owner,"confirm_owner_notification_verification_v18",{p_device_id:deviceId,p_challenge_id:current.challenge_id})};
+  check("provider-accepted verification makes the device eligible",first.confirmed.status==="active"&&await eligible(deviceId)===1);
   const replay=await rpc(owner,"confirm_owner_notification_verification_v18",{p_device_id:deviceId,p_challenge_id:first.challenge.challenge_id});
   check("identical verification confirmation replay is idempotent",replay.verified_at===first.confirmed.verified_at);
 
@@ -33,7 +40,10 @@ try{
   const dispatches=await admin.from("alert_dispatches").select("id,channel,device_id").eq("alert_id",alertId);
   const webDispatch=dispatches.data.find(d=>d.channel==="web_push");
   check("eligible device receives its own deterministic Web Push dispatch",dispatches.data.filter(d=>d.channel==="web_push").length===1&&webDispatch.device_id===deviceId,JSON.stringify(dispatches.data));
-  const accepted=await accept(webDispatch.id,"open:guard");
+  const scoped=await rpc(admin,"lease_alert_dispatches_for_channels_v18",{p_worker_id:"open:guard",p_channels:["web_push"],p_limit:25,p_lease_seconds:60});
+  const legacyAfterScoped=(await admin.from("alert_dispatches").select("status").eq("alert_id",alertId).eq("channel","twilio_whatsapp").single()).data;
+  check("channel-scoped leasing claims Web Push without consuming the legacy row",scoped.some(row=>row.id===webDispatch.id)&&scoped.every(row=>row.channel==="web_push")&&legacyAfterScoped.status==="pending");
+  const accepted=await rpc(admin,"record_alert_dispatch_result_v18",{p_dispatch_id:webDispatch.id,p_worker_id:"open:guard",p_outcome:"accepted",p_provider_status_code:"201",p_provider_message_id:null,p_error_code:null,p_error_detail:null,p_invalidate_device:false});
   const opened1=await rpc(owner,"record_owner_notification_opened_v18",{p_dispatch_id:webDispatch.id});
   const opened2=await rpc(owner,"record_owner_notification_opened_v18",{p_dispatch_id:webDispatch.id});
   const alertAfterOpen=await admin.from("owner_alerts").select("acknowledged_at,resolved_at").eq("id",alertId).single();

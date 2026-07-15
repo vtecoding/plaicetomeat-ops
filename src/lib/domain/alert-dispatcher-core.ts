@@ -50,6 +50,7 @@ export type DispatcherConfig = {
   leaseSeconds: number;
   /** Per-provider request timeout; also drives the over-lease guard. */
   providerTimeoutMs: number;
+  channels?: string[];
 };
 
 export const DEFAULT_DISPATCHER_CONFIG: DispatcherConfig = {
@@ -257,10 +258,12 @@ export async function runDispatcherSweep(input: {
     }
 
     const batchSize = boundDispatchBatch(config.batchSize);
-    const leasedRaw = await input.callRpc("lease_alert_dispatches_v18", {
+    const channelScoped = Array.isArray(config.channels) && config.channels.length > 0;
+    const leasedRaw = await input.callRpc(channelScoped ? "lease_alert_dispatches_for_channels_v18" : "lease_alert_dispatches_v18", {
       p_worker_id: input.invocationId,
       p_limit: batchSize,
       p_lease_seconds: config.leaseSeconds,
+      ...(channelScoped ? { p_channels: config.channels } : {}),
     });
     const rows = (Array.isArray(leasedRaw) ? leasedRaw : []) as LeasedAlertDispatch[];
     if (rows.length === 0) break;

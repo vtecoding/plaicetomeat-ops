@@ -44,7 +44,7 @@ function fakeRpc(queue: LeasedAlertDispatch[][], options: {
   ));
   const callRpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
     if (name === "recover_expired_alert_dispatch_leases_v18") return options.expired ?? 0;
-    if (name === "lease_alert_dispatches_v18") {
+    if (name === "lease_alert_dispatches_v18" || name === "lease_alert_dispatches_for_channels_v18") {
       leaseWorkerIds.push(String(args.p_worker_id));
       return queue.shift() ?? [];
     }
@@ -69,6 +69,12 @@ const acceptAll: DispatchChannelAdapter = {
 };
 
 describe("edge dispatcher sweep", () => {
+  it("leases only explicitly owned channels when a shadow scope is configured", async () => {
+    const { callRpc } = fakeRpc([[]]);
+    await runDispatcherSweep({ invocationId: "edge:shadow", callRpc, adapters: {}, config: { channels: ["web_push"] } });
+    expect(callRpc).toHaveBeenCalledWith("lease_alert_dispatches_for_channels_v18", expect.objectContaining({ p_channels: ["web_push"] }));
+  });
+
   it("recovers, leases, sends and records the full orchestration with correct metrics", async () => {
     const rows = [row(), row(), row()];
     const { callRpc, recorded } = fakeRpc([rows], { expired: 2 });

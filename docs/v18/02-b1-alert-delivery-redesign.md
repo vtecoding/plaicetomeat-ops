@@ -335,7 +335,7 @@ GitHub worker, producer scans, Telegram/ntfy and production cutover remain uncha
 | 2 | Edge Function dispatcher + Supabase Cron 30 s + health endpoint + cron helpers (§4b) | **Done** (`13922da`, tag `v18-phase2-alert-dispatcher-foundation`) |
 | 2.5 | Dispatcher certification: crash injection at every boundary, replay idempotency + divergent-replay hardening, over-lease budget invariant, staggered cron overlap, Vault fail-closed via `invoke_alert_dispatcher_v18`, health queue metrics, channel-code split | **Done (this change)** |
 | 3 | Web Push: verified encrypted device registration, VAPID adapter, versioned payload, one service worker, bounded dedupe, deep links and authorized `notification_opened` evidence | **Done (local implementation)** |
-| 3.5 | Real handset shadow mode (owner device, field-proven) | Next |
+| 3.5 | Real handset shadow mode (owner device, field-proven) | In progress — real delivery/dedupe/open proven; field fixes pending retest |
 | 4 | Fallback channel (Telegram or ntfy) + escalation timeline | Pending |
 | 5 | Edge fixes from the redesign spec §19–22: checked `seen_at` updates, inventory-policy advisory-lock serialization, synchronous draft-saving state + flush, mistake-request rejection without a completed run | **Not yet implemented** |
 | 6 | Shadow-mode and field certification/cutover as defined by the project plan | Pending |

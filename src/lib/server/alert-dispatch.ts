@@ -161,8 +161,9 @@ export async function runAlertDispatchSweep(
   const supabase = createSupabaseServiceClient();
   const { error: recoveryError } = await supabase.rpc("recover_expired_alert_dispatch_leases_v18");
   if (recoveryError) throw new Error(`Could not recover expired dispatch leases: ${recoveryError.message}`);
-  const { data, error } = await supabase.rpc("lease_alert_dispatches_v18", {
+  const { data, error } = await supabase.rpc("lease_alert_dispatches_for_channels_v18", {
     p_worker_id: workerId,
+    p_channels: ["twilio_whatsapp"],
     p_limit: boundDispatchBatch(limit),
     p_lease_seconds: ALERT_DISPATCH_LEASE_SECONDS,
   });

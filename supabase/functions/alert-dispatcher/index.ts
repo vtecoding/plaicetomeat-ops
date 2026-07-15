@@ -201,6 +201,7 @@ async function sweep(): Promise<Response> {
         Deno.env.get("ALERT_DISPATCH_SOFT_DEADLINE_MS") ?? DEFAULT_DISPATCHER_CONFIG.softDeadlineMs,
       ),
       providerTimeoutMs: PROVIDER_TIMEOUT_MS,
+      channels: (Deno.env.get("ALERT_DISPATCH_CHANNELS") ?? "web_push").split(",").map((value) => value.trim()).filter(Boolean),
     },
     log: (entry) => console.log(JSON.stringify(entry)),
   });

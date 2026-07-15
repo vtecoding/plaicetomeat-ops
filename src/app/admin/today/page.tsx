@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
+import { acknowledgeOwnerAlert } from "@/app/actions/owner-alert";
 import type { DataState } from "@/lib/domain/data-result";
 import { buildYesterdayMoneyLines } from "@/lib/ops-capture/money-context";
 import { buildDayShape, buildMorningBriefing } from "@/lib/owner-brain/brain";
@@ -28,6 +29,7 @@ import { getOwnerAwaySummary, type OwnerAwaySummary } from "@/lib/server/owner-a
 import { getYesterdayMoneyCard, type YesterdayMoneyCard } from "@/lib/server/payment-truth";
 import { getReconciliationItems, type ReconcileTray } from "@/lib/server/reconciliation";
 import { requireStaffContext } from "@/lib/server/staff-context";
+import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type {
   DayShape,
   MorningBriefing,
@@ -39,8 +41,17 @@ import { cn, formatDisplayDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-export default async function TodayPage() {
+type LinkedAlert = { id:string; summary:string; severity:string; acknowledged_at:string|null; resolved_at:string|null };
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export default async function TodayPage({searchParams}:{searchParams:Promise<{alert?:string}>}) {
   const { profile, branchId } = await requireStaffContext("manager", { branchScoped: true });
+  const linkedId=(await searchParams).alert;
+  let linkedAlert:LinkedAlert|null=null;
+  if(profile.role==="owner"&&linkedId&&UUID.test(linkedId)){
+    const {data}=await createSupabaseServiceClient().from("owner_alerts").select("id,summary,severity,acknowledged_at,resolved_at").eq("id",linkedId).eq("branch_id",branchId).maybeSingle<LinkedAlert>();
+    linkedAlert=data;
+  }
   const [snapshot, ownerAway, reconcile, moneyCard] = await Promise.all([
     getOperationalSnapshotV1(branchId),
     profile.role === "owner" ? getOwnerAwaySummary(branchId) : Promise.resolve(null),
@@ -70,6 +81,13 @@ export default async function TodayPage() {
           </h1>
         </header>
         <div className="rule-engraved mt-4" />
+
+        {linkedAlert&&<section id={`owner-alert-${linkedAlert.id}`} className="mt-4 scroll-mt-24 rounded-2xl border border-[#e1b86f] bg-[#fff7e8] p-5" data-testid="linked-owner-alert">
+          <p className="eyebrow text-[#8b5e00]">Opened from notification</p>
+          <h2 className="mt-1 font-display text-xl font-semibold text-[var(--ink)]">Owner alert</h2>
+          <p className="mt-2 text-sm font-medium text-[var(--muted)]">{linkedAlert.summary}</p>
+          {linkedAlert.resolved_at?<p className="mt-3 text-sm font-bold text-[var(--brand)]">Resolved</p>:linkedAlert.acknowledged_at?<div className="mt-3 flex flex-wrap items-center gap-3"><p className="text-sm font-bold text-[var(--brand)]">Acknowledged — still open until resolved.</p><Link href={`/admin/reconcile?alert=${linkedAlert.id}`} className="text-sm font-bold text-[var(--brand)] underline">Open owner job</Link></div>:<div className="mt-3 flex flex-wrap items-center gap-3"><form action={acknowledgeOwnerAlert}><input type="hidden" name="alertId" value={linkedAlert.id}/><button className="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-bold text-white">Acknowledge alert</button></form><Link href={`/admin/reconcile?alert=${linkedAlert.id}`} className="text-sm font-bold text-[var(--brand)] underline">Open owner job</Link></div>}
+        </section>}
 
         {snapshot.result.state !== "HEALTHY" && <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />}
         {ownerAway && <OwnerAwayTodayPanel summary={ownerAway} />}
