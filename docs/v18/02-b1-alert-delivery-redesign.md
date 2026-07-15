@@ -1,6 +1,6 @@
 # V18 B1 — Alert Delivery Redesign (amended contract, v1.2)
 
-Status: **Phases 1–2 implemented and Phase 2.5 dispatcher certification green**
+Status: **Phases 1–3 implemented; Phase 2.5 dispatcher certification remains sealed**
 (2026-07-15). Checkpoint commit `13922da`, tag `v18-phase2-alert-dispatcher-foundation`.
 Supersedes the original B1 delivery design certified in `65a389f`, which was rejected for
 four verified defects: free-form WhatsApp outside the 24-hour session window, GitHub
@@ -263,20 +263,69 @@ scheduled worker; they move to their own schedule at cutover planning, not in Ph
 **Execution budget** (env-overridable): batch 20, concurrency 5, provider timeout 8 s,
 soft deadline 20 s, lease 60 s — the same numbers as §1.
 
-## 5. Device registration is an operational gate (Phase 3)
+## 5. Phase 3 — verified Web Push
+
+`owner_notification_devices` remains the only device registry. Operator disable and
+provider invalidation are separate causal facts; the derived read state is
+`unverified | active | disabled | invalidated`. Normal fan-out reads only
+`eligible_owner_notification_devices_v18`, whose exact predicate is `web_push`,
+`verified_at IS NOT NULL`, `enabled = true`, and `invalidated_at IS NULL`.
+
+Registration uses a random browser-installation UUID and AES-256-GCM encrypts endpoint,
+`auth` and `p256dh` before service-role persistence. Registration is idempotent by owner,
+installation and channel. A changed subscription clears eligibility and binds the next
+verification challenge to the new subscription fingerprint. An invalidated device cannot
+be toggled back on; it must register new credentials and verify again.
+
+Verification is real outbox work:
 
 ```text
-Installed as PWA (iOS ≥ 16.4 requires Home Screen install)
-Permission granted from the installed app
-Device subscription registered (server-side, encrypted)
-Test notification sent and physically confirmed by the owner
-Last successful test visible in PTM
-Fallback channel configured
+register encrypted subscription (still ineligible)
+→ create 15-minute challenge + device_verification dispatch
+→ existing dispatcher calls the real web_push adapter
+→ push-service acceptance is recorded through record_alert_dispatch_result_v18
+→ owner explicitly confirms the matching, unexpired challenge
+→ verified_at is set and normal fan-out becomes eligible
 ```
 
-Web Push remains the preferred integrated path; Telegram/ntfy become the immediate
-fallback only if the real handset proves fragile (decided at the G-B1 field gate, not
-pre-emptively).
+The adapter is registered through the existing `DispatchChannelAdapter`. It only resolves
+and decrypts one target, validates the payload, sends VAPID Web Push, classifies the
+provider result and returns the normalized outcome. Missing VAPID/decryption configuration
+is `CHANNEL_DISABLED`; 404/410 invalidates only that device; 429 is transient; 5xx,
+timeout and network uncertainty are ambiguous. The adapter performs no SQL write or retry.
+
+Every payload declares `schemaVersion: 1`, `messageType`, stable `dispatchId`, a bounded
+PTM-relative route and creation time. Owner-alert payloads also carry alert ID/kind and
+severity; verification payloads carry the challenge ID. External routes are rejected and
+authoritative detail is fetched after opening PTM.
+
+`public/ptm-service-worker.js` is the one notification worker. It validates version and
+route, deduplicates by dispatch ID using the notification tag plus a seven-day/500-entry
+IndexedDB store, displays, and focuses/opens PTM. Local-store failure degrades to display,
+not suppression. Clicks hand the dispatch ID to the authenticated app, which records the
+first open idempotently and removes the query parameter. The worker cannot acknowledge,
+resolve, lease, retry or make business decisions.
+
+Evidence remains deliberately separate:
+
+```text
+provider_accepted_at   push service accepted the request
+notification_opened_at owner interacted with the notification
+acknowledged_at        owner explicitly acknowledged inside PTM
+resolved_at            shop work was operationally resolved
+```
+
+Health adds implemented/configured VAPID and decryption flags plus verified, unverified,
+disabled and invalidated device counts, oldest Web Push retry age and dead-letter count;
+no secret values are exposed. The owner settings surface requests permission only after a
+button press and reports capability, permission, verification, eligibility, recent success,
+failure and invalidation honestly. iOS/Home Screen and platform behaviour remain runtime
+capability checks until Phase 3.5 handset proof.
+
+Runbook secrets are `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`,
+`WEB_PUSH_SUBJECT` (`mailto:` or HTTPS), and a base64 32-byte
+`OWNER_NOTIFICATION_ENCRYPTION_KEY`. Rotation/deployment is outside this local phase.
+GitHub worker, producer scans, Telegram/ntfy and production cutover remain unchanged.
 
 ## 6. Rollout state
 
@@ -285,8 +334,8 @@ pre-emptively).
 | 1 | DB foundation: registry, devices, dispatch lifecycle, attempts, leases, dead-letter, replay, ack; contract rewiring; guards | **Done** |
 | 2 | Edge Function dispatcher + Supabase Cron 30 s + health endpoint + cron helpers (§4b) | **Done** (`13922da`, tag `v18-phase2-alert-dispatcher-foundation`) |
 | 2.5 | Dispatcher certification: crash injection at every boundary, replay idempotency + divergent-replay hardening, over-lease budget invariant, staggered cron overlap, Vault fail-closed via `invoke_alert_dispatcher_v18`, health queue metrics, channel-code split | **Done (this change)** |
-| 3 | Web Push: service worker, registration/verification flow, dedupe, deep links, `notification_opened` | Next |
-| 3.5 | Real handset shadow mode (owner device, field-proven) | Pending |
+| 3 | Web Push: verified encrypted device registration, VAPID adapter, versioned payload, one service worker, bounded dedupe, deep links and authorized `notification_opened` evidence | **Done (local implementation)** |
+| 3.5 | Real handset shadow mode (owner device, field-proven) | Next |
 | 4 | Fallback channel (Telegram or ntfy) + escalation timeline | Pending |
 | 5 | Edge fixes from the redesign spec §19–22: checked `seen_at` updates, inventory-policy advisory-lock serialization, synchronous draft-saving state + flush, mistake-request rejection without a completed run | **Not yet implemented** |
 | 6 | Shadow-mode and field certification/cutover as defined by the project plan | Pending |
@@ -295,17 +344,17 @@ The interim GitHub-Actions worker keeps running through shadow mode on the new
 lease/record contract, so alert delivery never regresses below the previous baseline
 while Phases 2–3 land.
 
-## 7. Verification (2026-07-15, Phases 1–2 + 2.5 certification)
+## 7. Verification (2026-07-15, Phases 1–3)
 
-- Unit: 723 passed / 1 skipped (dispatch contract, adapter classification,
-  dispatcher-core orchestration incl. soft deadline, over-lease budget invariant both
-  ways, bounded concurrency, channel-code skip, classification pass-through,
-  record-failure lane isolation).
-- Static constitution tier: 9/9 (includes the `alert-registry` parity guard).
-- Clean rebuild: `supabase db reset` applies all 54 migrations from scratch.
-- DB tier: constitution 10/10 (now includes `edge-dispatcher` and
-  `dispatcher-certification`); `verify:alert-dispatch` 21/21; `verify:edge-dispatcher`
-  8/8; **`verify:dispatcher-certification` 9/9** — crash injection at each boundary
+- Unit: 748 passed / 1 skipped across 102 files (101 passed, one skipped). The
+  Phase 3 focused notification/dispatcher suite is 35/35: payload version/size/route,
+  AES-GCM secret storage, Web Push classification, bounded dedupe and click routing.
+- Static constitution tier: 10/10, including `web-push-boundaries` 9/9.
+- Clean rebuild: `supabase db reset` applies all 55 migrations from scratch. A second
+  reset stopped at sealed Phase 2.5 head `202607150900`, then the Phase 3 migration
+  applied alone with all new view/RPC/challenge objects present.
+- DB tier: constitution 11/11; `verify:web-push` 14/14; `verify:alert-dispatch` 21/21;
+  `verify:edge-dispatcher` 8/8; **`verify:dispatcher-certification` 9/9** — crash injection at each boundary
   (after lease; after provider acceptance / before record; after record commit)
   converges to exactly one legal state with no orphan lease or attempt; a crashed
   worker's late result is rejected once the lease is lost; identical replay is exactly
@@ -318,11 +367,16 @@ while Phases 2–3 land.
   attempt_count ≤ attempt_budget) hold over the whole table;
   `verify:owner-jobs` 40/40; payment-truth 39/39; refund-truth,
   operator-run-completion, atomic-evidence, atomic-operator-serve all green.
-- Live tier: not run (no app server booted; the only UI delta across all phases is one
-  Owner Away banner string).
-- Not exercised locally: an actual Edge-runtime invocation (`supabase functions serve` /
-  a deployed function) — the Deno entry is thin wiring over the fully-tested core and is
-  proven at Phase 3.5/6 shadow mode; and upgrade-from-prod-head, which stays enforced by
+- Production build: clean. TypeScript: zero errors. Lint: zero errors (six existing
+  warnings outside Phase 3). Owner notification settings received an authenticated
+  browser smoke check with no current-page console errors; the permission prompt was
+  deliberately not accepted.
+- Actual local Supabase Edge runtime health invocation: ready on schema `202607151500`,
+  dispatcher `v18-b1-phase3`, registered channels `twilio_whatsapp,web_push`; Web Push
+  honestly reported implemented but disabled because local VAPID/encryption secrets were
+  not supplied. No provider send occurred.
+- Not exercised locally: a real push service, handset, iOS or Android delivery; and the
+  full upgrade-from-production-head workflow, which stays enforced by
   `.github/workflows/migration-upgrade.yml` before merge.
 - Upgrade-from-prod-head: enforced by `.github/workflows/migration-upgrade.yml` in CI —
   must be green before merge.

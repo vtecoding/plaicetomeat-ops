@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
+import { NotificationOpenRecorder } from "@/components/notification-open-recorder";
 
 // UI / body — Inter, properly bundled (previously only named in CSS, so it silently fell
 // back to the system font, which is a big part of why the app felt generic).
@@ -34,7 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
-      <body>{children}</body>
+      <body><NotificationOpenRecorder />{children}</body>
     </html>
   );
 }

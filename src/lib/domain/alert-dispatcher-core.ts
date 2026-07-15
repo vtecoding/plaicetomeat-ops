@@ -21,7 +21,7 @@ import {
 } from "./alert-dispatch.ts";
 import { OwnerAlertProviderError } from "./owner-alert-channel.ts";
 
-export const DISPATCHER_VERSION = "v18-b1-phase2.5";
+export const DISPATCHER_VERSION = "v18-b1-phase3";
 
 /** Transient: no adapter is compiled into this dispatcher build yet. These
  * dispatches are replay candidates once the channel ships (Phases 3–4). */

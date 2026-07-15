@@ -12,6 +12,7 @@
 // callers are rejected. verify_jwt stays off in config.toml because the token
 // check here is stricter than "any valid project JWT".
 import { createClient } from "npm:@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
 
 import {
   DEFAULT_DISPATCHER_CONFIG,
@@ -25,12 +26,24 @@ import {
   resolveOwnerAlertChannel,
   sendOwnerAlertViaTwilio,
 } from "../../../src/lib/domain/owner-alert-channel.ts";
+import { decryptNotificationSecret } from "../../../src/lib/notifications/secret-box.ts";
+import {
+  createWebPushChannelAdapter,
+  resolveWebPushConfig,
+  webPushConfigured,
+} from "../../../src/lib/notifications/web-push-channel.ts";
 
 const PROVIDER_TIMEOUT_MS = Number(Deno.env.get("ALERT_DISPATCH_PROVIDER_TIMEOUT_MS") ?? 8_000);
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const DISPATCH_TOKEN = Deno.env.get("ALERT_DISPATCHER_TOKEN") ?? SERVICE_ROLE_KEY;
+const NOTIFICATION_ENCRYPTION_KEY = Deno.env.get("OWNER_NOTIFICATION_ENCRYPTION_KEY") ?? "";
+const webPushConfig = resolveWebPushConfig({
+  WEB_PUSH_VAPID_PUBLIC_KEY: Deno.env.get("WEB_PUSH_VAPID_PUBLIC_KEY"),
+  WEB_PUSH_VAPID_PRIVATE_KEY: Deno.env.get("WEB_PUSH_VAPID_PRIVATE_KEY"),
+  WEB_PUSH_SUBJECT: Deno.env.get("WEB_PUSH_SUBJECT"),
+});
 
 const channelEnv = resolveOwnerAlertChannel({
   OWNER_ALERT_CHANNEL_ENABLED: Deno.env.get("OWNER_ALERT_CHANNEL_ENABLED"),
@@ -62,11 +75,37 @@ const twilioAdapter: DispatchChannelAdapter = {
   },
 };
 
+if (webPushConfigured(webPushConfig)) {
+  webpush.setVapidDetails(webPushConfig.subject, webPushConfig.publicKey, webPushConfig.privateKey);
+}
+
+const webPushAdapter = createWebPushChannelAdapter({
+  config: webPushConfig,
+  loadSubscription: async (deviceId) => {
+    if (!NOTIFICATION_ENCRYPTION_KEY) throw new Error("notification decryption unavailable");
+    const { data, error } = await serviceClient().from("owner_notification_devices")
+      .select("endpoint_ciphertext,auth_ciphertext,p256dh_ciphertext")
+      .eq("id", deviceId).eq("channel", "web_push").single();
+    if (error || !data?.endpoint_ciphertext || !data.auth_ciphertext || !data.p256dh_ciphertext) {
+      throw new Error("stored subscription unavailable");
+    }
+    const [endpoint, auth, p256dh] = await Promise.all([
+      decryptNotificationSecret(data.endpoint_ciphertext, NOTIFICATION_ENCRYPTION_KEY),
+      decryptNotificationSecret(data.auth_ciphertext, NOTIFICATION_ENCRYPTION_KEY),
+      decryptNotificationSecret(data.p256dh_ciphertext, NOTIFICATION_ENCRYPTION_KEY),
+    ]);
+    return { endpoint, keys: { auth, p256dh } };
+  },
+  sendNotification: async (subscription, payload) => {
+    const result = await webpush.sendNotification(subscription, payload, { TTL: 300, urgency: "high" });
+    return { statusCode: result.statusCode, headers: result.headers };
+  },
+});
+
 const ADAPTERS: Record<string, DispatchChannelAdapter> = {
   twilio_whatsapp: twilioAdapter,
-  // web_push / fcm / telegram / ntfy adapters arrive with Phases 3–4. Until
-  // then the core records their dispatches as skipped CHANNEL_NOT_IMPLEMENTED
-  // (terminal-visible, replayable) rather than dead-lettering or crashing.
+  web_push: webPushAdapter,
+  // fcm / telegram / ntfy remain CHANNEL_NOT_IMPLEMENTED until later phases.
 };
 
 function timingSafeEqual(a: string, b: string): boolean {
@@ -103,6 +142,14 @@ async function health(): Promise<Response> {
     record_rpc: false,
     provider_configuration_loaded: ownerAlertChannelConfigured(channelEnv),
     registered_channels: Object.keys(ADAPTERS),
+    web_push: {
+      implemented: true,
+      configured: webPushConfigured(webPushConfig) && Boolean(NOTIFICATION_ENCRYPTION_KEY),
+      vapid_public_key_configured: Boolean(webPushConfig.publicKey),
+      vapid_private_key_configured: Boolean(webPushConfig.privateKey),
+      subject_configured: /^(mailto:|https:\/\/)/.test(webPushConfig.subject),
+      decryption_configured: Boolean(NOTIFICATION_ENCRYPTION_KEY),
+    },
   };
   try {
     const { error: dbError } = await supabase
@@ -119,6 +166,10 @@ async function health(): Promise<Response> {
       checks.registry_kinds = rpcHealth.registry_kinds;
       checks.schema_version = rpcHealth.schema_version;
       checks.queue = rpcHealth.queue;
+    }
+    const { data: webPushHealth, error: webPushHealthError } = await supabase.rpc("web_push_health_v18");
+    if (!webPushHealthError && webPushHealth) {
+      checks.web_push = { ...(checks.web_push as Record<string, unknown>), ...(webPushHealth as Record<string, unknown>) };
     }
   } catch (error) {
     checks.error = error instanceof Error ? error.message : String(error);

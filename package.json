@@ -70,6 +70,8 @@
     "verify:alert-registry": "node scripts/verify-alert-registry-parity.mjs",
     "verify:edge-dispatcher": "node --import tsx scripts/verify-edge-dispatcher.mjs",
     "verify:dispatcher-certification": "node --import tsx scripts/verify-dispatcher-certification.mjs",
+    "verify:web-push": "node scripts/verify-web-push.mjs",
+    "verify:web-push-static": "node scripts/verify-web-push-static.mjs",
     "verify:owner-away": "vitest run src/lib/domain/owner-away.test.ts src/lib/domain/owner-digest.test.ts src/lib/server/owner-away-accuracy.test.ts",
     "verify:owner-jobs": "node scripts/verify-owner-jobs.mjs",
     "worker:owner-alerts": "node --import tsx scripts/owner-alert-worker.mjs",

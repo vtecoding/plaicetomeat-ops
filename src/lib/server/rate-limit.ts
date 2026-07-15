@@ -12,7 +12,7 @@ import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supaba
 
 const SALT = process.env.ORDER_ACCESS_SECRET ?? "ptm-rate-limit-salt";
 
-export type RateBucket = "public_status" | "public_establish" | "public_cancel" | "checkout";
+export type RateBucket = "public_status" | "public_establish" | "public_cancel" | "checkout" | "notification_registration";
 
 export type RateLimitConfig = { bucket: RateBucket; max: number; windowSeconds: number };
 
@@ -22,6 +22,7 @@ export const RATE_LIMITS: Record<RateBucket, RateLimitConfig> = {
   public_establish: { bucket: "public_establish", max: 8, windowSeconds: 300 },
   public_cancel: { bucket: "public_cancel", max: 10, windowSeconds: 300 },
   checkout: { bucket: "checkout", max: 12, windowSeconds: 300 },
+  notification_registration: { bucket: "notification_registration", max: 10, windowSeconds: 300 },
 };
 
 export function hashIdentity(...parts: Array<string | null | undefined>): string {

@@ -229,9 +229,9 @@ describe("edge dispatcher sweep", () => {
     expect(peak).toBeLessThanOrEqual(5);
   });
 
-  it("skips unsupported channels terminally-visibly instead of dead-lettering or crashing", async () => {
-    const pushRow = row({ channel: "web_push", target: "" });
-    const { callRpc, recorded } = fakeRpc([[pushRow]]);
+  it("skips future channels terminally-visibly instead of dead-lettering or crashing", async () => {
+    const futureRow = row({ channel: "fcm", target: "" });
+    const { callRpc, recorded } = fakeRpc([[futureRow]]);
 
     const metrics = await runDispatcherSweep({
       invocationId: "edge:test-unsupported",
@@ -240,7 +240,7 @@ describe("edge dispatcher sweep", () => {
     });
 
     expect(recorded).toEqual([
-      { dispatchId: pushRow.id, outcome: "skipped", errorCode: CHANNEL_NOT_IMPLEMENTED },
+      { dispatchId: futureRow.id, outcome: "skipped", errorCode: CHANNEL_NOT_IMPLEMENTED },
     ]);
     expect(metrics.skipped).toBe(1);
     expect(metrics.failed_sends).toBe(0);

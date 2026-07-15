@@ -22,7 +22,7 @@ export type ProviderSendResult = {
 
 export type LeasedAlertDispatch = {
   id: string;
-  kind: "critical_alert" | "daily_digest";
+  kind: "critical_alert" | "daily_digest" | "device_verification";
   channel: string;
   device_id: string | null;
   target: string;

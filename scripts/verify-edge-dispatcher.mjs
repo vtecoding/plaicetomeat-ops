@@ -202,7 +202,7 @@ try {
   // 5. Channels without a shipped adapter are skipped terminally-visibly.
   const unsupportedKey = `edge-probe-unsupported:${crypto.randomUUID()}`;
   const { data: pushDispatch, error: pushError } = await admin.from("alert_dispatches").insert({
-    branch_id: BRANCH, kind: "daily_digest", channel: "web_push", target: "", status: "pending",
+    branch_id: BRANCH, kind: "daily_digest", channel: "fcm", target: "", status: "pending",
     dispatch_key: unsupportedKey, payload: { message: "unsupported-channel probe" },
     next_attempt_at: new Date().toISOString(), priority: 10,
   }).select("id").single();

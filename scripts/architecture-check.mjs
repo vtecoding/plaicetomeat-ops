@@ -47,6 +47,7 @@ const GUARDS = [
   { id: "operational-truth", principle: "Truth", tier: "static", script: "scripts/verify-operational-truth.mjs", what: "failures render as honest truth states, never demo data or fake empties" },
   { id: "migration-manifest", principle: "Release", tier: "static", script: "scripts/generate-migration-manifest.mjs", args: ["--check"], what: "generated migration manifest matches supabase/migrations (no curated-subset drift)" },
   { id: "alert-registry", principle: "Truth", tier: "static", script: "scripts/verify-alert-registry-parity.mjs", what: "SQL alert-kind seed and the TS alert registry stay one set (producers fail closed)" },
+  { id: "web-push-boundaries", principle: "Truth", tier: "static", script: "scripts/verify-web-push-static.mjs", what: "Web Push keeps browser, adapter, payload, eligibility and secret boundaries" },
 
   // ── db: need a reachable Supabase ──
   { id: "truth-table-lock", principle: "Truth", tier: "db", script: "scripts/verify-truth-table-lock.mjs", what: "ledger & truth-table RLS lock — nothing bypasses the ledger" },
@@ -59,6 +60,7 @@ const GUARDS = [
   { id: "disaster-recovery-integrity", principle: "Security", tier: "db", script: "scripts/verify-disaster-recovery-integrity.mjs", what: "recovery RPCs deny anonymous access" },
   { id: "edge-dispatcher", principle: "Truth", tier: "db", script: "scripts/verify-edge-dispatcher.mjs", nodeArgs: ["--import", "tsx"], what: "edge dispatcher sweep: lease/recover/record orchestration, concurrent invocations never share a dispatch, cron helpers round-trip" },
   { id: "dispatcher-certification", principle: "Truth", tier: "db", script: "scripts/verify-dispatcher-certification.mjs", nodeArgs: ["--import", "tsx"], what: "crash injection converges to legal states; replay idempotency; overlap, Vault fail-closed and global sanity invariants" },
+  { id: "web-push", principle: "Truth", tier: "db", script: "scripts/verify-web-push.mjs", what: "verified device lifecycle, independent fan-out, open evidence and invalidation remain database-authoritative" },
 
   // ── live: drive the running app (need a booted server + seeded DB) ──
   { id: "operator-route-lock", principle: "Security", tier: "live", script: "scripts/verify-operator-route-lock.mjs", what: "operator routes are role-protected" },
