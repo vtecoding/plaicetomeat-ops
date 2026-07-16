@@ -178,6 +178,23 @@ ROLLBACK;
     divergentReplayError?.message ?? "conflicting replay did not fail",
   );
 
+  const rearmedAccepted = await rpc("replay_alert_dispatch_v18", { p_dispatch_id: atomic.dispatch.id });
+  const rearmedAcceptedLease = await leaseOne(atomic.dispatch.id);
+  const acceptedAgain = await recordResult(atomic.dispatch.id, "accepted", {
+    providerMessageId: "SM-probe-2", providerStatusCode: "201",
+  });
+  check(
+    "manual replay re-arms an accepted dispatch under the same identity",
+    rearmedAccepted.id === atomic.dispatch.id && rearmedAccepted.status === "pending"
+      && rearmedAccepted.attempt_budget === 7 && rearmedAcceptedLease?.attempt_count === 2
+      && acceptedAgain.status === "accepted" && acceptedAgain.id === atomic.dispatch.id,
+    JSON.stringify({
+      replayed: { id: rearmedAccepted.id, status: rearmedAccepted.status, budget: rearmedAccepted.attempt_budget },
+      attempt: rearmedAcceptedLease?.attempt_count,
+      final: acceptedAgain.status,
+    }),
+  );
+
   // 4. Transient failure backs off on the attempt-relative schedule.
   const transient = await createCritical("Transient retry probe");
   await leaseOne(transient.dispatch.id);
