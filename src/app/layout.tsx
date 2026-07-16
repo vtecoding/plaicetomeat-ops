@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { NotificationOpenRecorder } from "@/components/notification-open-recorder";
 
@@ -35,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
-      <body><NotificationOpenRecorder />{children}</body>
+      <body><Suspense fallback={null}><NotificationOpenRecorder /></Suspense>{children}</body>
     </html>
   );
 }
