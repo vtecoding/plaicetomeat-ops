@@ -16,7 +16,7 @@
 // Exits non-zero on any unmet expectation.
 
 import { createClient } from "@supabase/supabase-js";
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const STRICT =
@@ -120,6 +120,7 @@ async function checkMigrationParity() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   const migrationsDir = join(process.cwd(), "supabase", "migrations");
+  const releaseContract = JSON.parse(readFileSync(join(process.cwd(), "config", "release-contract.json"), "utf8"));
   const expected = readdirSync(migrationsDir)
     .filter((file) => file.endsWith(".sql"))
     .map((file) => file.split("_")[0])
@@ -133,19 +134,9 @@ async function checkMigrationParity() {
   const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
   let applied;
   try {
-    const { data, error } = await supabase.rpc("get_applied_migration_versions");
+    const { data, error } = await supabase.rpc("get_application_schema_versions_v1");
     if (error) {
-      // Fall back to required-migration health if the helper RPC is absent.
-      const health = await supabase.rpc("get_migration_health");
-      if (health.error) {
-        skip("repository migrations applied in database", `could not read migrations: ${error.message}`);
-        return;
-      }
-      const rows = health.data ?? [];
-      const total = rows.length;
-      const got = rows.filter((r) => r.applied).length;
-      if (total > 0 && got === total) pass(`required migrations applied (${got}/${total})`);
-      else fail("required migrations applied", `${got}/${total}`);
+      fail("repository migrations exactly compatible with database", `contract reader unavailable: ${error.message}`);
       return;
     }
     applied = new Set((data ?? []).map((row) => String(row.version)));
@@ -155,8 +146,30 @@ async function checkMigrationParity() {
   }
 
   const missing = expected.filter((version) => !applied.has(version));
-  if (missing.length > 0) fail("repository migrations applied in database", `missing ${missing.join(", ")}`);
-  else pass(`repository migrations applied in database (${expected.length} migrations)`);
+  const expectedSet = new Set(expected);
+  const unexpected = [...applied].filter((version) => !expectedSet.has(version)).sort();
+  if (missing.length > 0) {
+    fail(
+      "repository migrations applied in database",
+      `missing=[${missing.join(", ")}]`,
+    );
+  } else {
+    pass(`repository migrations applied in database (${expected.length} required; ${unexpected.length} later)`);
+  }
+
+  const { data: contracts, error: contractError } = await supabase.rpc("get_application_schema_contract_v1");
+  const contract = contracts?.[0];
+  const appGeneration = Number(releaseContract.applicationGeneration);
+  if (
+    contractError ||
+    !contract ||
+    appGeneration < Number(contract.min_supported_app_generation) ||
+    appGeneration > Number(contract.max_supported_app_generation)
+  ) {
+    fail("application/schema generation compatible", `app=${appGeneration}`);
+  } else {
+    pass(`application/schema generation compatible (app=${appGeneration}, range=${contract.min_supported_app_generation}-${contract.max_supported_app_generation})`);
+  }
 }
 
 async function main() {

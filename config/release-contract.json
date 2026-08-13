@@ -1,0 +1,8 @@
+{
+  "applicationGeneration": 19,
+  "previousApplicationGeneration": 18,
+  "legacyDatabaseGeneration": 18,
+  "legacyMigrationHead": "202607161505",
+  "expandDatabaseGeneration": 19,
+  "expandMigrationHead": "202608130900"
+}

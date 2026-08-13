@@ -6,9 +6,10 @@ import { REQUIRED_MIGRATION_VERSIONS, REQUIRED_MIGRATION_HEAD } from "@/lib/serv
 describe("computeMigrationParity", () => {
   it("reports parity when every required version is applied", () => {
     const required = ["202606300900", "202606301000", "202607011300"];
-    const result = computeMigrationParity(required, [...required, "202600000000"]);
+    const result = computeMigrationParity(required, required);
     expect(result.parity).toBe(true);
     expect(result.missing).toEqual([]);
+    expect(result.unexpected).toEqual([]);
     expect(result.requiredHead).toBe("202607011300");
     expect(result.appliedRequiredCount).toBe(3);
   });
@@ -29,10 +30,14 @@ describe("computeMigrationParity", () => {
     expect(result.appliedRequiredCount).toBe(1);
   });
 
-  it("is not fooled by extra applied versions beyond the required head", () => {
+  it("reports later database migrations without declaring incompatibility", () => {
     const required = ["202606300900", "202606301000"];
     const applied = ["202606300900", "202606301000", "209900000000"];
-    expect(computeMigrationParity(required, applied).parity).toBe(true);
+    const result = computeMigrationParity(required, applied);
+    expect(result.parity).toBe(true);
+    expect(result.missing).toEqual([]);
+    expect(result.unexpected).toEqual(["209900000000"]);
+    expect(result.observedHead).toBe("209900000000");
   });
 
   it("never reports parity against an empty required set", () => {
@@ -44,6 +49,7 @@ describe("computeMigrationParity", () => {
     expect(result.parity).toBe(true);
     expect(result.requiredHead).toBe(REQUIRED_MIGRATION_HEAD);
     expect(result.missing).toEqual([]);
+    expect(result.unexpected).toEqual([]);
   });
 
   it("fails parity if the deployed ledger is missing the newest manifest migration", () => {

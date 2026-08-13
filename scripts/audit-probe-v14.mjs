@@ -143,7 +143,12 @@ async function main() {
   const staff = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
   const { error: signErr } = await staff.auth.signInWithPassword({ email: STAFF_EMAIL, password: STAFF_PASSWORD });
   if (signErr) throw new Error(`staff sign-in failed: ${signErr.message}`);
-  const collect = (orderId) => staff.rpc("transition_order_status", { p_order_id: orderId, p_next_status: "collected" });
+  const collect = (orderId) => staff.rpc("collect_order_with_tender", {
+    p_order_id: orderId,
+    p_method: "cash",
+    p_idempotency_key: `audit-v14-collect:${orderId}`,
+    p_note: "V14 audit collection",
+  });
 
   // ── Scenario A: basic sale -> stock + SALE movement + audit ──────────────
   log("\n[A] Collected order depletes stock");

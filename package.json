@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "node scripts/verify-release-lineage.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -78,6 +78,12 @@
     "verify:owner-alert-worker-runtime": "node scripts/verify-owner-alert-worker-runtime.mjs",
     "verify:migration-manifest": "node scripts/generate-migration-manifest.mjs --check",
     "verify:release-gate": "node scripts/verify-release-gate.mjs",
+    "release:stage": "node scripts/stage-release-candidate.mjs",
+    "release:promote": "node scripts/promote-certified-release.mjs",
+    "verify:release-lineage": "node scripts/verify-release-lineage.mjs",
+    "verify:release-controls": "node scripts/verify-release-controls.mjs",
+    "verify:vercel-control-plane": "node scripts/verify-vercel-control-plane.mjs",
+    "verify:p0-truth-boundaries": "node scripts/verify-p0-truth-boundaries.mjs",
     "gen:migration-manifest": "node scripts/generate-migration-manifest.mjs",
     "verify:required-compliance": "node scripts/verify-required-compliance.mjs",
     "dad:usability": "node scripts/audit-dad-usability.mjs"

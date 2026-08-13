@@ -46,6 +46,9 @@ const GUARDS = [
   { id: "rls-coverage", principle: "Security", tier: "static", script: "scripts/verify-rls-coverage.mjs", what: "every migrated table enables row level security (no fail-open new tables)" },
   { id: "operational-truth", principle: "Truth", tier: "static", script: "scripts/verify-operational-truth.mjs", what: "failures render as honest truth states, never demo data or fake empties" },
   { id: "migration-manifest", principle: "Release", tier: "static", script: "scripts/generate-migration-manifest.mjs", args: ["--check"], what: "generated migration manifest matches supabase/migrations (no curated-subset drift)" },
+  { id: "release-lineage", principle: "Release", tier: "static", script: "scripts/verify-release-lineage.mjs", what: "release source descends from the certified V18 production checkpoint" },
+  { id: "release-controls", principle: "Release", tier: "static", script: "scripts/verify-release-controls.mjs", what: "two-generation expand overlap and exact-artifact staged promotion remain the only repository release path" },
+  { id: "p0-truth-boundaries", principle: "Truth", tier: "static", script: "scripts/verify-p0-truth-boundaries.mjs", what: "collection requires tender and the legacy inventory reversal is not callable" },
   { id: "alert-registry", principle: "Truth", tier: "static", script: "scripts/verify-alert-registry-parity.mjs", what: "SQL alert-kind seed and the TS alert registry stay one set (producers fail closed)" },
   { id: "web-push-boundaries", principle: "Truth", tier: "static", script: "scripts/verify-web-push-static.mjs", what: "Web Push keeps browser, adapter, payload, eligibility and secret boundaries" },
 

@@ -39,6 +39,29 @@ function query(db, sql) {
   ).trim();
 }
 
+// pg_cron intentionally restricts extension creation to cron.database_name.
+// Point that setting at each throwaway DB and restart the local Supabase Postgres
+// container so the harness reproduces the production extension environment.
+function restartWithCronDatabase(databaseName) {
+  execFileSync(
+    "docker",
+    ["exec", "-i", CONTAINER, "psql", "-U", "supabase_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1"],
+    { input: `ALTER SYSTEM SET cron.database_name = '${databaseName}';`, encoding: "utf8" },
+  );
+  execFileSync("docker", ["restart", CONTAINER], { stdio: "ignore" });
+  let lastError;
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    try {
+      query("postgres", "select 1;");
+      return;
+    } catch (error) {
+      lastError = error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+    }
+  }
+  throw lastError ?? new Error("Supabase Postgres did not restart");
+}
+
 const BOOTSTRAP = `
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY, email text);
@@ -147,24 +170,57 @@ function assertV12AuthoritySeal(db) {
     "transition_order_status remains authenticated-callable",
     query(db, "select has_function_privilege('authenticated','public.transition_order_status(uuid,text,text)','EXECUTE');") === "t",
   );
+  check(
+    "collected orders require a deferred same-transaction sale tender",
+    query(
+      db,
+      "select count(*) from pg_trigger where tgname='orders_collected_requires_sale_tender' and tgdeferrable and tginitdeferred and not tgisinternal;",
+    ) === "1",
+  );
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    check(
+      `legacy admin_reverse_order_inventory NOT executable by ${role}`,
+      query(db, `select has_function_privilege('${role}','public.admin_reverse_order_inventory(uuid,text)','EXECUTE');`) === "f",
+    );
+    check(
+      `expand overlap keeps get_applied_migration_versions executable by ${role}`,
+      query(db, `select has_function_privilege('${role}','public.get_applied_migration_versions()','EXECUTE');`) === "t",
+    );
+    check(
+      `versioned schema contract reader executable by ${role}`,
+      query(db, `select has_function_privilege('${role}','public.get_application_schema_versions_v1()','EXECUTE');`) === "t",
+    );
+    check(
+      `generation contract reader executable by ${role}`,
+      query(db, `select has_function_privilege('${role}','public.get_application_schema_contract_v1()','EXECUTE');`) === "t",
+    );
+  }
+  check(
+    "expand contract advertises application generations 18 and 19",
+    query(db, "select db_generation || ':' || min_supported_app_generation || ':' || max_supported_app_generation || ':' || migration_head from public.get_application_schema_contract_v1();") === "19:18:19:202608130900",
+  );
 }
 
 function main() {
   const files = migrationFiles();
+  try {
 
   console.log("V11.1 migration verification");
   console.log(`\n[1] CLEAN database: apply all ${files.length} migrations in order`);
   const cleanDb = "ptm_v11_clean";
   recreate(cleanDb);
+  restartWithCronDatabase(cleanDb);
   applyMigrations(cleanDb, files);
   check("all migrations applied on clean DB", true);
   assertV11EndState(cleanDb);
   assertV12AuthoritySeal(cleanDb);
+  restartWithCronDatabase("postgres");
   psql("postgres", `DROP DATABASE IF EXISTS ${cleanDb} (FORCE);`);
 
   console.log("\n[2] UPGRADE: pre-V11 DB with a seeded order, then apply V11+");
   const upDb = "ptm_v11_upgrade";
   recreate(upDb);
+  restartWithCronDatabase(upDb);
   const preV11 = files.filter((f) => versionOf(f) < FIRST_V11_VERSION);
   const v11AndLater = files.filter((f) => versionOf(f) >= FIRST_V11_VERSION);
   applyMigrations(upDb, preV11);
@@ -207,14 +263,25 @@ function main() {
   );
   assertV11EndState(upDb);
   assertV12AuthoritySeal(upDb);
+  restartWithCronDatabase("postgres");
   psql("postgres", `DROP DATABASE IF EXISTS ${upDb} (FORCE);`);
 
   console.log("");
   if (failures > 0) {
     console.error(`RESULT: ${failures} migration check(s) FAILED`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
   console.log("RESULT: clean-apply and pre-V11 upgrade migration checks PASSED");
+  } finally {
+    try {
+      if (query("postgres", "show cron.database_name;") !== "postgres") restartWithCronDatabase("postgres");
+      psql("postgres", "DROP DATABASE IF EXISTS ptm_v11_clean (FORCE); DROP DATABASE IF EXISTS ptm_v11_upgrade (FORCE);");
+    } catch (error) {
+      console.error(`migration harness cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
+      process.exitCode = 1;
+    }
+  }
 }
 
 main();

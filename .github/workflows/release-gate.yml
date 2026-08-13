@@ -1,21 +1,7 @@
 name: Release Gate
 
-# Phase-1 remediation (Phase E) — deployment promotion control.
-#
-# Fails closed if the release candidate and production are not reconcilable:
-#   * migration manifest drift (curated-subset / checksum drift) — PTM-OBS-012
-#   * production schema behind the required head                 — PTM-REL-002
-#   * missing security-lock migrations                           — PTM-REL-002/003
-#   * no recent verified backup                                  — PTM-DR-001
-#   * build identity unknown / unreconcilable                    — PTM-REL-009
-#
-# ORDERING CONTRACT (application deploy is SEPARATE from schema migration):
-#   1. Apply migrations to production DB (migration-upgrade.yml / runbook).
-#   2. Take + verify a backup (production-backup.yml) — stamps the freshness ledger.
-#   3. THIS gate must pass.
-#   4. Only then promote the application build.
-# An app build that requires a newer schema must never be promoted before step 1.
-
+# Source/DB pre-stage gate. Production domain authority remains exclusively in
+# production-release.yml, which certifies and promotes an exact deployment URL.
 on:
   workflow_dispatch:
   push:
@@ -23,34 +9,30 @@ on:
 
 jobs:
   release-gate:
-    name: Release promotion gate
+    name: Release pre-stage gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Migration manifest is in sync with supabase/migrations
-        run: pnpm verify:migration-manifest
-
-      - name: Release gate (parity + security locks + backup freshness + build identity)
+          cache: pnpm
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify:migration-manifest
+      - run: pnpm verify:release-lineage --require-clean
+      - name: App generation, migration floor, backup and build identity
         env:
           RELEASE_GATE_MODE: release
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           EXPECTED_RELEASE_SHA: ${{ github.sha }}
-          PTM_BUILD_SHA: ${{ github.sha }}
           BACKUP_MAX_AGE_HOURS: "48"
         run: pnpm verify:release-gate

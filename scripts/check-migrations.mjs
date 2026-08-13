@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const migrationsDir = join(process.cwd(), "supabase", "migrations");
+const releaseContract = JSON.parse(readFileSync(join(process.cwd(), "config", "release-contract.json"), "utf8"));
 const v3MigrationPath = join(migrationsDir, "202606011430_v3_operational_system.sql");
 const v4MigrationPath = join(migrationsDir, "202606011900_v4_operations_intelligence.sql");
 const v5MigrationPath = join(migrationsDir, "202606012030_v5_action_intelligence.sql");
@@ -77,18 +78,35 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (url && serviceKey) {
   const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
-  const { data, error } = await supabase.rpc("get_applied_migration_versions");
+  const { data, error } = await supabase.rpc("get_application_schema_versions_v1");
 
   if (!error) {
     const applied = new Set((data ?? []).map((row) => String(row.version)));
+    const required = new Set(expected);
     const missingApplied = expected.filter((version) => !applied.has(version));
+    const unexpectedApplied = [...applied].filter((version) => !required.has(version)).sort();
 
     if (missingApplied.length > 0) {
-      console.error(`Migration Drift Check: FAIL missing ${missingApplied.join(", ")}`);
+      console.error(
+        `Migration Drift Check: FAIL missing=[${missingApplied.join(", ")}]`,
+      );
       process.exit(1);
     }
 
-    console.log("Migration Drift Check: PASS");
+    const { data: contracts, error: contractError } = await supabase.rpc("get_application_schema_contract_v1");
+    const contract = contracts?.[0];
+    const appGeneration = Number(releaseContract.applicationGeneration);
+    if (
+      contractError ||
+      !contract ||
+      appGeneration < Number(contract.min_supported_app_generation) ||
+      appGeneration > Number(contract.max_supported_app_generation)
+    ) {
+      console.error(`Migration Drift Check: FAIL application generation ${appGeneration} is not supported by the database contract`);
+      process.exit(1);
+    }
+
+    console.log(`Migration Drift Check: PASS (${unexpectedApplied.length} later migration(s); app generation ${appGeneration} compatible)`);
     console.log("Migration Check: V3 and V4 migrations present.");
     process.exit(0);
   }
@@ -124,7 +142,9 @@ for (const line of (cliResult.stdout ?? "").split(/\r?\n/)) {
 const missingApplied = expected.filter((version) => !remoteVersions.has(version));
 
 if (missingApplied.length > 0) {
-  console.error(`Migration Drift Check: FAIL missing ${missingApplied.join(", ")}`);
+  console.error(
+    `Migration Drift Check: FAIL missing=[${missingApplied.join(", ")}]`,
+  );
   process.exit(1);
 }
 

@@ -199,7 +199,9 @@ async function seedLapsedRegular() {
           order_ref: h.ref,
           customer_name: "Yusuf Ali",
           customer_phone: "+447700900444",
-          status: "collected",
+          // Insert the parent before its append-only tender. The P0 deferred
+          // constraint permits collection only after that tender exists.
+          status: "incoming",
           pickup_window_id: WINDOW_LUNCH,
           pickup_date: businessDate,
           subtotal: h.subtotal,
@@ -245,6 +247,13 @@ async function seedLapsedRegular() {
       });
       if (paymentError) throw paymentError;
     }
+
+    const { error: collectedError } = await supabase
+      .from("orders")
+      .update({ status: "collected" })
+      .eq("id", orderId)
+      .neq("status", "collected");
+    if (collectedError) throw collectedError;
   }
   console.log("  lapsed regular Yusuf Ali (3 orders, last ~31 days ago) -> win-back fixture");
 }

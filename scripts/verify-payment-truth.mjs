@@ -121,6 +121,28 @@ async function main() {
   check("depletion stayed coupled to collection", !!depA, `status=${depA?.status ?? "(none)"}`);
   check("exactly one payment event", (await paymentEventCount(orderA)) === 1);
 
+  // P0 regression: the pre-V18 whole-order reversal cannot bypass refund_order_v18.
+  const { data: balanceBeforeLegacy } = await admin
+    .from("inventory_batches").select("remaining_weight_kg").eq("id", batchId).single();
+  const { error: legacyReverseErr } = await manager.rpc("admin_reverse_order_inventory", {
+    p_order_id: orderA,
+    p_reason: "refund",
+  });
+  const { data: balanceAfterLegacy } = await admin
+    .from("inventory_batches").select("remaining_weight_kg").eq("id", batchId).single();
+  const { count: legacyMovementCount } = await admin
+    .from("inventory_movements")
+    .select("id", { count: "exact", head: true })
+    .eq("order_id", orderA)
+    .eq("source_event", "REFUND_REVERSAL");
+  check("legacy whole-order inventory reversal is not callable", !!legacyReverseErr, legacyReverseErr?.message ?? "(no error!)");
+  check(
+    "denied legacy reversal leaves batch stock unchanged",
+    balanceAfterLegacy?.remaining_weight_kg === balanceBeforeLegacy?.remaining_weight_kg,
+    `before=${balanceBeforeLegacy?.remaining_weight_kg} after=${balanceAfterLegacy?.remaining_weight_kg}`,
+  );
+  check("denied legacy reversal writes no movement", (legacyMovementCount ?? 0) === 0, `count=${legacyMovementCount}`);
+
   const { data: resReplay, error: errReplay } = await manager.rpc("collect_order_with_tender", {
     p_order_id: orderA, p_method: "cash", p_idempotency_key: keyA,
   });
@@ -210,13 +232,16 @@ async function main() {
     `float=${picture?.float_pence} cash=${picture?.expected_cash_pence}`,
   );
 
-  // A bare-transition collected order (legacy path) must be LISTED as missing tender.
+  // P0 regression: no authenticated caller can commit collection without tender.
   const orderD = await makeReadyOrder(manager, productId, 1, 10);
   createdOrders.push(orderD);
   const { error: bareErr } = await manager.rpc("transition_order_status", { p_order_id: orderD, p_next_status: "collected", p_note: "legacy path probe" });
-  check("meta: bare transition still possible at RPC level (legacy rows exist)", !bareErr, bareErr?.message ?? "");
-  const { data: picture2 } = await manager.rpc("day_money_expected_v18", { p_branch_id: BRANCH, p_business_date: today });
-  check("missing-tender order is counted, never guessed", (picture2?.missing_tender_count ?? 0) >= 1, `missing=${picture2?.missing_tender_count}`);
+  check("bare ready-to-collected transition is rejected", !!bareErr, bareErr?.message ?? "(no error!)");
+  const { data: orderRowD } = await admin.from("orders").select("status").eq("id", orderD).single();
+  const { data: depD } = await admin.from("order_inventory_depletions").select("id").eq("order_id", orderD).maybeSingle();
+  check("denied bare collection leaves order ready", orderRowD?.status === "ready", `status=${orderRowD?.status}`);
+  check("denied bare collection writes no tender", (await paymentEventCount(orderD)) === 0);
+  check("denied bare collection rolls back depletion", !depD);
 
   // --- 8: closing variance stamp + alert ---------------------------------------
   // Normalize: give every missing-tender order a synthetic sale event so the

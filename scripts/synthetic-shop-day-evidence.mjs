@@ -227,9 +227,10 @@ async function main() {
         p_next_status: "ready",
         p_note: "Synthetic drill: ready.",
       });
-      await callRpc(staff, "transition_order_status", {
+      await callRpc(staff, "collect_order_with_tender", {
         p_order_id: entry.order.id,
-        p_next_status: "collected",
+        p_method: "cash",
+        p_idempotency_key: `synthetic-collect:${entry.order.id}`,
         p_note: "Synthetic drill: collected.",
       });
     }
@@ -241,9 +242,10 @@ async function main() {
   await assertStep("invalid counter transition is refused", async () => {
     let rejected = false;
     try {
-      await callRpc(staff, "transition_order_status", {
+      await callRpc(staff, "collect_order_with_tender", {
         p_order_id: orders[5].order.id,
-        p_next_status: "collected",
+        p_method: "cash",
+        p_idempotency_key: `synthetic-invalid-collect:${orders[5].order.id}`,
         p_note: "Skip required states.",
       });
     } catch {

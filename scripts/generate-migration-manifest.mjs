@@ -9,7 +9,7 @@
  *
  * Output: src/lib/server/migration-manifest.generated.ts — a committed constant
  * consumed by:
- *   - /api/health          (runtime version parity vs get_applied_migration_versions)
+ *   - /api/health          (required-migration evidence, separate from generation compatibility)
  *   - the release gate      (checksum parity vs the deployed repo tree)
  *   - verify:migration-manifest (drift guard: regenerate and diff)
  *

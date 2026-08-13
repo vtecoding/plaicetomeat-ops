@@ -50,6 +50,7 @@ next-env.d.ts
 audit-results/devserver*.log
 audit-results/_*
 /dist
+/.ptm/
 
 # large audit evidence bundles (kept locally; sanitized bundle lives in audit/)
 /docs/full-audit-pack/

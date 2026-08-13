@@ -71,11 +71,19 @@ async function main() {
     product_name_snapshot: "Shortfall probe", quantity: 5, unit_type: "kg", unit_price_snapshot: 10, line_total: 50,
   });
 
-  // Collect through the controlled state machine (fires depletion + the shortfall trigger).
-  for (const next of ["prepping", "ready", "collected"]) {
+  // Reach ready through the state machine, then use the only collection boundary:
+  // tender + status + depletion in one transaction.
+  for (const next of ["prepping", "ready"]) {
     const { error } = await manager.rpc("transition_order_status", { p_order_id: orderId, p_next_status: next, p_note: "shortfall probe" });
     if (error) throw new Error(`transition ${next}: ${error.message}`);
   }
+  const { error: collectError } = await manager.rpc("collect_order_with_tender", {
+    p_order_id: orderId,
+    p_method: "cash",
+    p_idempotency_key: `shortfall-collect:${orderId}`,
+    p_note: "shortfall probe",
+  });
+  if (collectError) throw new Error(`collect: ${collectError.message}`);
 
   const { data: dep } = await admin.from("order_inventory_depletions").select("status,shortfall_kg").eq("order_id", orderId).maybeSingle();
   check("depletion recorded a shortfall", dep?.status === "completed_with_shortfall" && Number(dep?.shortfall_kg) === 3, `status=${dep?.status} shortfall=${dep?.shortfall_kg}`);

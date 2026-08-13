@@ -15,8 +15,10 @@ export type MigrationParity = {
   requiredHead: string;
   observedHead: string | null;
   requiredCount: number;
+  appliedCount: number;
   appliedRequiredCount: number;
   missing: string[];
+  unexpected: string[];
   parity: boolean;
 };
 
@@ -25,19 +27,25 @@ export function computeMigrationParity(
   applied: readonly string[],
 ): MigrationParity {
   const appliedSet = new Set(applied.map((v) => String(v)));
+  const appliedSorted = [...appliedSet].sort();
   const requiredSorted = [...required].map(String).sort();
+  const requiredSet = new Set(requiredSorted);
 
   const missing = requiredSorted.filter((v) => !appliedSet.has(v));
+  const unexpected = appliedSorted.filter((v) => !requiredSet.has(v));
   const requiredHead = requiredSorted[requiredSorted.length - 1] ?? "";
-  const observedHead =
-    applied.length > 0 ? [...applied].map(String).sort().slice(-1)[0] : null;
+  const observedHead = appliedSorted.at(-1) ?? null;
 
   return {
     requiredHead,
     observedHead,
     requiredCount: requiredSorted.length,
+    appliedCount: appliedSorted.length,
     appliedRequiredCount: requiredSorted.length - missing.length,
     missing,
+    unexpected,
+    // Migration parity is deployment evidence, not the compatibility protocol.
+    // Later migrations are acceptable when the DB contract supports this app.
     parity: missing.length === 0 && requiredSorted.length > 0,
   };
 }

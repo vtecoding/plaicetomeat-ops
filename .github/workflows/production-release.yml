@@ -1,0 +1,85 @@
+name: Production Release
+
+# The only repository-authorized path to the production domain. The Vercel
+# project must separately remove Full Production Deployment permission from
+# human roles and disable automatic production-domain assignment.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ptm-production-release
+  cancel-in-progress: false
+
+jobs:
+  exact-artifact-release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+
+      - name: Local Supabase database
+        run: npx supabase start
+      - name: Write local test environment
+        run: |
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+            echo "SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+            echo "STAFF_SESSION_SECRET=ci-local-staff-session-secret-000000000001"
+            echo "ORDER_ACCESS_SECRET=ci-local-order-access-secret-000000000001"
+          } > .env.local
+      - run: node scripts/seed-dev.mjs
+      - run: node scripts/verify-v11-migrations.mjs
+      - run: corepack pnpm verify:payment-truth
+      - run: corepack pnpm verify:refund-truth
+      - run: corepack pnpm typecheck
+      - run: corepack pnpm lint
+      - run: corepack pnpm test
+      - run: corepack pnpm architecture:check
+      - run: corepack pnpm build
+
+      - name: Link Vercel project without deploying
+        run: npx vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Stage and certify exact production artifact
+        run: corepack pnpm release:stage
+        env:
+          EXPECTED_RELEASE_SHA: ${{ github.sha }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          PTM_RELEASE_CERTIFICATE_PATH: .ptm/release-certificate.json
+
+      - name: Promote the same certified deployment without rebuilding
+        run: corepack pnpm release:promote .ptm/release-certificate.json
+        env:
+          EXPECTED_RELEASE_SHA: ${{ github.sha }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          PTM_PRODUCTION_URL: https://plaicetomeat-ops.vercel.app

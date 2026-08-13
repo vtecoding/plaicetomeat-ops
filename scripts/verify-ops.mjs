@@ -111,12 +111,13 @@ async function main() {
 
   // 5. Valid transition succeeds AND writes event + audit rows.
   {
-    const { error } = await staffA.rpc("transition_order_status", {
+    const { error } = await staffA.rpc("collect_order_with_tender", {
       p_order_id: orderReady,
-      p_next_status: "collected",
+      p_method: "cash",
+      p_idempotency_key: `verify-ops-collect:${orderReady}`,
       p_note: "Picked up.",
     });
-    check("valid transition succeeds", !error, error?.message);
+    check("tendered collection succeeds", !error, error?.message);
 
     const { count: eventCount } = await service
       .from("order_status_events")

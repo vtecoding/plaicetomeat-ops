@@ -392,24 +392,29 @@ BEGIN
     'expired discard must record reverse+waste with zero sellable stock and preserved state'
   );
 
-  -- Collected legacy/no-tender order gets a clear refusal.
+  -- P0 regression: a collected/no-tender order cannot be created through the
+  -- authenticated transition RPC. Force the deferred constraint to run inside
+  -- this subtransaction so the expected violation can be asserted and rolled back.
   INSERT INTO public.orders(id, branch_id, order_ref, status, pickup_date, subtotal, idempotency_key, is_test)
   VALUES (o_no_tender, b, 'B3-NOTENDER', 'incoming', current_date, 1, 'b3-notender-order', true);
   INSERT INTO public.order_items(id, branch_id, order_id, product_id, product_name_snapshot, quantity, unit_type, unit_price_snapshot, line_total)
   VALUES (i_no_tender, b, o_no_tender, p, 'B3 refund product', 0.1, 'kg', 10, 1);
   PERFORM public.transition_order_status(o_no_tender, 'prepping', NULL);
   PERFORM public.transition_order_status(o_no_tender, 'ready', NULL);
-  PERFORM public.transition_order_status(o_no_tender, 'collected', NULL);
   failed := false;
   BEGIN
-    PERFORM public.refund_order_v18(
-      'b3000000-0000-4000-8000-000000000407', o_no_tender,
-      jsonb_build_array(jsonb_build_object('order_item_id', i_no_tender, 'quantity', 0.1)),
-      jsonb_build_array(jsonb_build_object('order_item_id', i_no_tender, 'disposition', 'customer_kept')),
-      'no tender probe'
-    );
-  EXCEPTION WHEN OTHERS THEN failed := SQLERRM ILIKE '%no recorded tender%'; END;
-  PERFORM pg_temp.assert_v18(failed, 'zero-tender refund must fail clearly');
+    PERFORM public.transition_order_status(o_no_tender, 'collected', NULL);
+    SET CONSTRAINTS orders_collected_requires_sale_tender IMMEDIATE;
+  EXCEPTION WHEN check_violation THEN
+    failed := SQLERRM ILIKE '%requires a tender%';
+  END;
+  PERFORM pg_temp.assert_v18(failed, 'bare collection without tender must fail clearly');
+  PERFORM pg_temp.assert_v18(
+    (SELECT status = 'ready' FROM public.orders WHERE id = o_no_tender)
+    AND NOT EXISTS (SELECT 1 FROM public.payment_events WHERE order_id = o_no_tender)
+    AND NOT EXISTS (SELECT 1 FROM public.order_inventory_depletions WHERE order_id = o_no_tender),
+    'failed bare collection must roll back status, money and depletion'
+  );
 
   -- Fault after stock reversal but before payment: whole operation rolls back.
   INSERT INTO public.orders(id, branch_id, order_ref, status, pickup_date, subtotal, idempotency_key, is_test)
