@@ -3,6 +3,7 @@ import { Fraunces, Inter } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
 import { NotificationOpenRecorder } from "@/components/notification-open-recorder";
+import { OPERATOR_DOCUMENT_LANGUAGE_BOOTSTRAP } from "@/lib/operator/i18n/document-bootstrap";
 
 // UI / body — Inter, properly bundled (previously only named in CSS, so it silently fell
 // back to the system font, which is a big part of why the app felt generic).
@@ -35,7 +36,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
+    <html
+      lang="en"
+      translate="yes"
+      suppressHydrationWarning
+      className={`${inter.variable} ${fraunces.variable}`}
+    >
+      <head>
+        <script
+          id="operator-document-language"
+          dangerouslySetInnerHTML={{ __html: OPERATOR_DOCUMENT_LANGUAGE_BOOTSTRAP }}
+        />
+      </head>
       <body><Suspense fallback={null}><NotificationOpenRecorder /></Suspense>{children}</body>
     </html>
   );
