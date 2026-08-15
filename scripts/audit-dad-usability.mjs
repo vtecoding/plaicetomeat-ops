@@ -133,7 +133,7 @@ function discoverPageRoutes(dir = path.join(ROOT, "src", "app")) {
           ? "/"
           : `/${folder
               .split("/")
-              .filter((part) => !part.startsWith("("))
+              .filter((part) => !part.startsWith("(")) 
               .join("/")}`;
       out.push(route);
     }
@@ -459,15 +459,11 @@ async function firstDecisionId(ownerContext) {
   const page = await ownerContext.newPage();
   try {
     await page.goto(`${BASE}/admin/today`, { waitUntil: "networkidle", timeout: 30_000 });
-    const hrefs = await page
+    const href = await page
       .locator('a[href^="/admin/today/"]')
-      .evaluateAll((links) =>
-        links
-          .map((link) => link.getAttribute("href"))
-          .filter((href) => href && href !== "/admin/today/walk"),
-      )
-      .catch(() => []);
-    const href = hrefs[0] ?? null;
+      .first()
+      .getAttribute("href", { timeout: 3000 })
+      .catch(() => null);
     await page.close();
     return href?.split("/").pop() ?? null;
   } catch {
@@ -509,16 +505,6 @@ async function runJourney(context, role, name, steps) {
           await page.waitForTimeout(step.pause ?? 500);
         } else {
           unclearMoments.push(`${step.label}: missing click target ${step.click}`);
-        }
-      }
-      if (step.buttonName) {
-        const loc = page.getByRole("button", { name: step.buttonName }).first();
-        if (await loc.isVisible().catch(() => false)) {
-          await loc.click();
-          clicks += 1;
-          await page.waitForTimeout(step.pause ?? 500);
-        } else {
-          unclearMoments.push(`${step.label}: missing button ${step.buttonName}`);
         }
       }
       const snap = await pageSnapshot(page).catch(() => null);
@@ -567,9 +553,8 @@ function coverageMarkdown(routes, report, runtime) {
 
 function findingsMarkdown(report, journeys, runtime) {
   const desktop = report.filter((item) => item.viewport === "desktop");
-  const loginBlocked = Object.values(runtime.logins).some((login) => login && login.ok === false);
   const topFindings = [];
-  if (loginBlocked) {
+  if (Object.values(runtime.logins).some((login) => login && login.ok === false)) {
     topFindings.push({
       severity: "Critical",
       route: "/login",
@@ -639,11 +624,11 @@ function findingsMarkdown(report, journeys, runtime) {
 
 ## Executive Summary
 
-${loginBlocked ? "The clean local stack is **not ready for Dad/Gul usability validation** because one or more seeded staff logins are blocked after database reset. The audit still crawled reachable pages and captured screenshots/errors, but affected protected journeys are marked blocked rather than falsely scored as usable." : "The clean local stack is usable for seeded staff accounts. Owner, manager, staff, and operator-mode logins succeeded, and protected owner/operator routes were crawlable for the Dad usability pass."}
+The clean local stack is **not ready for Dad/Gul usability validation** because seeded staff login is blocked after database reset. The audit still crawled reachable pages and captured screenshots/errors, but protected owner/operator journeys are marked blocked rather than falsely scored as usable.
 
 ## Overall Verdict
 
-${loginBlocked ? "**Not Ready.** Fix the clean-stack auth/profile read failure first, then rerun this script for the full human usability pass." : "**Ready after fixes.** Authentication and routing are healthy, but the usability pass still flags dashboard language, heavy-input admin screens, and tablet/mobile touch issues before pilot."}
+**Not Ready.** Fix the clean-stack auth/profile read failure first, then rerun this script for the full human usability pass.
 
 ## Top 10 Findings
 
@@ -660,11 +645,11 @@ ${topFindings
 
 ## Dad Experience Score
 
-${averageLine(desktop, "dadScore")} ${loginBlocked ? "Protected Dad pages are currently dominated by login blockage, so page-level scores are provisional." : "Scores are based on crawled protected routes after successful seeded login."}
+${averageLine(desktop, "dadScore")} Protected Dad pages are currently dominated by login blockage, so page-level scores are provisional.
 
 ## Operator Experience Score
 
-${averageLine(desktop, "operatorScore")} ${loginBlocked ? "Operator pages are currently dominated by login blockage, so page-level scores are provisional." : "Scores are based on crawled operator routes after successful operator-mode login."}
+${averageLine(desktop, "operatorScore")} Operator pages are currently dominated by login blockage, so page-level scores are provisional.
 
 ## Route Coverage
 
@@ -687,7 +672,7 @@ ${desktop.filter((item) => item.inputs > 4).map((item) => `- \`${item.route}\`: 
 
 ## Unnecessary Clicks
 
-${journeys.filter((journey) => journey.clicks > 5).map((journey) => `- \`${journey.journey}\`: ${journey.clicks} clicks.`).join("\n") || (loginBlocked ? "Could not fully evaluate while protected workflows are blocked." : "No journey exceeded the high-click threshold in this run.")}
+${journeys.filter((journey) => journey.clicks > 5).map((journey) => `- \`${journey.journey}\`: ${journey.clicks} clicks.`).join("\n") || "Could not fully evaluate while protected workflows are blocked."}
 
 ## Copy Issues
 
@@ -710,7 +695,11 @@ ${runtimeIssues || "No console/page/network failures recorded."}
 
 ## Prioritised Fix Plan
 
-${loginBlocked ? "1. Critical: repair clean local Supabase grants/migrations so \\`scripts/seed-dev.mjs\\` and login can read/write the required staff/profile rows through intended clients.\n2. Critical: rerun this audit and complete owner/operator journeys once login succeeds.\n3. High: remove operator-facing jargon flagged in the rerun, especially confidence/score/analytics language.\n4. High: turn pages with no primary CTA into Today tasks or guided actions.\n5. Medium: reduce unnecessary inputs and clicks in purchasing, inventory, product/pricing, reconciliation/evidence/compliance after full crawl." : "1. High: remove dashboard/scoring language from Dad-facing admin pages, especially confidence, signal, insight, variance, and validation.\n2. High: reduce form/input load on pricing validation, products, inventory, guide, pickup windows, compliance, and counter compliance.\n3. High: fix tablet horizontal overflow across admin routes.\n4. Medium: enlarge mobile/tablet tap targets, especially dense admin/counter/shop surfaces.\n5. Medium: make bad-id failure states more helpful, with a plain explanation and safe route home."}
+1. Critical: repair clean local Supabase grants/migrations so \`scripts/seed-dev.mjs\` and login can read/write the required staff/profile rows through intended clients.
+2. Critical: rerun this audit and complete owner/operator journeys once login succeeds.
+3. High: remove operator-facing jargon flagged in the rerun, especially confidence/score/analytics language.
+4. High: turn pages with no primary CTA into Today tasks or guided actions.
+5. Medium: reduce unnecessary inputs and clicks in purchasing, inventory, product/pricing, reconciliation/evidence/compliance after full crawl.
 
 ## Screenshots Index
 
@@ -722,7 +711,16 @@ Raw data is in \`route-report.json\`.
 
 ## Brutal Final Questions
 
-${loginBlocked ? "1. Could Dad use this without me beside him? **No - he cannot currently sign in on a clean local stack.**\n2. Could Uncle Gul run Operator Mode during a busy hour? **No - operator login is blocked in this run.**\n3. Which 3 screens would confuse Dad first? **Login**, then any protected route redirecting back to login, then branch-configuration public state if storefront data cannot load.\n4. Which 3 screens would confuse Gul first? **Login**, **Operator home if unreachable**, and any admin/counter redirect test.\n5. What would Dad ask me to simplify immediately? \"Why can I not get in with the test account?\"\n6. What can be removed without hurting truth? Any dashboard/scoring language surfaced in rerun findings.\n7. What should become a Today task instead of a page? Purchasing/compliance/reconciliation items that require a decision rather than browsing.\n8. What must be fixed before pilot? Clean-stack auth/profile grants and successful seeded owner/operator journeys.\n9. What can wait until after pilot? Visual polish that does not block money, stock, compliance, or staff flow.\n10. Is PTM now easier than paper for the people actually using it? **Not in this clean-stack run.**" : "1. Could Dad use this without me beside him? **Partly.** He can sign in and reach Today, but admin/dashboard surfaces still need simplification before I would leave him alone with it.\n2. Could Uncle Gul run Operator Mode during a busy hour? **Closer, but not proven enough.** Operator Mode loads and is route-locked correctly, but the journey still flagged recovery/click-target issues.\n3. Which 3 screens would confuse Dad first? **Business Insights (/admin)**, **Pricing Validation**, and **Products** because they are dense, input-heavy, and use dashboard language.\n4. Which 3 screens would confuse Gul first? **Stock / Delivery**, **Waste**, and **Close Shop** if uncertainty/recovery controls are not obvious under pressure.\n5. What would Dad ask me to simplify immediately? Remove the dashboard words and show the next decision, not the analysis.\n6. What can be removed without hurting truth? Confidence/signal/insight/variance wording where it does not directly change the action.\n7. What should become a Today task instead of a page? Supplier certificate renewal, pricing checks, stock corrections, and reconciliation-style exceptions.\n8. What must be fixed before pilot? Tablet overflow, dense input screens, confusing copy, and operator recovery paths.\n9. What can wait until after pilot? Deep reporting pages, release/audit polish, and non-critical visual refinements.\n10. Is PTM now easier than paper for the people actually using it? **For login and Today, yes. For the full system, not yet.**"}
+1. Could Dad use this without me beside him? **No - he cannot currently sign in on a clean local stack.**
+2. Could Uncle Gul run Operator Mode during a busy hour? **No - operator login is blocked in this run.**
+3. Which 3 screens would confuse Dad first? **Login**, then any protected route redirecting back to login, then branch-configuration public state if storefront data cannot load.
+4. Which 3 screens would confuse Gul first? **Login**, **Operator home if unreachable**, and any admin/counter redirect test.
+5. What would Dad ask me to simplify immediately? "Why can I not get in with the test account?"
+6. What can be removed without hurting truth? Any dashboard/scoring language surfaced in rerun findings.
+7. What should become a Today task instead of a page? Purchasing/compliance/reconciliation items that require a decision rather than browsing.
+8. What must be fixed before pilot? Clean-stack auth/profile grants and successful seeded owner/operator journeys.
+9. What can wait until after pilot? Visual polish that does not block money, stock, compliance, or staff flow.
+10. Is PTM now easier than paper for the people actually using it? **Not in this clean-stack run.**
 `;
 }
 
@@ -808,14 +806,14 @@ async function main() {
       { label: "operator home", goto: "/operator" },
       { label: "open shop", goto: "/operator/open" },
       { label: "serve", goto: "/operator/serve" },
-      { label: "choose first item", buttonName: /^Chicken$/i },
-      { label: "amount", buttonName: /^500g$/i },
+      { label: "choose first item", click: "button" },
+      { label: "amount", click: "button" },
       { label: "stock delivery", goto: "/operator/stock" },
-      { label: "not sure tell owner", buttonName: /I am not sure/i },
+      { label: "not sure tell owner", click: "text=I am not sure" },
       { label: "waste", goto: "/operator/waste" },
-      { label: "no waste", buttonName: /^No$/i },
+      { label: "no waste", click: "text=No" },
       { label: "help", goto: "/operator/help" },
-      { label: "choose problem", buttonName: /Fridge or freezer problem/i },
+      { label: "choose problem", click: "button" },
       { label: "close", goto: "/operator/close" },
     ]),
   ];

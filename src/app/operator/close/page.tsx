@@ -1,5 +1,5 @@
 import { OperatorChecklist } from "@/app/operator/_components/operator-checklist";
-import { buildCloseMoneyContexts } from "@/lib/ops-capture/money-context";
+import { OperatorText } from "@/app/operator/_components/operator-language";
 import { getTodaysChecklistState } from "@/lib/server/ops-capture";
 import { getDayPaymentPicture } from "@/lib/server/payment-truth";
 import { requireStaffContext } from "@/lib/server/staff-context";
@@ -12,14 +12,11 @@ export default async function OperatorClosePage() {
     getTodaysChecklistState(branchId, "closing"),
     getDayPaymentPicture(branchId),
   ]);
-  // Expected-vs-counted context for the money steps (shown, never prefilled).
-  const numberContexts = buildCloseMoneyContexts(picture);
-
   return (
     <div data-testid="operator-close-page">
-      <p className="eyebrow text-[var(--brand)]">End of day</p>
-      <h1 className="mt-1 font-display text-3xl font-semibold tracking-[-0.01em]">Close the shop</h1>
-      <p className="mt-2 text-lg text-[var(--muted)]">Lock up safely. One step at a time.</p>
+      <OperatorText as="p" className="eyebrow text-[var(--brand)]" k="page.close.eyebrow" />
+      <OperatorText as="h1" className="mt-1 font-display text-3xl font-semibold tracking-[-0.01em]" k="page.close.title" />
+      <OperatorText as="p" className="mt-2 text-lg text-[var(--muted)]" k="page.close.helper" />
 
       <div className="mt-6">
         <OperatorChecklist
@@ -28,7 +25,7 @@ export default async function OperatorClosePage() {
           initialSessionId={state.sessionId}
           initialSummary={state.summary}
           initialReceipt={state.receipt}
-          numberContexts={numberContexts}
+          moneyPicture={picture}
         />
       </div>
     </div>

@@ -5,15 +5,17 @@ import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
 
 import { tellOwner } from "@/app/actions/operator/help";
-import { HELP_PROBLEM_CHOICES, helpProblemLabel, type HelpProblemId } from "@/lib/operator/workflows/help";
+import { HELP_PROBLEM_CHOICES, type HelpProblemId } from "@/lib/operator/workflows/help";
+import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { isolateLtr, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 type Mode = "choose" | "send" | "done";
 
 export function OperatorHelpFlow({ ownerContact }: { ownerContact: string | null }) {
+  const { t, error: operatorError, locale } = useOperatorI18n();
   const [mode, setMode] = useState<Mode>("choose");
   const [problem, setProblem] = useState<HelpProblemId>("other");
   const [note, setNote] = useState("");
-  const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [operationId, setOperationId] = useState(() => crypto.randomUUID());
   const [isPending, startTransition] = useTransition();
@@ -22,7 +24,6 @@ export function OperatorHelpFlow({ ownerContact }: { ownerContact: string | null
     setMode("choose");
     setProblem("other");
     setNote("");
-    setResult(null);
     setError(null);
     setOperationId(crypto.randomUUID());
   }
@@ -35,7 +36,6 @@ export function OperatorHelpFlow({ ownerContact }: { ownerContact: string | null
         setError(res.message);
         return;
       }
-      setResult(res.message);
       setMode("done");
     });
   }
@@ -46,8 +46,8 @@ export function OperatorHelpFlow({ ownerContact }: { ownerContact: string | null
         href="/operator"
         className="mb-5 inline-flex min-h-[56px] items-center gap-2 text-lg font-semibold text-[var(--brand)]"
       >
-        <ArrowLeft className="h-6 w-6" aria-hidden />
-        Back
+        <ArrowLeft className="operator-directional-icon h-6 w-6" aria-hidden />
+        {t("common.back")}
       </Link>
 
       {ownerContact ? (
@@ -56,16 +56,16 @@ export function OperatorHelpFlow({ ownerContact }: { ownerContact: string | null
           className="mb-5 flex min-h-[64px] w-full items-center justify-center rounded-2xl border-2 border-[var(--clay)] bg-[var(--paper)] px-5 text-center text-lg font-semibold text-[var(--clay)]"
           data-testid="operator-owner-call"
         >
-          If it&rsquo;s urgent, ring: {ownerContact}
+          {t("help.urgent", { phone: locale === "ps-AF" ? isolateLtr(ownerContact) : ownerContact })}
         </a>
       ) : null}
 
       {mode === "choose" && (
-        <Panel title="What is wrong?" helper="Pick the closest one. The owner will be told.">
+        <Panel title={t("help.whatWrong")} helper={t("help.pickClosest")}>
           {HELP_PROBLEM_CHOICES.map((choice) => (
             <BigButton
               key={choice.id}
-              label={choice.label}
+              label={t(`help.problem.${choice.id}` as OperatorTranslationKey)}
               onClick={() => {
                 setProblem(choice.id);
                 setMode("send");
@@ -76,10 +76,10 @@ export function OperatorHelpFlow({ ownerContact }: { ownerContact: string | null
       )}
 
       {mode === "send" && (
-        <Panel title={helpProblemLabel(problem)} helper="We will tell the owner now.">
+        <Panel title={t(`help.problem.${problem}` as OperatorTranslationKey)} helper={t("help.willTell")}>
           <label className="block">
             <span className="mb-2 block text-base font-semibold text-[var(--muted)]">
-              Add a few words (if you want)
+              {t("help.note")}
             </span>
             <textarea
               value={note}
@@ -90,29 +90,29 @@ export function OperatorHelpFlow({ ownerContact }: { ownerContact: string | null
               className="w-full rounded-2xl border-2 border-[var(--line)] bg-[var(--paper)] p-4 text-xl outline-none focus:border-[var(--brand)]"
             />
           </label>
-          <BigButton label="Tell the owner" onClick={send} busy={isPending} />
-          <BigButton label="Pick something else" onClick={() => setMode("choose")} muted />
+          <BigButton label={t("common.tellOwner")} onClick={send} busy={isPending} />
+          <BigButton label={t("help.pickOther")} onClick={() => setMode("choose")} muted />
         </Panel>
       )}
 
       {mode === "done" && (
-        <Panel title={result ?? "Done. The owner has been told."}>
+        <Panel title={t("help.done")}>
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand)] text-white">
             <Check className="h-9 w-9" aria-hidden />
           </div>
-          <BigButton label="Tell about something else" onClick={restart} />
+          <BigButton label={t("help.another")} onClick={restart} />
           <Link
             href="/operator"
             className="flex min-h-[64px] items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 text-lg font-semibold text-[var(--muted)]"
           >
-            Back to home
+            {t("common.backHome")}
           </Link>
         </Panel>
       )}
 
       {error ? (
         <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">
-          {error}
+          {operatorError(error)}
         </p>
       ) : null}
     </div>
@@ -130,6 +130,7 @@ function Panel({ title, helper, children }: { title: string; helper?: string; ch
 }
 
 function BigButton({ label, onClick, muted, busy }: { label: string; onClick: () => void; muted?: boolean; busy?: boolean }) {
+  const { t } = useOperatorI18n();
   return (
     <button
       type="button"
@@ -140,7 +141,7 @@ function BigButton({ label, onClick, muted, busy }: { label: string; onClick: ()
         muted ? "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]" : "bg-[var(--brand)] text-white",
       ].join(" ")}
     >
-      {busy ? "Sending..." : label}
+      {busy ? t("common.saving") : label}
     </button>
   );
 }

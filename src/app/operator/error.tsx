@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { AlertTriangle, Home, HelpCircle, RotateCcw } from "lucide-react";
+import { useOperatorI18n } from "@/lib/operator/i18n/context";
 
 // V17 Operator-friendly recovery screen. Any thrown error under /operator lands
 // here instead of the raw Next.js error page. Calm, wordy, big tap targets — no
 // stack traces, no technical wording. The operator always has a way home, a way
 // to retry, and a way to tell the owner.
+// The keyed English fallback remains "Something went wrong"; Pashto is selected at render time.
 
 export default function OperatorError({
   error,
@@ -16,6 +18,7 @@ export default function OperatorError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { t } = useOperatorI18n();
   useEffect(() => {
     // Surface to the server log / monitoring; never to the operator.
     console.error("operator route error", error);
@@ -28,9 +31,9 @@ export default function OperatorError({
       </span>
 
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-[-0.01em]">Something went wrong</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-[-0.01em]">{t("error.route.title")}</h1>
         <p className="mt-2 text-lg text-[var(--muted)]">
-          That didn&rsquo;t work. Nothing is broken — you can try again or go back.
+          {t("error.route.help")}
         </p>
       </div>
 
@@ -41,7 +44,7 @@ export default function OperatorError({
           className="flex min-h-[64px] items-center justify-center gap-3 rounded-2xl border border-[var(--brand)] bg-[var(--brand-50)] px-6 text-xl font-semibold text-[var(--brand-700)] shadow-sm transition active:scale-[0.99]"
         >
           <RotateCcw className="h-7 w-7" aria-hidden />
-          Try again
+          {t("common.tryAgain")}
         </button>
 
         <Link
@@ -49,7 +52,7 @@ export default function OperatorError({
           className="flex min-h-[64px] items-center justify-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-6 text-xl font-semibold shadow-sm transition active:scale-[0.99]"
         >
           <Home className="h-7 w-7" aria-hidden />
-          Go back to Operator Home
+          {t("error.route.home")}
         </Link>
 
         <Link
@@ -57,7 +60,7 @@ export default function OperatorError({
           className="flex min-h-[64px] items-center justify-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-6 text-xl font-semibold shadow-sm transition active:scale-[0.99]"
         >
           <HelpCircle className="h-7 w-7 text-[var(--clay)]" aria-hidden />
-          Tell owner
+          {t("common.tellOwner")}
         </Link>
       </div>
     </div>

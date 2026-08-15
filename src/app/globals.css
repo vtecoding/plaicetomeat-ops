@@ -106,6 +106,36 @@
     background: var(--brand);
     color: #fff;
   }
+
+  [dir="rtl"] {
+    text-align: right;
+  }
+
+  [dir="rtl"] h1,
+  [dir="rtl"] h2,
+  [dir="rtl"] h3,
+  [dir="rtl"] .font-display {
+    font-family: Tahoma, "Segoe UI", Arial, sans-serif;
+    letter-spacing: 0;
+    line-height: 1.45;
+  }
+
+  [dir="rtl"] input[type="number"],
+  [dir="rtl"] input[type="tel"],
+  [dir="rtl"] input[type="email"] {
+    direction: ltr;
+    text-align: left;
+    unicode-bidi: isolate;
+  }
+
+  [dir="rtl"] .operator-directional-icon {
+    transform: scaleX(-1);
+  }
+
+  [dir="rtl"] .operator-bidi {
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
 }
 
 @layer utilities {
@@ -116,6 +146,12 @@
     text-transform: uppercase;
     letter-spacing: 0.16em;
     font-size: 0.7rem;
+  }
+
+  [dir="rtl"] .eyebrow {
+    font-family: Tahoma, "Segoe UI", Arial, sans-serif;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   /* Subtle engraved separator that reads as "craft" rather than a flat 1px line. */

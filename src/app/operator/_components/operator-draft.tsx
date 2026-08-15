@@ -5,12 +5,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { saveOperatorDraft } from "@/app/actions/operator/drafts";
 import {
   buildOperatorDraftSteps,
-  draftSaveLabel,
   transitionDraftSaveState,
   type DraftSaveState,
   type DraftSaveStatus,
   type OperatorDraftWorkflow,
 } from "@/lib/operator/workflows/drafts";
+import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import type { OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 const SAVE_DEBOUNCE_MS = 250;
 
@@ -88,7 +89,14 @@ export function useOperatorDraftSave(input: {
 }
 
 export function OperatorDraftStatus({ status }: { status: DraftSaveStatus }) {
-  const label = draftSaveLabel(status);
+  const { t } = useOperatorI18n();
+  const label = status === "saving"
+    ? t("draft.saving")
+    : status === "saved"
+      ? t("draft.saved")
+      : status === "failed"
+        ? t("draft.failed")
+        : "";
   if (!label) return null;
 
   return (
@@ -120,20 +128,70 @@ export function OperatorDraftPrompt({
   busy?: boolean;
   error?: string | null;
 }) {
+  const { t, error: operatorError } = useOperatorI18n();
+  const step = translateDraftStep(lastSavedStep, t);
   return (
     <section
       data-testid="operator-draft-prompt"
       className="rounded-2xl border-2 border-[var(--brand)] bg-[var(--card)] p-6 shadow-sm"
     >
-      <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.01em]">Carry on where you left off?</h2>
-      <p className="mt-3 text-lg font-semibold text-[var(--muted)]">Saved up to: {lastSavedStep}</p>
+      <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.01em]">{t("draft.resumeTitle")}</h2>
+      <p className="mt-3 text-lg font-semibold text-[var(--muted)]">{t("draft.savedUpTo", { step })}</p>
       <div className="mt-6 grid gap-3">
-        <PromptButton onClick={onResume} disabled={busy}>Carry on</PromptButton>
-        <PromptButton onClick={onStartFresh} disabled={busy} muted>Start fresh</PromptButton>
+        <PromptButton onClick={onResume} disabled={busy}>{t("draft.carryOn")}</PromptButton>
+        <PromptButton onClick={onStartFresh} disabled={busy} muted>{t("draft.startFresh")}</PromptButton>
       </div>
-      {error ? <p className="mt-4 text-base font-semibold text-[var(--clay)]">{error}</p> : null}
+      {error ? <p className="mt-4 text-base font-semibold text-[var(--clay)]">{operatorError(error)}</p> : null}
     </section>
   );
+}
+
+const DRAFT_STEP_KEYS: Record<string, OperatorTranslationKey> = {
+  "serve.addMore": "draft.step.serve.addMore",
+  "serve.what": "draft.step.serve.what",
+  "serve.item": "draft.step.serve.item",
+  "serve.amount": "draft.step.serve.amount",
+  "serve.added": "draft.step.serve.added",
+  "serve.pay": "draft.step.serve.pay",
+  "stock.what": "draft.step.stock.what",
+  "stock.arrived": "draft.step.stock.arrived",
+  "stock.amount": "draft.step.stock.amount",
+  "stock.supplier": "draft.step.stock.supplier",
+  "stock.photo": "draft.step.stock.photo",
+  "stock.storage": "draft.step.stock.storage",
+  "stock.expiry": "draft.step.stock.expiry",
+  "stock.ranOut": "draft.step.stock.ranOut",
+  "stock.empty": "draft.step.stock.empty",
+  "waste.start": "draft.step.waste.start",
+  "waste.product": "draft.step.waste.product",
+  "waste.amount": "draft.step.waste.amount",
+  "waste.reason": "draft.step.waste.reason",
+  "waste.photo": "draft.step.waste.photo",
+  // Compatibility with drafts created before stable presentation keys existed.
+  "Add more?": "draft.step.serve.addMore",
+  "What did they buy?": "draft.step.serve.what",
+  "Item chosen": "draft.step.serve.item",
+  "How much?": "draft.step.serve.amount",
+  "Item added": "draft.step.serve.added",
+  "How did they pay?": "draft.step.serve.pay",
+  "What happened?": "draft.step.stock.what",
+  "What arrived?": "draft.step.stock.arrived",
+  "How much arrived?": "draft.step.stock.amount",
+  "Who brought it?": "draft.step.stock.supplier",
+  "Photo of the delivery note?": "draft.step.stock.photo",
+  "Where did you put it?": "draft.step.stock.storage",
+  "When does it go off?": "draft.step.stock.expiry",
+  "What ran out?": "draft.step.stock.ranOut",
+  "Are you sure it is empty?": "draft.step.stock.empty",
+  "Did you throw anything away?": "draft.step.waste.start",
+  "What was thrown away?": "draft.step.waste.product",
+  "Why?": "draft.step.waste.reason",
+  Photo: "draft.step.waste.photo",
+};
+
+function translateDraftStep(lastSavedStep: string, t: ReturnType<typeof useOperatorI18n>["t"]): string {
+  const key = DRAFT_STEP_KEYS[lastSavedStep];
+  return key ? t(key) : t("common.saved");
 }
 
 function PromptButton({

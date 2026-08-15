@@ -13,6 +13,8 @@ import {
 } from "@/app/operator/_components/operator-draft";
 import type { UnitType } from "@/lib/domain/types";
 import { parseOperatorDraftSteps, type OperatorDraftRecord } from "@/lib/operator/workflows/drafts";
+import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { isolateLtr, operatorMoney, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 import {
   SERVE_AMOUNT_CHOICES,
   SERVE_COUNT_CHOICES,
@@ -20,11 +22,8 @@ import {
 } from "@/lib/operator/workflows/serve";
 import {
   expectedServeLineTotal,
-  formatServeLineName,
-  formatServeMoney,
   formatServePresetLabel,
   roundServeMoney,
-  savedServeTotalMessage,
 } from "@/lib/operator/workflows/serve-presentation";
 
 type Line = {
@@ -45,14 +44,14 @@ type PayKind = "cash" | "card";
 
 const RESUMABLE_MODES: readonly Mode[] = ["buy", "other-name", "amount", "other-amount", "price", "add-more", "pay", "confirm"];
 const LAST_SAVED_STEP: Record<Mode, string> = {
-  buy: "Add more?",
-  "other-name": "What did they buy?",
-  amount: "Item chosen",
-  "other-amount": "How much?",
-  price: "How much?",
-  "add-more": "Item added",
-  pay: "Add more?",
-  confirm: "How did they pay?",
+  buy: "serve.addMore",
+  "other-name": "serve.what",
+  amount: "serve.item",
+  "other-amount": "serve.amount",
+  price: "serve.amount",
+  "add-more": "serve.added",
+  pay: "serve.addMore",
+  confirm: "serve.pay",
   done: "",
 };
 
@@ -113,6 +112,7 @@ export function OperatorServeFlow({
   tiles: ServeTile[];
   initialDraft: OperatorDraftRecord | null;
 }) {
+  const { t, error: operatorError, product: productName, locale } = useOperatorI18n();
   const resumable = useMemo(
     () => initialDraft && parseOperatorDraftSteps(initialDraft.steps, "serve", RESUMABLE_MODES),
     [initialDraft],
@@ -129,7 +129,7 @@ export function OperatorServeFlow({
   const [pending, setPending] = useState<PendingLine | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [payKind, setPayKind] = useState<PayKind>("cash");
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<{ total: number; needsOwner: boolean; priceUpdated: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -141,10 +141,12 @@ export function OperatorServeFlow({
     () => roundServeMoney(lines.reduce((sum, line) => sum + line.displayedTotalGbp, 0)),
     [lines],
   );
-  const summary = useMemo(
-    () => lines.map((line) => `${formatServeLineName(line.name, line.quantity, line.unitType, line.label)} — ${formatServeMoney(line.displayedTotalGbp)}`),
-    [lines],
-  );
+  const summary = useMemo(() => lines.map((line) => {
+    const amount = line.unitType === "kg"
+      ? (locale === "ps-AF" ? isolateLtr(line.label) : line.label)
+      : `${locale === "ps-AF" ? isolateLtr(`×${line.quantity}`) : `×${line.quantity}`}`;
+    return `${productName(line.name)} ${amount} — ${operatorMoney(line.displayedTotalGbp, locale)}`;
+  }), [lines, locale, productName]);
 
   const draftSave = useOperatorDraftSave({
     runId,
@@ -269,7 +271,7 @@ export function OperatorServeFlow({
     const value = Number(amountDigits);
     if (picked?.unitType === "each" || picked?.unitType === "box") {
       if (!Number.isInteger(value) || value < 1 || value > 99) {
-        setError("Enter a whole number from 1 to 99.");
+        setError("i18n:serve.enterWhole");
         return;
       }
       setError(null);
@@ -277,7 +279,7 @@ export function OperatorServeFlow({
       return;
     }
     if (!Number.isFinite(value) || value <= 0 || value > 50_000) {
-      setError("Enter a valid weight.");
+      setError("i18n:serve.enterWeight");
       return;
     }
     setError(null);
@@ -287,7 +289,7 @@ export function OperatorServeFlow({
   function addPrice() {
     const value = Number(pounds);
     if (!pending || !Number.isFinite(value) || value <= 0 || value > 1000) {
-      setError("Enter the price.");
+      setError("i18n:serve.enterPriceError");
       return;
     }
     setError(null);
@@ -312,20 +314,23 @@ export function OperatorServeFlow({
         setError(saveResult.message);
         return;
       }
-      const savedMessage = savedServeTotalMessage(totalBeforeSave, saveResult.totalGbp);
-      setResult(saveResult.needsOwner ? `${savedMessage} Owner will check it.` : savedMessage);
+      setResult({
+        total: saveResult.totalGbp,
+        needsOwner: saveResult.needsOwner === true,
+        priceUpdated: Math.round(totalBeforeSave * 100) !== Math.round(saveResult.totalGbp * 100),
+      });
       setMode("done");
     });
   }
 
   const isCount = picked?.unitType === "each" || picked?.unitType === "box";
-  const amountTitle = picked?.unitType === "box" ? "How many boxes?" : picked?.unitType === "each" ? "How many?" : "How much?";
+  const amountTitle = t(picked?.unitType === "box" ? "serve.howManyBoxes" : picked?.unitType === "each" ? "serve.howMany" : "serve.howMuch");
 
   return (
     <div data-testid="operator-serve-flow">
       <Link href="/operator" className="mb-5 inline-flex min-h-[56px] items-center gap-2 text-lg font-semibold text-[var(--brand)]">
-        <ArrowLeft className="h-6 w-6" aria-hidden />
-        Go back
+        <ArrowLeft className="operator-directional-icon h-6 w-6" aria-hidden />
+        {t("common.goBack")}
       </Link>
 
       {showResumePrompt && resumable ? (
@@ -341,13 +346,15 @@ export function OperatorServeFlow({
           <OperatorDraftStatus status={draftSave.status} />
 
           {mode === "buy" && (
-            <Panel title="What did they buy?">
+            <Panel title={t("serve.whatBought")}>
               <div className="grid gap-3 sm:grid-cols-2">
                 {tiles.map((tile) => (
                   <BigButton
                     key={tile.id}
                     onClick={() => choose(tile)}
-                    label={tile.label}
+                    label={tile.id.startsWith("product:")
+                      ? productName(tile.label)
+                      : t(`serve.tile.${tile.id}` as OperatorTranslationKey)}
                     muted={!tile.productId && tile.id !== "other"}
                     testId={tile.productId ? `serve-product-${tile.productId}` : `serve-tile-${tile.id}`}
                   />
@@ -357,7 +364,7 @@ export function OperatorServeFlow({
           )}
 
           {mode === "other-name" && (
-            <Panel title="What is it called?">
+            <Panel title={t("serve.whatCalled")}>
               <input
                 value={otherName}
                 onChange={(event) => setOtherName(event.target.value)}
@@ -365,7 +372,7 @@ export function OperatorServeFlow({
                 maxLength={80}
                 className="h-20 rounded-xl border-2 border-[var(--line)] bg-[var(--paper)] px-4 text-2xl font-semibold outline-none focus:border-[var(--brand)]"
               />
-              <BigButton onClick={() => setMode("amount")} label="Next" disabled={otherName.trim().length < 2} />
+              <BigButton onClick={() => setMode("amount")} label={t("common.next")} disabled={otherName.trim().length < 2} />
             </Panel>
           )}
 
@@ -376,7 +383,9 @@ export function OperatorServeFlow({
                     <BigButton
                       key={count}
                       onClick={() => pickAmount(count, String(count))}
-                      label={formatServePresetLabel(String(count), count, picked?.pricePerUnit ?? null)}
+                      label={locale === "ps-AF"
+                        ? isolateLtr(formatServePresetLabel(String(count), count, picked?.pricePerUnit ?? null))
+                        : formatServePresetLabel(String(count), count, picked?.pricePerUnit ?? null)}
                       testId={`serve-count-${count}`}
                     />
                   ))
@@ -384,18 +393,20 @@ export function OperatorServeFlow({
                     <BigButton
                       key={choice.id}
                       onClick={() => pickAmount(choice.kg, choice.label)}
-                      label={formatServePresetLabel(choice.label, choice.kg, picked?.pricePerUnit ?? null)}
+                      label={locale === "ps-AF"
+                        ? isolateLtr(formatServePresetLabel(choice.label, choice.kg, picked?.pricePerUnit ?? null))
+                        : formatServePresetLabel(choice.label, choice.kg, picked?.pricePerUnit ?? null)}
                       testId={`serve-weight-${choice.id}`}
                     />
                   ))}
-              <BigButton onClick={() => setMode("other-amount")} label={isCount ? "More" : "Other amount"} muted />
+              <BigButton onClick={() => setMode("other-amount")} label={t(isCount ? "serve.more" : "serve.otherAmount")} muted />
             </Panel>
           )}
 
           {mode === "other-amount" && (
             <Panel title={amountTitle}>
               <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-center text-4xl font-semibold">
-                {amountDigits || "0"}{isCount ? "" : "g"}
+                <bdi dir="ltr">{amountDigits || "0"}{isCount ? "" : "g"}</bdi>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ...(isCount ? [] : ["00"])].map((digit) => (
@@ -405,16 +416,16 @@ export function OperatorServeFlow({
                     label={digit}
                   />
                 ))}
-                <BigButton onClick={() => setAmountDigits("")} label="Clear" muted />
+                <BigButton onClick={() => setAmountDigits("")} label={t("common.clear")} muted />
               </div>
-              <BigButton onClick={addOtherAmount} label="Next" disabled={Number(amountDigits) <= 0} />
+              <BigButton onClick={addOtherAmount} label={t("common.next")} disabled={Number(amountDigits) <= 0} />
             </Panel>
           )}
 
           {mode === "price" && (
-            <Panel title="How much did they pay?">
+            <Panel title={t("serve.enterPrice")}>
               <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-center text-4xl font-semibold">
-                £{pounds || "0"}
+                <bdi dir="ltr">£{pounds || "0"}</bdi>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map((digit) => (
@@ -428,54 +439,61 @@ export function OperatorServeFlow({
                     label={digit}
                   />
                 ))}
-                <BigButton onClick={() => setPounds("")} label="Clear" muted />
+                <BigButton onClick={() => setPounds("")} label={t("common.clear")} muted />
               </div>
-              <BigButton onClick={addPrice} label="Next" disabled={!(Number(pounds) > 0)} />
+              <BigButton onClick={addPrice} label={t("common.next")} disabled={!(Number(pounds) > 0)} />
             </Panel>
           )}
 
           {mode === "add-more" && (
-            <Panel title="Add more?">
+            <Panel title={t("serve.addMore")}>
               <Summary lines={summary} total={displayedTotal} />
-              <BigButton onClick={() => setMode("buy")} label="Yes" />
-              <BigButton onClick={() => setMode("pay")} label="No" muted />
+              <BigButton onClick={() => setMode("buy")} label={t("common.yes")} />
+              <BigButton onClick={() => setMode("pay")} label={t("common.no")} muted />
             </Panel>
           )}
 
           {mode === "pay" && (
-            <Panel title="How did they pay?">
-              <BigButton onClick={() => { setPayKind("cash"); setMode("confirm"); }} label="Cash" />
-              <BigButton onClick={() => { setPayKind("card"); setMode("confirm"); }} label="Card" />
+            <Panel title={t("serve.howPaid")}>
+              <BigButton onClick={() => { setPayKind("cash"); setMode("confirm"); }} label={t("serve.cash")} />
+              <BigButton onClick={() => { setPayKind("card"); setMode("confirm"); }} label={t("serve.card")} />
             </Panel>
           )}
 
           {mode === "confirm" && (
-            <Panel title="Save this sale?">
-              <Summary lines={[...summary, `Paid by ${payKind}`]} total={displayedTotal} />
-              <BigButton onClick={save} label="Save" busy={isPending || !runId} />
-              <BigButton onClick={() => setMode("pay")} label="Go back" muted />
+            <Panel title={t("serve.saveSale")}>
+              <Summary lines={[...summary, t("serve.paidBy", { method: t(payKind === "cash" ? "serve.cash" : "serve.card") })]} total={displayedTotal} />
+              <BigButton onClick={save} label={t("common.save")} busy={isPending || !runId} />
+              <BigButton onClick={() => setMode("pay")} label={t("common.goBack")} muted />
             </Panel>
           )}
 
           {mode === "done" && (
-            <Panel title="Done">
+            <Panel title={t("common.done")}>
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand)] text-white">
                 <Check className="h-9 w-9" aria-hidden />
               </div>
-              {result ? <p data-testid="serve-saved-total" className="text-center text-lg font-semibold text-[var(--muted)]">{result}</p> : null}
-              <BigButton onClick={restart} label="Serve next person" />
+              {result ? (
+                <p data-testid="serve-saved-total" className="text-center text-lg font-semibold text-[var(--muted)]">
+                  {t(
+                    result.needsOwner ? "serve.saleSavedOwner" : result.priceUpdated ? "serve.priceUpdated" : "serve.saleSaved",
+                    { amount: operatorMoney(result.total, locale) },
+                  )}
+                </p>
+              ) : null}
+              <BigButton onClick={restart} label={t("serve.nextCustomer")} />
               <Link
                 href="/operator"
                 className="flex min-h-[64px] items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 text-lg font-semibold text-[var(--muted)]"
               >
-                Go home
+                {t("common.goHome")}
               </Link>
             </Panel>
           )}
         </>
       )}
 
-      {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{error}</p> : null}
+      {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{operatorError(error)}</p> : null}
     </div>
   );
 }
@@ -507,6 +525,7 @@ function BigButton({
   busy?: boolean;
   testId?: string;
 }) {
+  const { t } = useOperatorI18n();
   return (
     <button
       type="button"
@@ -518,12 +537,13 @@ function BigButton({
         muted ? "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]" : "bg-[var(--brand)] text-white",
       ].join(" ")}
     >
-      {busy ? "Saving..." : label}
+      {busy ? t("common.saving") : label}
     </button>
   );
 }
 
 function Summary({ lines, total }: { lines: string[]; total: number }) {
+  const { t, locale } = useOperatorI18n();
   return (
     <div data-testid="serve-line-summary" className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4">
       {lines.map((line, index) => (
@@ -532,7 +552,7 @@ function Summary({ lines, total }: { lines: string[]; total: number }) {
         </p>
       ))}
       <p data-testid="serve-total" className="mt-3 border-t border-[var(--line)] pt-3 text-xl font-bold text-[var(--ink)]">
-        Total {formatServeMoney(total)}
+        {t("serve.total", { amount: operatorMoney(total, locale) })}
       </p>
     </div>
   );

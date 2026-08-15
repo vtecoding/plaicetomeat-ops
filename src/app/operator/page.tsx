@@ -2,6 +2,8 @@ import Link from "next/link";
 import { CheckCircle2, Coins, DoorOpen, FileText, HelpCircle, Moon, ShoppingBag, Truck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { OperatorText } from "@/app/operator/_components/operator-language";
+import type { OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 import { getTodaysChecklistState } from "@/lib/server/ops-capture";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
@@ -14,8 +16,9 @@ export const dynamic = "force-dynamic";
 
 type Door = {
   href: string;
-  title: string;
-  helper: string;
+  testId: string;
+  title: OperatorTranslationKey;
+  helper: OperatorTranslationKey;
   icon: LucideIcon;
   lead: boolean;
   done?: boolean;
@@ -38,37 +41,42 @@ export default async function OperatorHomePage() {
   const doors: Door[] = [
     {
       href: "/operator/open",
-      title: "Open Shop",
-      helper: openDone ? "Done today" : "Start the day",
+      testId: "open-shop",
+      title: "home.open",
+      helper: openDone ? "home.doneToday" : "home.openStart",
       icon: DoorOpen,
       lead: lead === "open",
       done: openDone,
     },
     {
       href: "/operator/serve",
-      title: "Serve Customer",
-      helper: "Sell over the counter",
+      testId: "serve-customer",
+      title: "home.serve",
+      helper: "home.serveHelp",
       icon: ShoppingBag,
       lead: lead === "serve",
     },
     {
       href: "/operator/stock",
-      title: "Stock / Delivery",
-      helper: "Arrived, ran out, or waste",
+      testId: "stock-delivery",
+      title: "home.stock",
+      helper: "home.stockHelp",
       icon: Truck,
       lead: false,
     },
     {
       href: "/operator/certificate",
-      title: "Paper Photo",
-      helper: "Halal, supplier, or fridge",
+      testId: "paper-photo",
+      title: "home.paper",
+      helper: "home.paperHelp",
       icon: FileText,
       lead: false,
     },
     {
       href: "/operator/close",
-      title: "Close Shop",
-      helper: closeDone ? "Done today" : closeStarted ? "Not finished — tap to continue" : "Finish the day",
+      testId: "close-shop",
+      title: "home.close",
+      helper: closeDone ? "home.doneToday" : closeStarted ? "home.closeContinue" : "home.closeFinish",
       icon: Moon,
       lead: lead === "close",
       done: closeDone,
@@ -77,7 +85,7 @@ export default async function OperatorHomePage() {
 
   return (
     <div data-testid="operator-home">
-      <h1 className="sr-only">What would you like to do?</h1>
+      <OperatorText as="h1" className="sr-only" k="home.question" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {doors.map((door) => (
@@ -88,23 +96,23 @@ export default async function OperatorHomePage() {
       <Link
         href="/operator/till"
         data-testid="operator-till-link"
-        className="mt-4 flex min-h-[72px] items-center gap-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-5 py-4 text-left shadow-sm transition active:scale-[0.99]"
+        className="mt-4 flex min-h-[72px] items-center gap-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-5 py-4 text-start shadow-sm transition active:scale-[0.99]"
       >
         <Coins className="h-8 w-8 shrink-0 text-[var(--brand)]" aria-hidden />
         <span>
-          <span className="block text-xl font-semibold">Till money in / out</span>
-          <span className="block text-base text-[var(--muted)]">Change added, supplier paid, owner took cash</span>
+          <OperatorText as="span" className="block text-xl font-semibold" k="home.till" />
+          <OperatorText as="span" className="block text-base text-[var(--muted)]" k="home.tillHelp" />
         </span>
       </Link>
 
       <Link
         href="/operator/help"
-        className="mt-4 flex min-h-[72px] items-center gap-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-5 py-4 text-left shadow-sm transition active:scale-[0.99]"
+        className="mt-4 flex min-h-[72px] items-center gap-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-5 py-4 text-start shadow-sm transition active:scale-[0.99]"
       >
         <HelpCircle className="h-8 w-8 shrink-0 text-[var(--clay)]" aria-hidden />
         <span>
-          <span className="block text-xl font-semibold">Help / Call Owner</span>
-          <span className="block text-base text-[var(--muted)]">Tell owner / go home</span>
+          <OperatorText as="span" className="block text-xl font-semibold" k="home.help" />
+          <OperatorText as="span" className="block text-base text-[var(--muted)]" k="home.helpHint" />
         </span>
       </Link>
     </div>
@@ -117,7 +125,7 @@ function DoorTile({ door }: { door: Door }) {
   return (
     <Link
       href={door.href}
-      data-testid={`operator-door-${door.title.toLowerCase().replace(/[^a-z]+/g, "-")}`}
+      data-testid={`operator-door-${door.testId}`}
       className={[
         "flex min-h-[156px] flex-col justify-between rounded-2xl border px-6 py-5 shadow-sm transition active:scale-[0.99]",
         door.lead ? "border-[var(--brand)] bg-[var(--brand-50)]" : "border-[var(--line)] bg-[var(--card)]",
@@ -131,8 +139,8 @@ function DoorTile({ door }: { door: Door }) {
         {door.done ? <CheckCircle2 className="h-7 w-7 text-[var(--brand)]" aria-hidden /> : null}
       </span>
       <span>
-        <span className="block font-display text-2xl font-semibold tracking-[-0.01em]">{door.title}</span>
-        <span className="mt-1 block text-base text-[var(--muted)]">{door.helper}</span>
+        <OperatorText as="span" className="block font-display text-2xl font-semibold tracking-[-0.01em]" k={door.title} />
+        <OperatorText as="span" className="mt-1 block text-base text-[var(--muted)]" k={door.helper} />
       </span>
     </Link>
   );

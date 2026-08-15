@@ -5,22 +5,19 @@ import Link from "next/link";
 import { ArrowLeft, Check, FileText } from "lucide-react";
 
 import { capturePaperPhoto } from "@/app/actions/operator/certificate";
+import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import type { OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 type PaperKind = "halal" | "supplier" | "fridge" | "other";
 type Mode = "pick" | "photo" | "done";
 
-const choices: Array<{ id: PaperKind; label: string }> = [
-  { id: "halal", label: "Halal paper" },
-  { id: "supplier", label: "Supplier paper" },
-  { id: "fridge", label: "Fridge paper" },
-  { id: "other", label: "Other paper" },
-];
+const choices: PaperKind[] = ["halal", "supplier", "fridge", "other"];
 
 export function OperatorCertificateFlow() {
+  const { t, error: operatorError } = useOperatorI18n();
   const [runId, setRunId] = useState("");
   const [mode, setMode] = useState<Mode>("pick");
   const [paperKind, setPaperKind] = useState<PaperKind>("halal");
-  const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -32,7 +29,6 @@ export function OperatorCertificateFlow() {
     setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
     setMode("pick");
     setPaperKind("halal");
-    setResult(null);
     setError(null);
   }
 
@@ -49,7 +45,6 @@ export function OperatorCertificateFlow() {
         setError(res.message);
         return;
       }
-      setResult(res.message);
       setMode("done");
     });
   }
@@ -57,22 +52,22 @@ export function OperatorCertificateFlow() {
   return (
     <div data-testid="operator-certificate-flow">
       <Link href="/operator" className="mb-5 inline-flex min-h-[56px] items-center gap-2 text-lg font-semibold text-[var(--brand)]">
-        <ArrowLeft className="h-6 w-6" aria-hidden />
-        Go back
+        <ArrowLeft className="operator-directional-icon h-6 w-6" aria-hidden />
+        {t("common.goBack")}
       </Link>
 
       {mode === "pick" && (
-        <Panel title="What paper is it?">
+        <Panel title={t("certificate.what")}>
           {choices.map((choice) => (
-            <BigButton key={choice.id} onClick={() => { setPaperKind(choice.id); setMode("photo"); }} label={choice.label} />
+            <BigButton key={choice} onClick={() => { setPaperKind(choice); setMode("photo"); }} label={t(`certificate.${choice}` as OperatorTranslationKey)} />
           ))}
         </Panel>
       )}
 
       {mode === "photo" && (
-        <Panel title="Take photo">
+        <Panel title={t("certificate.take")}>
           <label className="flex min-h-[72px] cursor-pointer items-center justify-center rounded-2xl bg-[var(--brand)] px-6 text-xl font-semibold text-white transition active:scale-[0.99]">
-            Take or choose photo
+            {t("common.takePhoto")}
             <input
               type="file"
               accept="image/*"
@@ -82,28 +77,28 @@ export function OperatorCertificateFlow() {
               onChange={(event) => savePhoto(event.target.files?.[0])}
             />
           </label>
-          <BigButton onClick={() => setMode("pick")} label="Go back" muted />
-          {isPending ? <p className="text-base font-semibold text-[var(--muted)]">Saving photo...</p> : null}
+          <BigButton onClick={() => setMode("pick")} label={t("common.goBack")} muted />
+          {isPending ? <p className="text-base font-semibold text-[var(--muted)]">{t("common.savingPhoto")}</p> : null}
         </Panel>
       )}
 
       {mode === "done" && (
-        <Panel title="Done">
+        <Panel title={t("common.done")}>
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand)] text-white">
             <Check className="h-9 w-9" aria-hidden />
           </div>
-          {result ? <p className="text-center text-lg font-semibold text-[var(--muted)]">{result}</p> : null}
-          <BigButton onClick={restart} label="Take another" />
+          <p className="text-center text-lg font-semibold text-[var(--muted)]">{t("certificate.saved")}</p>
+          <BigButton onClick={restart} label={t("certificate.another")} />
           <Link
             href="/operator"
             className="flex min-h-[64px] items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 text-lg font-semibold text-[var(--muted)]"
           >
-            Go home
+            {t("common.goHome")}
           </Link>
         </Panel>
       )}
 
-      {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{error}</p> : null}
+      {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{operatorError(error)}</p> : null}
     </div>
   );
 }

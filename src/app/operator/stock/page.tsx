@@ -1,4 +1,5 @@
 import { OperatorStockFlow } from "@/app/operator/_components/operator-stock-flow";
+import { OperatorText } from "@/app/operator/_components/operator-language";
 import {
   resolveDeliveryDefaults,
   type ActiveSupplier,
@@ -53,9 +54,9 @@ export default async function OperatorStockPage() {
 
   return (
     <div data-testid="operator-stock-page">
-      <p className="eyebrow text-[var(--brand)]">Stock</p>
-      <h1 className="mt-1 font-display text-3xl font-semibold tracking-[-0.01em]">Stock and delivery</h1>
-      <p className="mt-2 text-lg text-[var(--muted)]">One thing at a time.</p>
+      <OperatorText as="p" className="eyebrow text-[var(--brand)]" k="page.stock.eyebrow" />
+      <OperatorText as="h1" className="mt-1 font-display text-3xl font-semibold tracking-[-0.01em]" k="page.stock.title" />
+      <OperatorText as="p" className="mt-2 text-lg text-[var(--muted)]" k="page.stock.helper" />
 
       <div className="mt-6">
         <OperatorStockFlow

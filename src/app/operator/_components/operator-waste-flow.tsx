@@ -14,21 +14,24 @@ import {
 } from "@/app/operator/_components/operator-draft";
 import { parseOperatorDraftSteps, type OperatorDraftRecord } from "@/lib/operator/workflows/drafts";
 import { WASTE_REASON_CHOICES, type WasteReasonChoice } from "@/lib/operator/workflows/waste";
+import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { operatorMeasure, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 type ProductOption = { id: string; name: string; unitType: string };
 type Mode = "start" | "product" | "amount" | "reason" | "photo" | "confirm" | "done";
 const RESUMABLE_MODES: readonly Mode[] = ["product", "amount", "reason", "photo", "confirm"];
 const LAST_SAVED_STEP: Record<Mode, string> = {
   start: "",
-  product: "Did you throw anything away?",
-  amount: "What was thrown away?",
-  reason: "How much?",
-  photo: "Why?",
-  confirm: "Photo",
+  product: "waste.start",
+  amount: "waste.product",
+  reason: "waste.amount",
+  photo: "waste.reason",
+  confirm: "waste.photo",
   done: "",
 };
 
 export function OperatorWasteFlow({ products, initialDraft }: { products: ProductOption[]; initialDraft: OperatorDraftRecord | null }) {
+  const { t, error: operatorError, product: productName, locale } = useOperatorI18n();
   const resumable = useMemo(
     () => initialDraft && parseOperatorDraftSteps(initialDraft.steps, "waste", RESUMABLE_MODES),
     [initialDraft],
@@ -44,7 +47,7 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [photoEvidenceId, setPhotoEvidenceId] = useState<string | null>(null);
   const [photoSaving, setPhotoSaving] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<"none" | "waste" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -116,7 +119,7 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
         setError(res.message);
         return;
       }
-      setResult(res.message);
+      setResult("none");
       setMode("done");
     });
   }
@@ -135,7 +138,7 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
         setError(res.message);
         return;
       }
-      setResult(res.message);
+      setResult("waste");
       setMode("done");
     });
   }
@@ -169,8 +172,8 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
   return (
     <div data-testid="operator-waste-flow">
       <Link href="/operator" className="mb-5 inline-flex min-h-[56px] items-center gap-2 text-lg font-semibold text-[var(--brand)]">
-        <ArrowLeft className="h-6 w-6" aria-hidden />
-        Back
+        <ArrowLeft className="operator-directional-icon h-6 w-6" aria-hidden />
+        {t("common.back")}
       </Link>
 
       {showResumePrompt && resumable ? (
@@ -186,38 +189,38 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
           <OperatorDraftStatus status={draftSave.status} />
 
       {mode === "start" && (
-        <Panel title="Did you throw anything away?">
-          <BigButton onClick={() => setMode("product")} label="Yes" />
-          <BigButton onClick={saveNoWaste} label="No" muted busy={isPending || !runId} />
+        <Panel title={t("waste.any")}>
+          <BigButton onClick={() => setMode("product")} label={t("common.yes")} />
+          <BigButton onClick={saveNoWaste} label={t("common.no")} muted busy={isPending || !runId} />
         </Panel>
       )}
 
       {mode === "product" && (
-        <Panel title="What was thrown away?">
+        <Panel title={t("waste.what")}>
           <ProductGrid products={products} onPick={(id) => { setProductId(id); setMode("amount"); }} />
-          <BigButton onClick={() => { setProductId(null); setMode("amount"); }} label="Not sure" muted />
+          <BigButton onClick={() => { setProductId(null); setMode("amount"); }} label={t("common.notSure")} muted />
         </Panel>
       )}
 
       {mode === "amount" && (
-        <Panel title="How much?" helper={product ? product.name : "If you are not sure, enter your best guess."}>
+        <Panel title={t("waste.howMuch")} helper={product ? productName(product.name) : t("common.bestGuess")}>
           <AmountInput value={quantity} onChange={setQuantity} unit={unit} />
-          <BigButton onClick={() => setMode("reason")} label="Next" disabled={Number(quantity) <= 0} />
+          <BigButton onClick={() => setMode("reason")} label={t("common.next")} disabled={Number(quantity) <= 0} />
         </Panel>
       )}
 
       {mode === "reason" && (
-        <Panel title="Why?">
+        <Panel title={t("waste.why")}>
           {WASTE_REASON_CHOICES.map((choice) => (
-            <BigButton key={choice.id} onClick={() => { setReason(choice.id); setMode("photo"); }} label={choice.label} muted={choice.id === "review"} />
+            <BigButton key={choice.id} onClick={() => { setReason(choice.id); setMode("photo"); }} label={t(`waste.reason.${choice.id}` as OperatorTranslationKey)} muted={choice.id === "review"} />
           ))}
         </Panel>
       )}
 
       {mode === "photo" && (
-        <Panel title="Take a photo?" helper="This is optional.">
+        <Panel title={t("waste.photo")} helper={t("common.optional")}>
           <label className="flex min-h-[72px] cursor-pointer items-center justify-center rounded-2xl bg-[var(--brand)] px-6 text-xl font-semibold text-white transition active:scale-[0.99]">
-            Take or choose photo
+            {t("common.takePhoto")}
             <input
               type="file"
               accept="image/*"
@@ -227,36 +230,36 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
               onChange={(event) => void savePhoto(event.target.files?.[0])}
             />
           </label>
-          <BigButton onClick={() => { setPhotoName(null); setPhotoEvidenceId(null); setMode("confirm"); }} label="Skip for now" muted />
-          {photoSaving ? <p className="text-base font-semibold text-[var(--muted)]">Saving photo...</p> : null}
-          {photoEvidenceId && photoName ? <p className="text-base font-semibold text-[var(--muted)]">Photo saved: {photoName}</p> : null}
+          <BigButton onClick={() => { setPhotoName(null); setPhotoEvidenceId(null); setMode("confirm"); }} label={t("common.skipNow")} muted />
+          {photoSaving ? <p className="text-base font-semibold text-[var(--muted)]">{t("common.savingPhoto")}</p> : null}
+          {photoEvidenceId && photoName ? <p className="text-base font-semibold text-[var(--muted)]">{t("common.photoSaved", { name: photoName })}</p> : null}
         </Panel>
       )}
 
       {mode === "confirm" && (
-        <Panel title="Save this waste?">
+        <Panel title={t("waste.confirm")}>
           <Summary
             lines={[
-              product?.name ?? "Product: not sure",
-              `${quantity || "0"} ${unit}`,
-              WASTE_REASON_CHOICES.find((choice) => choice.id === reason)?.label ?? "Other / not sure",
+              product ? productName(product.name) : t("stock.productUnknown"),
+              operatorMeasure(quantity || "0", t(`unit.${unit}` as OperatorTranslationKey), locale),
+              t(`waste.reason.${reason}` as OperatorTranslationKey),
             ]}
           />
-          <BigButton onClick={saveWaste} label="Save this waste" busy={isPending || !runId} />
+          <BigButton onClick={saveWaste} label={t("waste.save")} busy={isPending || !runId} />
         </Panel>
       )}
 
       {mode === "done" && (
-        <Panel title={result ?? "Saved"}>
+        <Panel title={result === "none" ? t("waste.noWasteSaved") : t("waste.saved")}>
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand)] text-white">
             <Check className="h-9 w-9" aria-hidden />
           </div>
-          <BigButton onClick={restart} label="Record another" />
+          <BigButton onClick={restart} label={t("waste.another")} />
           <Link
             href="/operator"
             className="flex min-h-[64px] items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 text-lg font-semibold text-[var(--muted)]"
           >
-            Back to home
+            {t("common.backHome")}
           </Link>
         </Panel>
       )}
@@ -264,7 +267,7 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
         </>
       )}
 
-      {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{error}</p> : null}
+      {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{operatorError(error)}</p> : null}
     </div>
   );
 }
@@ -280,6 +283,7 @@ function Panel({ title, helper, children }: { title: string; helper?: string; ch
 }
 
 function BigButton({ label, onClick, muted, disabled, busy }: { label: string; onClick: () => void; muted?: boolean; disabled?: boolean; busy?: boolean }) {
+  const { t } = useOperatorI18n();
   return (
     <button
       type="button"
@@ -290,12 +294,13 @@ function BigButton({ label, onClick, muted, disabled, busy }: { label: string; o
         muted ? "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]" : "bg-[var(--brand)] text-white",
       ].join(" ")}
     >
-      {busy ? "Saving..." : label}
+      {busy ? t("common.saving") : label}
     </button>
   );
 }
 
 function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: (id: string) => void }) {
+  const { product: productName } = useOperatorI18n();
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {products.slice(0, 12).map((product) => (
@@ -303,9 +308,9 @@ function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: 
           key={product.id}
           type="button"
           onClick={() => onPick(product.id)}
-          className="min-h-[88px] rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-4 py-3 text-left text-xl font-semibold text-[var(--ink)] transition active:scale-[0.99]"
+          className="min-h-[88px] rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-4 py-3 text-start text-xl font-semibold text-[var(--ink)] transition active:scale-[0.99]"
         >
-          {product.name}
+          {productName(product.name)}
         </button>
       ))}
     </div>
@@ -313,9 +318,10 @@ function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: 
 }
 
 function AmountInput({ value, onChange, unit }: { value: string; onChange: (value: string) => void; unit: string }) {
+  const { t } = useOperatorI18n();
   return (
     <label className="block">
-      <span className="sr-only">Amount</span>
+      <span className="sr-only">{t("common.amount")}</span>
       <span className="flex items-center gap-3">
         <input
           type="number"
@@ -327,7 +333,7 @@ function AmountInput({ value, onChange, unit }: { value: string; onChange: (valu
           data-testid="operator-waste-quantity"
           className="h-20 w-44 rounded-xl border-2 border-[var(--line)] bg-[var(--paper)] px-4 text-3xl font-semibold outline-none focus:border-[var(--brand)]"
         />
-        <span className="text-2xl font-semibold text-[var(--muted)]">{unit}</span>
+        <bdi dir="ltr" className="operator-bidi text-2xl font-semibold text-[var(--muted)]">{t(`unit.${unit}` as OperatorTranslationKey)}</bdi>
       </span>
     </label>
   );

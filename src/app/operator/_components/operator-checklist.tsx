@@ -10,7 +10,10 @@ import {
   startOrResumeChecklist,
 } from "@/app/actions/ops-capture";
 import { getChecklist } from "@/lib/ops-capture/checklists";
+import type { MoneyPictureInput } from "@/lib/ops-capture/money-context";
 import type { ChecklistReceipt, ChecklistSummary, OpsStepState } from "@/lib/ops-capture/types";
+import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { operatorMoney, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 // V17 Phase 2 — the operator-friendly face of the EXISTING opening/closing ritual.
 //
@@ -24,7 +27,7 @@ type StepRecord = { state: OpsStepState; payload: Record<string, unknown> };
 type Kind = "opening" | "closing";
 
 /** A suggested value for a number step, drawn from history, that the operator confirms. */
-export type NumberPrefill = { value: number; hint: string; source: string | null };
+export type NumberPrefill = { value: number; source: string | null };
 
 /**
  * V18 A1: server-provided context shown ABOVE a money step's input — e.g.
@@ -49,7 +52,7 @@ export function OperatorChecklist({
   initialSummary,
   initialReceipt,
   numberPrefills,
-  numberContexts,
+  moneyPicture,
 }: {
   branchId: string;
   kind: Kind;
@@ -57,8 +60,9 @@ export function OperatorChecklist({
   initialSummary: ChecklistSummary;
   initialReceipt: ChecklistReceipt | null;
   numberPrefills?: Record<string, NumberPrefill>;
-  numberContexts?: Record<string, NumberContext>;
+  moneyPicture?: MoneyPictureInput | null;
 }) {
+  const { t, error: operatorError, locale } = useOperatorI18n();
   const definition = useMemo(() => getChecklist(kind), [kind]);
   const steps = definition.steps;
 
@@ -75,7 +79,14 @@ export function OperatorChecklist({
   const handledCount = Object.keys(states).length;
 
   const activePrefill = activeStep ? numberPrefills?.[activeStep.key] : undefined;
-  const activeContext = activeStep ? numberContexts?.[activeStep.key] : undefined;
+  const numberContexts = useMemo(() => buildMoneyContexts(moneyPicture, t, locale), [locale, moneyPicture, t]);
+  const activeContext = activeStep ? numberContexts[activeStep.key] : undefined;
+  const activeTitle = activeStep
+    ? t(`checklist.${kind}.${activeStep.key}.title` as OperatorTranslationKey)
+    : "";
+  const activeWhy = activeStep
+    ? t(`checklist.${kind}.${activeStep.key}.why` as OperatorTranslationKey)
+    : "";
 
   // Seed the number field with a suggested value when a prefilled step opens (e.g. the
   // opening float). The operator can edit it before saving, so nothing is silently kept.
@@ -91,7 +102,7 @@ export function OperatorChecklist({
     if (sessionId) return sessionId;
     const res = await startOrResumeChecklist({ branchId, kind });
     if (!res.ok || !res.id) {
-      setError(res.ok ? "Could not start. Please try again." : res.message);
+      setError(res.ok ? "i18n:checklist.startError" : res.message);
       return null;
     }
     setSessionId(res.id);
@@ -165,7 +176,7 @@ export function OperatorChecklist({
   async function finish() {
     if (!sessionId || busy) return;
     if (readingBlockers.length > 0) {
-      setError("A temperature or till reading is still needed before this can be finished. Ask owner if unsure.");
+      setError("i18n:checklist.readingNeeded");
       return;
     }
     setBusy(true);
@@ -186,8 +197,8 @@ export function OperatorChecklist({
         href="/operator"
         className="mb-5 inline-flex min-h-[56px] items-center gap-2 text-lg font-semibold text-[var(--brand)]"
       >
-        <ArrowLeft className="h-6 w-6" aria-hidden />
-        Back
+        <ArrowLeft className="operator-directional-icon h-6 w-6" aria-hidden />
+        {t("common.back")}
       </Link>
 
       <Dots total={steps.length} done={handledCount} />
@@ -198,9 +209,9 @@ export function OperatorChecklist({
           data-testid="operator-step"
         >
           <h2 className="font-display text-2xl font-semibold leading-tight tracking-[-0.01em]">
-            {activeStep.title}
+            {activeTitle}
           </h2>
-          <p className="mt-2 text-base leading-7 text-[var(--muted)]">{activeStep.why}</p>
+          <p className="mt-2 text-base leading-7 text-[var(--muted)]">{activeWhy}</p>
 
           {activeStep.input.kind === "number" && activeContext ? (
             <div
@@ -218,10 +229,12 @@ export function OperatorChecklist({
 
           {activeStep.input.kind === "number" && (
             <label className="mt-5 block">
-              <span className="text-base font-semibold">{activeStep.input.label}</span>
+              <span className="text-base font-semibold">
+                {t(`checklist.${kind}.${activeStep.key}.label` as OperatorTranslationKey)}
+              </span>
               {activePrefill ? (
                 <span className="mt-1 block text-base font-semibold text-[var(--brand)]" data-testid="operator-step-prefill-hint">
-                  {activePrefill.hint}
+                  {t("checklist.floatHint", { amount: operatorMoney(activePrefill.value, locale) })}
                 </span>
               ) : null}
               <span className="mt-2 flex items-center gap-3">
@@ -234,7 +247,7 @@ export function OperatorChecklist({
                   data-testid="operator-step-number"
                   className="h-16 w-40 rounded-xl border-2 border-[var(--line)] bg-[var(--paper)] px-4 text-2xl font-semibold outline-none focus:border-[var(--brand)]"
                 />
-                <span className="text-2xl font-semibold text-[var(--muted)]">{activeStep.input.unit}</span>
+                <bdi dir="ltr" className="operator-bidi text-2xl font-semibold text-[var(--muted)]">{activeStep.input.unit}</bdi>
               </span>
             </label>
           )}
@@ -248,7 +261,7 @@ export function OperatorChecklist({
               className="flex min-h-[72px] w-full items-center justify-center gap-3 rounded-2xl bg-[var(--brand)] px-6 text-xl font-semibold text-white transition active:scale-[0.99] disabled:opacity-50"
             >
               <Check className="h-7 w-7" aria-hidden />
-              {activeStep.input.kind === "number" ? "Save" : "Yes, done"}
+              {activeStep.input.kind === "number" ? t("common.save") : t("checklist.yesDone")}
             </button>
             <button
               type="button"
@@ -257,7 +270,7 @@ export function OperatorChecklist({
               data-testid="operator-step-skip"
               className="flex min-h-[64px] w-full items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-6 text-lg font-semibold text-[var(--muted)] transition active:scale-[0.99] disabled:opacity-50"
             >
-              {activeStep.critical ? "I can't do this — tell the owner" : "Not now"}
+              {activeStep.critical ? t("checklist.cannot") : t("checklist.notNow")}
             </button>
           </div>
         </div>
@@ -266,10 +279,10 @@ export function OperatorChecklist({
           {readingBlockers.length > 0 ? (
             <div data-testid="operator-checklist-blocked">
               <p className="text-lg font-semibold text-[var(--clay)]">
-                Almost there — a reading is still needed.
+                {t("checklist.almost")}
               </p>
               <p className="mt-2 text-base text-[var(--muted)]">
-                {kind === "opening" ? "The shop can&rsquo;t open" : "The shop can&rsquo;t close"} until these are entered. Ask owner if unsure.
+                {t(kind === "opening" ? "checklist.blockedOpen" : "checklist.blockedClose")}
               </p>
               <div className="mt-5 grid gap-3">
                 {readingBlockers.map((step) => (
@@ -279,14 +292,16 @@ export function OperatorChecklist({
                     onClick={() => redoStep(step.key)}
                     className="flex min-h-[64px] w-full items-center justify-center rounded-2xl border-2 border-[var(--brand)] bg-[var(--brand-50)] px-6 text-lg font-semibold text-[var(--brand-700)] transition active:scale-[0.99]"
                   >
-                    Enter: {step.title}
+                    {t("checklist.enter", {
+                      step: t(`checklist.${kind}.${step.key}.title` as OperatorTranslationKey),
+                    })}
                   </button>
                 ))}
               </div>
             </div>
           ) : (
             <>
-              <p className="text-lg font-semibold">That&rsquo;s everything checked.</p>
+              <p className="text-lg font-semibold">{t("checklist.allChecked")}</p>
               <button
                 type="button"
                 onClick={finish}
@@ -295,7 +310,7 @@ export function OperatorChecklist({
                 className="mt-5 flex min-h-[72px] w-full items-center justify-center gap-3 rounded-2xl bg-[var(--brand)] px-6 text-xl font-semibold text-white transition active:scale-[0.99] disabled:opacity-50"
               >
                 <Check className="h-7 w-7" aria-hidden />
-                {kind === "opening" ? "Open the shop" : "Close the shop"}
+                {t(kind === "opening" ? "checklist.finishOpen" : "checklist.finishClose")}
               </button>
             </>
           )}
@@ -308,7 +323,7 @@ export function OperatorChecklist({
           data-testid="operator-checklist-error"
           role="alert"
         >
-          {error}
+          {operatorError(error)}
         </p>
       )}
     </div>
@@ -316,8 +331,9 @@ export function OperatorChecklist({
 }
 
 function Dots({ total, done }: { total: number; done: number }) {
+  const { t } = useOperatorI18n();
   return (
-    <div className="flex items-center gap-2" aria-label={`Step ${Math.min(done + 1, total)} of ${total}`}>
+    <div className="flex items-center gap-2" aria-label={t("checklist.stepProgress", { current: Math.min(done + 1, total), total })}>
       {Array.from({ length: total }).map((_, index) => (
         <span
           key={index}
@@ -332,6 +348,7 @@ function Dots({ total, done }: { total: number; done: number }) {
 }
 
 function Finished({ kind }: { kind: Kind }) {
+  const { t } = useOperatorI18n();
   return (
     <section
       className="rounded-2xl border border-[var(--brand)] bg-[var(--brand-50)] p-8 text-center shadow-sm"
@@ -341,17 +358,57 @@ function Finished({ kind }: { kind: Kind }) {
         <CheckCircle2 className="h-9 w-9" aria-hidden />
       </span>
       <h2 className="mt-4 font-display text-3xl font-semibold tracking-[-0.01em]">
-        {kind === "opening" ? "The shop is open" : "The shop is closed"}
+        {t(kind === "opening" ? "checklist.openDone" : "checklist.closeDone")}
       </h2>
       <p className="mt-2 text-lg text-[var(--muted)]">
-        {kind === "opening" ? "Have a good day." : "All saved. Well done today."}
+        {t(kind === "opening" ? "checklist.openDoneHelp" : "checklist.closeDoneHelp")}
       </p>
       <Link
         href="/operator"
         className="mt-6 flex min-h-[64px] w-full items-center justify-center rounded-2xl bg-[var(--brand)] px-6 text-xl font-semibold text-white transition active:scale-[0.99]"
       >
-        Back to home
+        {t("common.backHome")}
       </Link>
     </section>
   );
+}
+
+function buildMoneyContexts(
+  picture: MoneyPictureInput | null | undefined,
+  t: ReturnType<typeof useOperatorI18n>["t"],
+  locale: ReturnType<typeof useOperatorI18n>["locale"],
+): Record<string, NumberContext> {
+  if (!picture) return {};
+
+  const cashLines: string[] = [];
+  if (picture.tillMovements.length > 0) {
+    cashLines.push(t("money.movedToday"));
+    for (const movement of picture.tillMovements) {
+      const sign = movement.signedAmountPence >= 0 ? "+" : "−";
+      const reason = movement.reasonCode === "other" && movement.note
+        ? movement.note
+        : t(`money.movement.${movement.reasonCode}` as OperatorTranslationKey);
+      cashLines.push(`${sign}${operatorMoney(Math.abs(movement.signedAmountPence) / 100, locale)} — ${reason}`);
+    }
+  }
+
+  const missing = picture.ordersMissingTender.length;
+  if (missing > 0) {
+    cashLines.push(t(missing === 1 ? "money.missingPayment.one" : "money.missingPayment.many", { count: missing }));
+  }
+
+  return {
+    cash_counted: {
+      heading: picture.expectedCashPence === null
+        ? t("money.expectedUnknown")
+        : t("money.expectedTill", { amount: operatorMoney(picture.expectedCashPence / 100, locale) }),
+      lines: cashLines,
+      expectedPence: picture.expectedCashPence,
+    },
+    terminal_total: {
+      heading: t("money.cardExpected", { amount: operatorMoney(picture.expectedCardPence / 100, locale) }),
+      lines: missing > 0 ? [t("money.cardMayDiffer")] : [],
+      expectedPence: picture.expectedCardPence,
+    },
+  };
 }

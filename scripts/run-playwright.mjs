@@ -10,6 +10,7 @@ const SUITES = {
   v18: [
     "tests/e2e/operator-serve.spec.ts",
     "tests/e2e/operator-draft-resume.spec.ts",
+    "tests/e2e/operator-pashto.spec.ts",
     "tests/e2e/admin-owner-jobs.spec.ts",
     "tests/e2e/order-corrections.spec.ts",
   ],

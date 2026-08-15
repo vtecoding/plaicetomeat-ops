@@ -1,4 +1,5 @@
 import { OperatorWasteFlow } from "@/app/operator/_components/operator-waste-flow";
+import { OperatorText } from "@/app/operator/_components/operator-language";
 import { getAllProducts } from "@/lib/server/catalog";
 import { getLatestOperatorDraft } from "@/lib/server/operator-drafts";
 import { requireStaffContext } from "@/lib/server/staff-context";
@@ -32,9 +33,9 @@ export default async function OperatorWastePage() {
 
   return (
     <div data-testid="operator-waste-page">
-      <p className="eyebrow text-[var(--brand)]">Waste</p>
-      <h1 className="mt-1 font-display text-3xl font-semibold tracking-[-0.01em]">Waste</h1>
-      <p className="mt-2 text-lg text-[var(--muted)]">Save what was thrown away.</p>
+      <OperatorText as="p" className="eyebrow text-[var(--brand)]" k="page.waste.eyebrow" />
+      <OperatorText as="h1" className="mt-1 font-display text-3xl font-semibold tracking-[-0.01em]" k="page.waste.title" />
+      <OperatorText as="p" className="mt-2 text-lg text-[var(--muted)]" k="page.waste.helper" />
 
       <div className="mt-6">
         <OperatorWasteFlow

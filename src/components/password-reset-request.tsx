@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useOperatorI18n } from "@/lib/operator/i18n/context";
 
 /**
  * "Forgot your password?" — sends a Supabase recovery email that redirects to
@@ -16,6 +17,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
  * it never reveals which addresses have accounts.
  */
 export function PasswordResetRequest() {
+  const { t } = useOperatorI18n();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
@@ -40,7 +42,7 @@ export function PasswordResetRequest() {
         onClick={() => setOpen(true)}
         className="text-sm font-bold text-[#0f5132] underline-offset-2 hover:underline"
       >
-        Forgot your password?
+        {t("login.forgot")}
       </button>
     );
   }
@@ -49,7 +51,7 @@ export function PasswordResetRequest() {
     return (
       <div className="flex items-start gap-2 rounded-lg border border-[#badbc8] bg-[#eaf7ef] p-3 text-sm text-[#103d29]">
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-        <span>If that email has an account, a reset link is on its way. Check your inbox.</span>
+        <span>{t("login.resetSent")}</span>
       </div>
     );
   }
@@ -57,20 +59,20 @@ export function PasswordResetRequest() {
   return (
     <form onSubmit={onSubmit} className="grid gap-2">
       <label className="text-sm font-semibold" htmlFor="reset-email">
-        Email for the reset link
+        {t("login.resetEmail")}
       </label>
       <Input
         id="reset-email"
         type="email"
         autoComplete="username"
         required
-        placeholder="you@plaicetomeat.co.uk"
+        placeholder={t("login.emailPlaceholder")}
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         disabled={sending}
       />
       <Button type="submit" variant="outline" size="sm" disabled={sending}>
-        {sending ? "Sending…" : "Send reset link"}
+        {sending ? t("login.sending") : t("login.sendReset")}
       </Button>
     </form>
   );

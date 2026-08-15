@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 
+import { OperatorLanguageControl, OperatorLocaleSurface, OperatorText } from "@/app/operator/_components/operator-language";
 import { LogoutButton } from "@/components/logout-button";
+import { OperatorLocaleProvider } from "@/lib/operator/i18n/context";
+import { getOperatorLocale } from "@/lib/operator/i18n/server";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
 // V17 Operator Mode shell. The single guided front door for a low-tech operator.
@@ -15,23 +18,29 @@ export const dynamic = "force-dynamic";
 
 export default async function OperatorLayout({ children }: { children: ReactNode }) {
   const { profile } = await requireStaffContext("manager");
+  const locale = await getOperatorLocale();
   const firstName = profile.fullName?.trim().split(/\s+/)[0] ?? null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--paper)] text-[var(--ink)]">
-      <header className="border-b border-[var(--line)] bg-[var(--card)]/80 px-5 py-4 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4">
-          <div>
-            <p className="eyebrow text-[var(--brand)]">PlaiceToMeat</p>
-            <p className="font-display text-xl font-semibold tracking-[-0.01em]">
-              {firstName ? `Hello, ${firstName}` : "Welcome"}
-            </p>
+    <OperatorLocaleProvider initialLocale={locale} applyDocumentDirection>
+      <OperatorLocaleSurface>
+        <header className="border-b border-[var(--line)] bg-[var(--card)]/80 px-5 py-4 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="eyebrow text-[var(--brand)]">PlaiceToMeat</p>
+              <p className="font-display text-xl font-semibold tracking-[-0.01em]">
+                {firstName ? <OperatorText k="shell.hello" values={{ name: firstName }} /> : <OperatorText k="shell.welcome" />}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <OperatorLanguageControl />
+              <LogoutButton />
+            </div>
           </div>
-          <LogoutButton />
-        </div>
-      </header>
+        </header>
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-6 pb-20">{children}</main>
-    </div>
+        <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-6 pb-20">{children}</main>
+      </OperatorLocaleSurface>
+    </OperatorLocaleProvider>
   );
 }

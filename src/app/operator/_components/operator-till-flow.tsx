@@ -5,24 +5,20 @@ import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
 
 import { recordTillMovement, type TillReasonCode } from "@/app/actions/operator/till";
+import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { operatorMoney, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 // V18 A1 — guided "Till money in / out" (decision D-9). One question at a time,
 // big targets, no admin concepts. In or out → how much → what for → confirm.
 
 type Mode = "direction" | "amount" | "reason" | "confirm" | "done";
 
-const IN_REASONS: Array<{ id: TillReasonCode; label: string }> = [
-  { id: "change", label: "Change added to the till" },
-  { id: "other", label: "Something else" },
-];
+const IN_REASONS: TillReasonCode[] = ["change", "other"];
 
-const OUT_REASONS: Array<{ id: TillReasonCode; label: string }> = [
-  { id: "supplier", label: "Paid a supplier" },
-  { id: "owner", label: "Owner took cash" },
-  { id: "other", label: "Something else" },
-];
+const OUT_REASONS: TillReasonCode[] = ["supplier", "owner", "other"];
 
 export function OperatorTillFlow() {
+  const { t, error: operatorError, locale } = useOperatorI18n();
   const [runId, setRunId] = useState("");
   const [mode, setMode] = useState<Mode>("direction");
   const [direction, setDirection] = useState<"in" | "out">("in");
@@ -65,24 +61,24 @@ export function OperatorTillFlow() {
   }
 
   const reasons = direction === "in" ? IN_REASONS : OUT_REASONS;
-  const reasonLabel = reasons.find((choice) => choice.id === reason)?.label ?? "Something else";
+  const reasonLabel = t(`till.reason.${reason}` as OperatorTranslationKey);
 
   return (
     <div data-testid="operator-till-flow">
       <Link href="/operator" className="mb-5 inline-flex min-h-[56px] items-center gap-2 text-lg font-semibold text-[var(--brand)]">
-        <ArrowLeft className="h-6 w-6" aria-hidden />
-        Back
+        <ArrowLeft className="operator-directional-icon h-6 w-6" aria-hidden />
+        {t("common.back")}
       </Link>
 
       {mode === "direction" && (
-        <Panel title="Is money going in or out of the till?">
+        <Panel title={t("till.direction")}>
           <BigButton
             onClick={() => {
               setDirection("in");
               setReason("change");
               setMode("amount");
             }}
-            label="Money in"
+            label={t("till.in")}
           />
           <BigButton
             onClick={() => {
@@ -90,17 +86,17 @@ export function OperatorTillFlow() {
               setReason("supplier");
               setMode("amount");
             }}
-            label="Money out"
+            label={t("till.out")}
           />
         </Panel>
       )}
 
       {mode === "amount" && (
-        <Panel title="How much?" helper={direction === "in" ? "Money going into the till." : "Money coming out of the till."}>
+        <Panel title={t("till.howMuch")} helper={t(direction === "in" ? "till.inHelper" : "till.outHelper")}>
           <label className="block">
-            <span className="sr-only">Amount</span>
+            <span className="sr-only">{t("common.amount")}</span>
             <span className="flex items-center gap-3">
-              <span className="text-3xl font-semibold text-[var(--muted)]">£</span>
+              <bdi dir="ltr" className="operator-bidi text-3xl font-semibold text-[var(--muted)]">£</bdi>
               <input
                 type="number"
                 inputMode="decimal"
@@ -113,37 +109,37 @@ export function OperatorTillFlow() {
               />
             </span>
           </label>
-          <BigButton onClick={() => setMode("reason")} label="Next" disabled={!(Number(amount) > 0)} />
+          <BigButton onClick={() => setMode("reason")} label={t("common.next")} disabled={!(Number(amount) > 0)} />
         </Panel>
       )}
 
       {mode === "reason" && (
-        <Panel title="What was it for?">
+        <Panel title={t("till.reason")}>
           {reasons.map((choice) => (
             <BigButton
-              key={choice.id}
+              key={choice}
               onClick={() => {
-                setReason(choice.id);
+                setReason(choice);
                 setMode("confirm");
               }}
-              label={choice.label}
-              muted={choice.id === "other"}
+              label={t(`till.reason.${choice}` as OperatorTranslationKey)}
+              muted={choice === "other"}
             />
           ))}
         </Panel>
       )}
 
       {mode === "confirm" && (
-        <Panel title="Save this?">
+        <Panel title={t("till.confirm")}>
           <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4">
             <p className="text-lg font-semibold text-[var(--ink)]">
-              {direction === "in" ? "Money in" : "Money out"}: £{Number(amount || 0).toFixed(2)}
+              {t(direction === "in" ? "till.in" : "till.out")}: {operatorMoney(Number(amount || 0), locale)}
             </p>
             <p className="text-lg font-semibold text-[var(--ink)]">{reasonLabel}</p>
           </div>
           {reason === "other" ? (
             <label className="block">
-              <span className="text-base font-semibold">What was it? (a few words)</span>
+              <span className="text-base font-semibold">{t("till.note")}</span>
               <input
                 type="text"
                 value={note}
@@ -154,29 +150,29 @@ export function OperatorTillFlow() {
               />
             </label>
           ) : null}
-          <BigButton onClick={save} label="Save" busy={isPending || !runId} />
-          <BigButton onClick={() => setMode("reason")} label="Change" muted />
+          <BigButton onClick={save} label={t("common.save")} busy={isPending || !runId} />
+          <BigButton onClick={() => setMode("reason")} label={t("common.change")} muted />
         </Panel>
       )}
 
       {mode === "done" && (
-        <Panel title="Saved.">
+        <Panel title={t("common.savedPeriod")}>
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand)] text-white">
             <Check className="h-9 w-9" aria-hidden />
           </div>
-          <BigButton onClick={restart} label="Record another" />
+          <BigButton onClick={restart} label={t("till.another")} />
           <Link
             href="/operator"
             className="flex min-h-[64px] items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 text-lg font-semibold text-[var(--muted)]"
           >
-            Back to home
+            {t("common.backHome")}
           </Link>
         </Panel>
       )}
 
       {error ? (
         <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]" role="alert">
-          {error}
+          {operatorError(error)}
         </p>
       ) : null}
     </div>
@@ -194,6 +190,7 @@ function Panel({ title, helper, children }: { title: string; helper?: string; ch
 }
 
 function BigButton({ label, onClick, muted, disabled, busy }: { label: string; onClick: () => void; muted?: boolean; disabled?: boolean; busy?: boolean }) {
+  const { t } = useOperatorI18n();
   return (
     <button
       type="button"
@@ -204,7 +201,7 @@ function BigButton({ label, onClick, muted, disabled, busy }: { label: string; o
         muted ? "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]" : "bg-[var(--brand)] text-white",
       ].join(" ")}
     >
-      {busy ? "Saving..." : label}
+      {busy ? t("common.saving") : label}
     </button>
   );
 }

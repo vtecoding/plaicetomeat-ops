@@ -20,12 +20,12 @@ import {
 import {
   EXPIRY_CHOICES,
   STORAGE_CHOICES,
-  expiryLabel,
-  storageLabel,
   type ExpiryChoice,
   type StorageChoice,
 } from "@/lib/operator/workflows/stock";
 import { parseOperatorDraftSteps, type OperatorDraftRecord } from "@/lib/operator/workflows/drafts";
+import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { operatorMeasure, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 type ProductOption = { id: string; name: string; unitType: string };
 type SupplierOption = { id: string; name: string };
@@ -60,17 +60,17 @@ const RESUMABLE_MODES: readonly Mode[] = [
 
 const LAST_SAVED_STEP: Record<Mode, string> = {
   start: "",
-  "delivery-product": "What happened?",
-  "delivery-amount": "What arrived?",
-  "delivery-supplier": "How much arrived?",
-  "delivery-photo": "Who brought it?",
-  "delivery-storage": "Photo of the delivery note?",
-  "delivery-expiry": "Where did you put it?",
-  "delivery-review": "How much arrived?",
-  "delivery-confirm": "When does it go off?",
-  "ranout-product": "What happened?",
-  "ranout-sure": "What ran out?",
-  "ranout-confirm": "Are you sure it is empty?",
+  "delivery-product": "stock.what",
+  "delivery-amount": "stock.arrived",
+  "delivery-supplier": "stock.amount",
+  "delivery-photo": "stock.supplier",
+  "delivery-storage": "stock.photo",
+  "delivery-expiry": "stock.storage",
+  "delivery-review": "stock.amount",
+  "delivery-confirm": "stock.expiry",
+  "ranout-product": "stock.what",
+  "ranout-sure": "stock.ranOut",
+  "ranout-confirm": "stock.empty",
   done: "",
 };
 
@@ -85,6 +85,7 @@ export function OperatorStockFlow({
   deliveryDefaults: Record<string, DeliveryDefaults>;
   initialDraft: OperatorDraftRecord | null;
 }) {
+  const { t, error: operatorError, product: productName, locale } = useOperatorI18n();
   const resumable = useMemo(
     () => initialDraft && parseOperatorDraftSteps(initialDraft.steps, "delivery", RESUMABLE_MODES),
     [initialDraft],
@@ -110,7 +111,7 @@ export function OperatorStockFlow({
   // True while a picker was opened from the review screen, so it returns there on choose.
   const [returnToReview, setReturnToReview] = useState(false);
   const [sureRanOut, setSureRanOut] = useState(true);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<"stock" | "owner" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -260,7 +261,7 @@ export function OperatorStockFlow({
 
   function saveDelivery() {
     if (!storageChoice || !expiryChoice) {
-      setError("Please choose where it is kept and when it goes off.");
+      setError("i18n:stock.selectStorageExpiry");
       return;
     }
     setError(null);
@@ -279,7 +280,7 @@ export function OperatorStockFlow({
         setError(res.message);
         return;
       }
-      setResult(res.message);
+      setResult(res.needsOwner ? "owner" : "stock");
       setMode("done");
     });
   }
@@ -292,7 +293,7 @@ export function OperatorStockFlow({
         setError(res.message);
         return;
       }
-      setResult(res.message);
+      setResult("owner");
       setMode("done");
     });
   }
@@ -305,7 +306,7 @@ export function OperatorStockFlow({
         setError(res.message);
         return;
       }
-      setResult(res.message);
+      setResult("owner");
       setMode("done");
     });
   }
@@ -354,79 +355,79 @@ export function OperatorStockFlow({
           <OperatorDraftStatus status={draftSave.status} />
 
       {mode === "start" && (
-        <Panel title="What happened?">
-          <BigButton onClick={() => setMode("delivery-product")} label="A delivery arrived" />
-          <BigButton onClick={() => setMode("ranout-product")} label="Something ran out" />
-          <BigButton onClick={askOwner} label="I am not sure - tell owner" muted busy={isPending} />
+        <Panel title={t("stock.whatHappened")}>
+          <BigButton onClick={() => setMode("delivery-product")} label={t("stock.deliveryArrived")} />
+          <BigButton onClick={() => setMode("ranout-product")} label={t("stock.ranOut")} />
+          <BigButton onClick={askOwner} label={t("stock.unsureTell")} muted busy={isPending} />
           <Link
             href="/operator/waste"
             className="flex min-h-[64px] items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 text-lg font-semibold text-[var(--muted)]"
           >
-            I threw something away
+            {t("stock.threwAway")}
           </Link>
         </Panel>
       )}
 
       {mode === "delivery-product" && (
-        <Panel title="What arrived?">
+        <Panel title={t("stock.whatArrived")}>
           <ProductGrid products={products} onPick={(id) => chooseDeliveryProduct(id)} />
-          <BigButton onClick={() => chooseDeliveryProduct(null)} label="Something else / not sure" muted />
+          <BigButton onClick={() => chooseDeliveryProduct(null)} label={t("stock.somethingElse")} muted />
         </Panel>
       )}
 
       {mode === "delivery-amount" && (
-        <Panel title="How much arrived?" helper={product ? product.name : "If you are not sure, enter your best guess."}>
+        <Panel title={t("stock.howMuchArrived")} helper={product ? productName(product.name) : t("common.bestGuess")}>
           <AmountInput value={quantity} onChange={setQuantity} unit={unit} testId="operator-delivery-quantity" />
-          <BigButton onClick={afterAmount} label="Next" disabled={Number(quantity) <= 0} />
+          <BigButton onClick={afterAmount} label={t("common.next")} disabled={Number(quantity) <= 0} />
         </Panel>
       )}
 
       {mode === "delivery-review" && (
-        <Panel title="Looks right?" helper={product ? product.name : undefined}>
+        <Panel title={t("stock.looksRight")} helper={product ? productName(product.name) : undefined}>
           <div className="rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-2" data-testid="delivery-review">
-            <ReviewRow label="Amount" value={`${quantity || "0"} ${unit}`} />
-            <ReviewRow label="Supplier" value={supplier?.name ?? "Not sure"} onChange={() => changeFromReview("delivery-supplier")} />
+            <ReviewRow label={t("stock.review.amount")} value={operatorMeasure(quantity || "0", t(`unit.${unit}` as OperatorTranslationKey), locale)} />
+            <ReviewRow label={t("stock.review.supplier")} value={supplier?.name ?? t("common.notSure")} onChange={() => changeFromReview("delivery-supplier")} />
             <ReviewRow
-              label="Where"
-              value={storageChoice ? storageLabel(storageChoice) : "Choose"}
+              label={t("stock.review.where")}
+              value={storageChoice ? t(`stock.storage.${storageChoice}` as OperatorTranslationKey) : t("common.choose")}
               onChange={() => changeFromReview("delivery-storage")}
             />
             <ReviewRow
-              label="Use by"
-              value={expiryChoice ? expiryLabel(expiryChoice) : "Choose"}
+              label={t("stock.review.useBy")}
+              value={expiryChoice ? t(`stock.expiry.${expiryChoice}` as OperatorTranslationKey) : t("common.choose")}
               onChange={() => changeFromReview("delivery-expiry")}
             />
             <ReviewRow
-              label="Photo"
-              value={noteEvidenceId ? "Added" : "None (optional)"}
+              label={t("stock.review.photo")}
+              value={noteEvidenceId ? t("stock.review.added") : t("stock.review.none")}
               onChange={() => changeFromReview("delivery-photo")}
             />
           </div>
           <BigButton
             onClick={saveDelivery}
-            label="Yes, add this delivery"
+            label={t("stock.addDeliveryYes")}
             busy={isPending || !runId}
             disabled={!storageChoice || !expiryChoice}
           />
-          <BigButton onClick={askOwner} label="I'm not sure - tell owner" muted busy={isPending} />
+          <BigButton onClick={askOwner} label={t("stock.unsureTell")} muted busy={isPending} />
         </Panel>
       )}
 
       {mode === "delivery-supplier" && (
-        <Panel title="Who brought it?">
+        <Panel title={t("stock.whoBrought")}>
           <div className="grid gap-3">
             {suppliers.map((item) => (
               <BigButton key={item.id} onClick={() => pickSupplier(item.id)} label={item.name} />
             ))}
-            <BigButton onClick={() => pickSupplier(null)} label="Not sure" muted />
+            <BigButton onClick={() => pickSupplier(null)} label={t("common.notSure")} muted />
           </div>
         </Panel>
       )}
 
       {mode === "delivery-photo" && (
-        <Panel title="Photo of the delivery note?" helper="This is optional.">
+        <Panel title={t("stock.deliveryPhoto")} helper={t("common.optional")}>
           <label className="flex min-h-[72px] cursor-pointer items-center justify-center rounded-2xl bg-[var(--brand)] px-6 text-xl font-semibold text-white transition active:scale-[0.99]">
-            Take or choose photo
+            {t("common.takePhoto")}
             <input
               type="file"
               accept="image/*"
@@ -443,76 +444,76 @@ export function OperatorStockFlow({
               setMode(returnToReview ? "delivery-review" : "delivery-storage");
               setReturnToReview(false);
             }}
-            label={returnToReview ? "Back" : "Skip for now"}
+            label={returnToReview ? t("common.back") : t("common.skipNow")}
             muted
           />
-          {photoSaving ? <p className="text-base font-semibold text-[var(--muted)]">Saving photo...</p> : null}
-          {noteEvidenceId && notePhotoName ? <p className="text-base font-semibold text-[var(--muted)]">Photo saved: {notePhotoName}</p> : null}
+          {photoSaving ? <p className="text-base font-semibold text-[var(--muted)]">{t("common.savingPhoto")}</p> : null}
+          {noteEvidenceId && notePhotoName ? <p className="text-base font-semibold text-[var(--muted)]">{t("common.photoSaved", { name: notePhotoName })}</p> : null}
         </Panel>
       )}
 
       {mode === "delivery-storage" && (
-        <Panel title="Where did you put it?">
+        <Panel title={t("stock.wherePut")}>
           {STORAGE_CHOICES.map((choice) => (
-            <BigButton key={choice.id} onClick={() => pickStorage(choice.id)} label={choice.label} muted={choice.id === "not_sure"} />
+            <BigButton key={choice.id} onClick={() => pickStorage(choice.id)} label={t(`stock.storage.${choice.id}` as OperatorTranslationKey)} muted={choice.id === "not_sure"} />
           ))}
         </Panel>
       )}
 
       {mode === "delivery-expiry" && (
-        <Panel title="When does it go off?">
+        <Panel title={t("stock.whenOff")}>
           {EXPIRY_CHOICES.map((choice) => (
-            <BigButton key={choice.id} onClick={() => pickExpiry(choice.id)} label={choice.label} muted={choice.id === "not_sure"} />
+            <BigButton key={choice.id} onClick={() => pickExpiry(choice.id)} label={t(`stock.expiry.${choice.id}` as OperatorTranslationKey)} muted={choice.id === "not_sure"} />
           ))}
         </Panel>
       )}
 
       {mode === "delivery-confirm" && (
-        <Panel title="Add this delivery?">
+        <Panel title={t("stock.addDeliveryQuestion")}>
           <Summary
             lines={[
-              product?.name ?? "Product: not sure",
-              `${quantity || "0"} ${unit}`,
-              supplier?.name ?? "Supplier: not sure",
-              `Location: ${storageChoice ? storageLabel(storageChoice) : "Not sure"}`,
+              product ? productName(product.name) : t("stock.productUnknown"),
+              operatorMeasure(quantity || "0", t(`unit.${unit}` as OperatorTranslationKey), locale),
+              supplier?.name ?? t("stock.supplierUnknown"),
+              t("stock.location", { place: storageChoice ? t(`stock.storage.${storageChoice}` as OperatorTranslationKey) : t("common.notSure") }),
             ]}
           />
-          <BigButton onClick={saveDelivery} label="Add this delivery" busy={isPending || !runId} />
+          <BigButton onClick={saveDelivery} label={t("stock.addDelivery")} busy={isPending || !runId} />
         </Panel>
       )}
 
       {mode === "ranout-product" && (
-        <Panel title="What ran out?">
+        <Panel title={t("stock.whatRanOut")}>
           <ProductGrid products={products} onPick={(id) => { setProductId(id); setMode("ranout-sure"); }} />
-          <BigButton onClick={() => { setProductId(null); setMode("ranout-sure"); }} label="Something else / not sure" muted />
+          <BigButton onClick={() => { setProductId(null); setMode("ranout-sure"); }} label={t("stock.somethingElse")} muted />
         </Panel>
       )}
 
       {mode === "ranout-sure" && (
-        <Panel title="Are you sure it is empty?">
-          <BigButton onClick={() => { setSureRanOut(true); setMode("ranout-confirm"); }} label="Yes" />
-          <BigButton onClick={() => { setSureRanOut(false); setMode("ranout-confirm"); }} label="Not sure" muted />
+        <Panel title={t("stock.isEmpty")}>
+          <BigButton onClick={() => { setSureRanOut(true); setMode("ranout-confirm"); }} label={t("common.yes")} />
+          <BigButton onClick={() => { setSureRanOut(false); setMode("ranout-confirm"); }} label={t("common.notSure")} muted />
         </Panel>
       )}
 
       {mode === "ranout-confirm" && (
-        <Panel title="Tell owner this ran out?">
-          <Summary lines={[product?.name ?? "Product: not sure", sureRanOut ? "It is empty" : "Please check it"]} />
-          <BigButton onClick={saveRanOut} label="Tell owner" busy={isPending || !runId} />
+        <Panel title={t("stock.tellRanOut")}>
+          <Summary lines={[product ? productName(product.name) : t("stock.productUnknown"), t(sureRanOut ? "stock.empty" : "stock.pleaseCheck")]} />
+          <BigButton onClick={saveRanOut} label={t("common.tellOwner")} busy={isPending || !runId} />
         </Panel>
       )}
 
       {mode === "done" && (
-        <Panel title={result ?? "Saved"}>
+        <Panel title={t(result === "stock" ? "stock.added" : "common.ownerWillCheck")}>
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand)] text-white">
             <Check className="h-9 w-9" aria-hidden />
           </div>
-          <BigButton onClick={() => restart("start")} label="Do another stock job" />
+          <BigButton onClick={() => restart("start")} label={t("stock.anotherJob")} />
           <Link
             href="/operator"
             className="flex min-h-[64px] items-center justify-center rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-5 text-lg font-semibold text-[var(--muted)]"
           >
-            Back to home
+            {t("common.backHome")}
           </Link>
         </Panel>
       )}
@@ -520,16 +521,17 @@ export function OperatorStockFlow({
         </>
       )}
 
-      {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{error}</p> : null}
+      {error ? <p className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-4 text-base font-semibold text-[var(--clay)]">{operatorError(error)}</p> : null}
     </div>
   );
 }
 
 function TopLink() {
+  const { t } = useOperatorI18n();
   return (
     <Link href="/operator" className="mb-5 inline-flex min-h-[56px] items-center gap-2 text-lg font-semibold text-[var(--brand)]">
-      <ArrowLeft className="h-6 w-6" aria-hidden />
-      Back
+      <ArrowLeft className="operator-directional-icon h-6 w-6" aria-hidden />
+      {t("common.back")}
     </Link>
   );
 }
@@ -550,6 +552,7 @@ function Panel({ title, helper, children }: { title: string; helper?: string; ch
 }
 
 function BigButton({ label, onClick, muted, disabled, busy }: { label: string; onClick: () => void; muted?: boolean; disabled?: boolean; busy?: boolean }) {
+  const { t } = useOperatorI18n();
   return (
     <button
       type="button"
@@ -560,13 +563,14 @@ function BigButton({ label, onClick, muted, disabled, busy }: { label: string; o
         muted ? "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]" : "bg-[var(--brand)] text-white",
       ].join(" ")}
     >
-      {busy ? "Saving..." : label}
+      {busy ? t("common.saving") : label}
     </button>
   );
 }
 
 // One line of the delivery review: a remembered value with a one-tap way to correct it.
 function ReviewRow({ label, value, onChange }: { label: string; value: string; onChange?: () => void }) {
+  const { t } = useOperatorI18n();
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-3">
       <span className="min-w-0">
@@ -580,7 +584,7 @@ function ReviewRow({ label, value, onChange }: { label: string; value: string; o
           className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--card)] px-4 py-2 text-base font-semibold text-[var(--brand)] transition active:scale-[0.99]"
         >
           <Pencil className="h-4 w-4" aria-hidden />
-          Change
+          {t("common.change")}
         </button>
       ) : null}
     </div>
@@ -588,6 +592,7 @@ function ReviewRow({ label, value, onChange }: { label: string; value: string; o
 }
 
 function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: (id: string) => void }) {
+  const { product: productName } = useOperatorI18n();
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {products.slice(0, 12).map((product) => (
@@ -595,9 +600,9 @@ function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: 
           key={product.id}
           type="button"
           onClick={() => onPick(product.id)}
-          className="min-h-[88px] rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-4 py-3 text-left text-xl font-semibold text-[var(--ink)] transition active:scale-[0.99]"
+          className="min-h-[88px] rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-4 py-3 text-start text-xl font-semibold text-[var(--ink)] transition active:scale-[0.99]"
         >
-          {product.name}
+          {productName(product.name)}
         </button>
       ))}
     </div>
@@ -605,9 +610,10 @@ function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: 
 }
 
 function AmountInput({ value, onChange, unit, testId }: { value: string; onChange: (value: string) => void; unit: string; testId: string }) {
+  const { t } = useOperatorI18n();
   return (
     <label className="block">
-      <span className="sr-only">Amount</span>
+      <span className="sr-only">{t("common.amount")}</span>
       <span className="flex items-center gap-3">
         <input
           type="number"
@@ -619,7 +625,7 @@ function AmountInput({ value, onChange, unit, testId }: { value: string; onChang
           data-testid={testId}
           className="h-20 w-44 rounded-xl border-2 border-[var(--line)] bg-[var(--paper)] px-4 text-3xl font-semibold outline-none focus:border-[var(--brand)]"
         />
-        <span className="text-2xl font-semibold text-[var(--muted)]">{unit}</span>
+        <bdi dir="ltr" className="operator-bidi text-2xl font-semibold text-[var(--muted)]">{t(`unit.${unit}` as OperatorTranslationKey)}</bdi>
       </span>
     </label>
   );
