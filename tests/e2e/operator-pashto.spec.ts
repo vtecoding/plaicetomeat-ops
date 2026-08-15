@@ -24,8 +24,8 @@ test.describe("Afghan Pashto Operator Mode", () => {
     await page.screenshot({ path: "test-results/operator-pashto-home-tablet.png", fullPage: true });
 
     await page.goto("/operator/serve");
-    await expect(page.getByRole("heading", { name: "څه یې واخیستل؟" })).toBeVisible();
-    await page.getByRole("button", { name: "ټول چرګ", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "مشتري څه واخیستل؟" })).toBeVisible();
+    await page.getByRole("button", { name: "یو بشپړ چرګ", exact: true }).click();
     await expect(page.getByRole("heading", { name: "څو دانې؟", exact: true })).toBeVisible();
 
     // Language changes presentation only; the in-progress Serve mode remains on amount selection.
@@ -39,11 +39,11 @@ test.describe("Afghan Pashto Operator Mode", () => {
     const routes: Array<[string, string]> = [
       ["/operator/open", "دوکان خلاص کړه"],
       ["/operator/close", "دوکان بند کړه"],
-      ["/operator/stock", "مال او رسېدلی مال"],
-      ["/operator/waste", "ضایع شوی مال"],
-      ["/operator/till", "صندوق ته پیسې دننه / بهر"],
+      ["/operator/stock", "راغلی مال یا مال نور نشته"],
+      ["/operator/waste", "غورځول شوی مال"],
+      ["/operator/till", "د کیش پیسې: دننه / بهر"],
       ["/operator/help", "څه ستونزه ده؟"],
-      ["/operator/certificate", "دا کوم کاغذ دی؟"],
+      ["/operator/certificate", "دا کوم سند دی؟"],
     ];
     for (const [route, text] of routes) {
       await page.goto(route);

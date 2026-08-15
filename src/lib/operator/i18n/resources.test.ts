@@ -106,6 +106,21 @@ describe("operator localisation resources", () => {
     ] as const;
     for (const key of critical) expect(ps[key], key).toBeTruthy();
   });
+
+  it("locks the field-reviewed spoken Afghan shop glossary", () => {
+    expect(ps["common.tellOwner"]).toBe("مالک خبر کړه");
+    expect(ps["home.serve"]).toBe("غوښه خرڅه کړه");
+    expect(ps["home.stock"]).toBe("نوی مال راغی یا مال نور نشته");
+    expect(ps["home.paper"]).toBe("د سند عکس واخله");
+    expect(ps["home.till"]).toBe("د کیش پیسې");
+    expect(ps["page.waste.title"]).toBe("غورځول شوی مال");
+  });
+
+  it("does not reintroduce the ambiguous or bureaucratic wording rejected in field review", () => {
+    const copy = Object.values(ps).join("\n");
+    expect(copy).not.toMatch(/خاوند|صندوق|ضایع|ثبت/);
+    expect(copy).not.toContain("ے"); // Urdu/Pakistan-specific bari ye is not Afghan Pashto orthography.
+  });
 });
 
 describe("operator raw-literal guard", () => {

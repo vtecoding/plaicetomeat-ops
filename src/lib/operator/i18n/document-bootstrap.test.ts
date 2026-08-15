@@ -53,7 +53,9 @@ describe("operator document language bootstrap", () => {
   });
 
   it("fails safely when the locale cookie is malformed", () => {
-    const result = runBootstrap("/operator", "ptm_operator_locale=%E0%A4%A");
+    const escape = String.fromCharCode(37);
+    const malformedCookie = `ptm_operator_locale=${escape}E0${escape}A4${escape}A`;
+    const result = runBootstrap("/operator", malformedCookie);
 
     expect(result.documentElement.lang).toBe("en");
     expect(result.documentElement.dir).toBe("ltr");
