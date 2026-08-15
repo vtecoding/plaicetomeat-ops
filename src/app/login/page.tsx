@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 
-import { OperatorLanguageControl, OperatorLoginSurface, OperatorText } from "@/app/operator/_components/operator-language";
+import { OperatorLanguageControl, OperatorLoginSurface, OperatorScriptStyleControl, OperatorText } from "@/app/operator/_components/operator-language";
 import { LoginForm } from "@/components/login-form";
 import { PasswordResetRequest } from "@/components/password-reset-request";
 import { resolvePostLoginPath, sanitizeReturnTo } from "@/lib/domain/auth";
 import { OperatorLocaleProvider } from "@/lib/operator/i18n/context";
 import { translateOperator } from "@/lib/operator/i18n/resources";
-import { getOperatorLocale } from "@/lib/operator/i18n/server";
+import { getOperatorLocale, getOperatorScriptStyle } from "@/lib/operator/i18n/server";
 import { getCurrentProfile } from "@/lib/server/auth";
 
 export async function generateMetadata() {
@@ -21,7 +21,7 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const returnTo = sanitizeReturnTo(params.returnTo) ?? undefined;
-  const locale = await getOperatorLocale();
+  const [locale, scriptStyle] = await Promise.all([getOperatorLocale(), getOperatorScriptStyle()]);
 
   const profile = await getCurrentProfile();
 
@@ -30,12 +30,15 @@ export default async function LoginPage({
   }
 
   return (
-    <OperatorLocaleProvider initialLocale={locale} applyDocumentDirection>
+    <OperatorLocaleProvider initialLocale={locale} initialScriptStyle={scriptStyle} applyDocumentDirection>
       <OperatorLoginSurface>
         <header className="border-b border-[var(--line)] bg-[var(--card)]/80 px-4 py-3">
           <div className="mx-auto flex max-w-md flex-wrap items-center justify-between gap-3">
             <span className="font-display text-xl font-semibold">PlaiceToMeat</span>
-            <OperatorLanguageControl />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <OperatorLanguageControl />
+              <OperatorScriptStyleControl />
+            </div>
           </div>
         </header>
         <main className="mx-auto flex max-w-md flex-col px-4 py-12 sm:px-6">

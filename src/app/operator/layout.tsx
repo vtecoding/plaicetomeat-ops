@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
-import { OperatorLanguageControl, OperatorLocaleSurface, OperatorText } from "@/app/operator/_components/operator-language";
+import { OperatorLanguageControl, OperatorLocaleSurface, OperatorScriptStyleControl, OperatorText } from "@/app/operator/_components/operator-language";
 import { LogoutButton } from "@/components/logout-button";
 import { OperatorLocaleProvider } from "@/lib/operator/i18n/context";
-import { getOperatorLocale } from "@/lib/operator/i18n/server";
+import { getOperatorLocale, getOperatorScriptStyle } from "@/lib/operator/i18n/server";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
 // V17 Operator Mode shell. The single guided front door for a low-tech operator.
@@ -18,11 +18,11 @@ export const dynamic = "force-dynamic";
 
 export default async function OperatorLayout({ children }: { children: ReactNode }) {
   const { profile } = await requireStaffContext("manager");
-  const locale = await getOperatorLocale();
+  const [locale, scriptStyle] = await Promise.all([getOperatorLocale(), getOperatorScriptStyle()]);
   const firstName = profile.fullName?.trim().split(/\s+/)[0] ?? null;
 
   return (
-    <OperatorLocaleProvider initialLocale={locale} applyDocumentDirection>
+    <OperatorLocaleProvider initialLocale={locale} initialScriptStyle={scriptStyle} applyDocumentDirection>
       <OperatorLocaleSurface>
         <header className="border-b border-[var(--line)] bg-[var(--card)]/80 px-5 py-4 backdrop-blur">
           <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-3">
@@ -34,6 +34,7 @@ export default async function OperatorLayout({ children }: { children: ReactNode
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <OperatorLanguageControl />
+              <OperatorScriptStyleControl />
               <LogoutButton />
             </div>
           </div>

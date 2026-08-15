@@ -1,6 +1,6 @@
 "use client";
 
-import { Languages } from "lucide-react";
+import { Languages, Type } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { useOperatorI18n } from "@/lib/operator/i18n/context";
@@ -41,14 +41,37 @@ export function OperatorLanguageControl() {
   );
 }
 
+export function OperatorScriptStyleControl() {
+  const { locale, scriptStyle, setScriptStyle, t } = useOperatorI18n();
+
+  if (locale !== "ps-AF") return null;
+
+  const nastaliq = scriptStyle === "nastaliq";
+
+  return (
+    <button
+      type="button"
+      aria-label={t("scriptStyle.label")}
+      aria-pressed={nastaliq}
+      onClick={() => setScriptStyle(nastaliq ? "clear" : "nastaliq")}
+      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--paper)] px-3 text-base font-semibold aria-pressed:border-[var(--brand)] aria-pressed:bg-[var(--brand)] aria-pressed:text-white"
+      data-testid="operator-script-style-control"
+    >
+      <Type className="h-4 w-4" aria-hidden />
+      {t("scriptStyle.nastaliq")}
+    </button>
+  );
+}
+
 export function OperatorLocaleSurface({ children }: { children: ReactNode }) {
-  const { locale, dir } = useOperatorI18n();
+  const { locale, dir, scriptStyle } = useOperatorI18n();
   return (
     <div
       className="operator-locale flex min-h-screen flex-col bg-[var(--paper)] text-[var(--ink)]"
       lang={locale}
       dir={dir}
       data-operator-locale={locale}
+      data-operator-script-style={scriptStyle}
     >
       {children}
     </div>
@@ -56,8 +79,18 @@ export function OperatorLocaleSurface({ children }: { children: ReactNode }) {
 }
 
 export function OperatorLoginSurface({ children }: { children: ReactNode }) {
-  const { locale, dir } = useOperatorI18n();
-  return <div className="min-h-screen overflow-x-hidden" lang={locale} dir={dir}>{children}</div>;
+  const { locale, dir, scriptStyle } = useOperatorI18n();
+  return (
+    <div
+      className="operator-login min-h-screen overflow-x-hidden"
+      lang={locale}
+      dir={dir}
+      data-operator-locale={locale}
+      data-operator-script-style={scriptStyle}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function OperatorText({

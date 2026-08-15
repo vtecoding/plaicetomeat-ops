@@ -136,6 +136,23 @@
     direction: ltr;
     unicode-bidi: isolate;
   }
+
+  /* Same Afghan Pashto copy, with an optional calligraphic Nastaliq rendering. */
+  :is(.operator-locale, .operator-login)[data-operator-locale="ps-AF"][data-operator-script-style="nastaliq"] {
+    font-family: var(--font-nastaliq), "Noto Nastaliq Urdu", serif;
+    line-height: 1.8;
+  }
+
+  :is(.operator-locale, .operator-login)[data-operator-locale="ps-AF"][data-operator-script-style="nastaliq"]
+    :is(h1, h2, h3, .font-display, .eyebrow) {
+    font-family: var(--font-nastaliq), "Noto Nastaliq Urdu", serif;
+    letter-spacing: 0;
+    line-height: 1.75;
+  }
+
+  :is(.operator-locale, .operator-login)[data-operator-script-style="nastaliq"] [lang="en"] {
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  }
 }
 
 @layer utilities {

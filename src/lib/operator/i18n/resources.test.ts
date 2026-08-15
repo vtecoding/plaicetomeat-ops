@@ -5,8 +5,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_OPERATOR_LOCALE,
+  DEFAULT_OPERATOR_SCRIPT_STYLE,
   en,
   isOperatorLocale,
+  isOperatorScriptStyle,
   operatorDirection,
   operatorMeasure,
   operatorMoney,
@@ -105,6 +107,13 @@ describe("operator localisation resources", () => {
       "error.retry", "common.tryAgain", "certificate.take", "till.direction",
     ] as const;
     for (const key of critical) expect(ps[key], key).toBeTruthy();
+  });
+
+  it("accepts only the supported Pashto presentation styles", () => {
+    expect(DEFAULT_OPERATOR_SCRIPT_STYLE).toBe("clear");
+    expect(isOperatorScriptStyle("clear")).toBe(true);
+    expect(isOperatorScriptStyle("nastaliq")).toBe(true);
+    expect(isOperatorScriptStyle("naskh")).toBe(false);
   });
 
   it("locks the field-reviewed spoken Afghan shop glossary", () => {

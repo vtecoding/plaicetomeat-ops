@@ -4,11 +4,17 @@ export type OperatorLocale = (typeof OPERATOR_LOCALES)[number];
 
 export const OPERATOR_LOCALE_COOKIE = "ptm_operator_locale";
 export const DEFAULT_OPERATOR_LOCALE: OperatorLocale = "en";
+export const OPERATOR_SCRIPT_STYLE_COOKIE = "ptm_operator_script_style";
+export const OPERATOR_SCRIPT_STYLES = ["clear", "nastaliq"] as const;
+export type OperatorScriptStyle = (typeof OPERATOR_SCRIPT_STYLES)[number];
+export const DEFAULT_OPERATOR_SCRIPT_STYLE: OperatorScriptStyle = "clear";
 
 export const en = {
   "language.label": "Language",
   "language.english": "English",
   "language.pashto": "Pashto",
+  "scriptStyle.label": "Pashto writing style",
+  "scriptStyle.nastaliq": "Nastaliq",
   "shell.hello": "Hello, {name}",
   "shell.welcome": "Welcome",
   "shell.signOut": "Sign out",
@@ -343,6 +349,8 @@ export const ps = {
   "language.label": "ژبه",
   "language.english": "English",
   "language.pashto": "پښتو",
+  "scriptStyle.label": "د پښتو لیک ډول",
+  "scriptStyle.nastaliq": "نستعلیق",
   "shell.hello": "سلام، {name}",
   "shell.welcome": "ښه راغلاست",
   "shell.signOut": "له حسابه ووځه",
@@ -674,6 +682,10 @@ export const operatorResources: Record<OperatorLocale, Record<OperatorTranslatio
 
 export function isOperatorLocale(value: string | null | undefined): value is OperatorLocale {
   return value === "en" || value === "ps-AF";
+}
+
+export function isOperatorScriptStyle(value: string | null | undefined): value is OperatorScriptStyle {
+  return value === "clear" || value === "nastaliq";
 }
 
 export function operatorDirection(locale: OperatorLocale): "ltr" | "rtl" {

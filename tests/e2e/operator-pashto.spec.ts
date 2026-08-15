@@ -11,8 +11,19 @@ test.describe("Afghan Pashto Operator Mode", () => {
     await expect(page.getByRole("heading", { name: "ننوځه" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 
+    const nastaliqControl = page.getByTestId("operator-script-style-control");
+    const loginSurface = page.locator('[data-operator-locale="ps-AF"]');
+    const loginWords = await page.getByRole("heading", { name: "ننوځه" }).textContent();
+    await expect(nastaliqControl).toHaveAttribute("aria-pressed", "false");
+    await nastaliqControl.click();
+    await expect(nastaliqControl).toHaveAttribute("aria-pressed", "true");
+    await expect(loginSurface).toHaveAttribute("data-operator-script-style", "nastaliq");
+    await expect.poll(() => loginSurface.evaluate((element) => getComputedStyle(element).fontFamily)).toContain("Noto Nastaliq Urdu");
+    await expect(page.getByRole("heading", { name: "ننوځه" })).toHaveText(loginWords ?? "");
+
     await page.reload();
     await expect(page.getByRole("heading", { name: "ننوځه" })).toBeVisible();
+    await expect(page.getByTestId("operator-script-style-control")).toHaveAttribute("aria-pressed", "true");
     await page.fill('input[name="email"]', USERS.operator);
     await page.fill('input[name="password"]', TEST_PASSWORD);
     await page.getByRole("button", { name: "ننوځه", exact: true }).click();
@@ -20,6 +31,7 @@ test.describe("Afghan Pashto Operator Mode", () => {
 
     const surface = page.locator('[data-operator-locale="ps-AF"]');
     await expect(surface).toHaveAttribute("dir", "rtl");
+    await expect(surface).toHaveAttribute("data-operator-script-style", "nastaliq");
     await expect(page.getByText("دوکان خلاص کړه", { exact: true }).first()).toBeVisible();
     await page.screenshot({ path: "test-results/operator-pashto-home-tablet.png", fullPage: true });
 

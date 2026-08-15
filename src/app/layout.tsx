@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Fraunces, Inter, Noto_Nastaliq_Urdu } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
 import { NotificationOpenRecorder } from "@/components/notification-open-recorder";
@@ -22,6 +22,15 @@ const fraunces = Fraunces({
   style: ["normal", "italic"],
 });
 
+// Optional Pashto presentation style. The words remain the same; this bundled
+// font only changes their calligraphic rendering when the operator enables it.
+const notoNastaliq = Noto_Nastaliq_Urdu({
+  subsets: ["arabic"],
+  variable: "--font-nastaliq",
+  display: "swap",
+  weight: "variable",
+});
+
 export const metadata: Metadata = {
   title: {
     default: "PlaiceToMeat Wylde Green — Halal Butcher",
@@ -40,7 +49,7 @@ export default function RootLayout({
       lang="en"
       translate="yes"
       suppressHydrationWarning
-      className={`${inter.variable} ${fraunces.variable}`}
+      className={`${inter.variable} ${fraunces.variable} ${notoNastaliq.variable}`}
     >
       <head>
         <script
