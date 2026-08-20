@@ -9,6 +9,7 @@ import type {
   OperatorEvidenceType,
   OperatorEvidenceUploadResult,
 } from "@/lib/operator/evidence-types";
+import { assertProductionMutationAllowed, type ExecutionContext } from "@/lib/operator/execution-context";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import {
   createSupabaseServerClient,
@@ -87,6 +88,10 @@ async function recordFailedUpload(input: {
 }
 
 export async function uploadOperatorEvidence(formData: FormData): Promise<OperatorEvidenceUploadResult> {
+  assertProductionMutationAllowed(
+    valueFrom(formData, "executionMode") === "live" ? { mode: "live" } : undefined,
+    "operator-upload-evidence",
+  );
   const auth = await requireManager();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!hasSupabaseServiceEnv()) return { ok: false, message: "Photo storage is not ready." };
@@ -231,7 +236,9 @@ export async function linkOperatorEvidence(input: {
   sourceId: string;
   sourceRef?: string | null;
   reviewRequired?: boolean;
+  executionContext?: ExecutionContext;
 }) {
+  assertProductionMutationAllowed(input.executionContext, "operator-link-evidence");
   const auth = await requireManager();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!isUuid(input.evidenceId) || !isUuid(input.expectedRunId) || !isUuid(input.sourceId)) {

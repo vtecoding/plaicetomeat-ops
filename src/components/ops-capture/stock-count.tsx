@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ClipboardCheck, PlayCircle } from "lucide-react";
 
 import { applyStockCountLine, completeChecklist, recordStockCountLine, startOrResumeChecklist } from "@/app/actions/ops-capture";
+import { LIVE_EXECUTION_CONTEXT } from "@/lib/operator/execution-context";
 import { stockVarianceKg } from "@/lib/ops-capture/progress";
 import type { StockCountBatch, StockCountLineState } from "@/lib/server/ops-capture";
 import { cn } from "@/lib/utils";
@@ -44,7 +45,7 @@ export function StockCount({
   async function start() {
     setBusy("start");
     setError(null);
-    const res = await startOrResumeChecklist({ branchId, kind: "stock_count" });
+    const res = await startOrResumeChecklist({ branchId, kind: "stock_count", executionContext: LIVE_EXECUTION_CONTEXT });
     if (!res.ok || !res.id) setError(res.ok ? "Could not start." : res.message);
     else setSessionId(res.id);
     setBusy(null);
@@ -58,7 +59,7 @@ export function StockCount({
     setError(null);
 
     const counted = Number(raw);
-    const res = await recordStockCountLine({ sessionId, batchId: batch.batchId, countedWeightKg: counted });
+    const res = await recordStockCountLine({ sessionId, batchId: batch.batchId, countedWeightKg: counted, executionContext: LIVE_EXECUTION_CONTEXT });
     if (!res.ok || !res.id) {
       setError(res.ok ? "Could not record this count." : res.message);
       setBusy(null);
@@ -78,7 +79,7 @@ export function StockCount({
     setBusy(batchId);
     setError(null);
 
-    const res = await applyStockCountLine({ sessionId, lineId: line.lineId });
+    const res = await applyStockCountLine({ sessionId, lineId: line.lineId, executionContext: LIVE_EXECUTION_CONTEXT });
     if (!res.ok) {
       setError(res.message);
       setBusy(null);
@@ -91,7 +92,7 @@ export function StockCount({
   async function finish() {
     if (!sessionId) return;
     setBusy("finish");
-    const res = await completeChecklist({ sessionId });
+    const res = await completeChecklist({ sessionId, executionContext: LIVE_EXECUTION_CONTEXT });
     if (!res.ok) {
       setError(res.message);
       setBusy(null);

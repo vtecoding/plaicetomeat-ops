@@ -6,6 +6,7 @@ import {
   type OperatorActionResult,
 } from "@/app/actions/operator/escalation";
 import { linkOperatorEvidence } from "@/app/actions/operator/evidence";
+import { assertProductionMutationAllowed, LIVE_EXECUTION_CONTEXT, type ExecutionContext } from "@/lib/operator/execution-context";
 import type { ExpiryChoice, StorageChoice } from "@/lib/operator/workflows/stock";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import {
@@ -100,7 +101,9 @@ export async function confirmSimpleDelivery(input: {
     storage?: string | null;
     expiry?: string | null;
   } | null;
+  executionContext?: ExecutionContext;
 }): Promise<OperatorActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "operator-confirm-delivery");
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!isUuid(input.runId)) return { ok: false, message: "Please go back and try again." };
@@ -154,6 +157,7 @@ export async function confirmSimpleDelivery(input: {
       sourceId: receipt.id,
       sourceRef: receipt.product_name ?? "Delivery",
       reviewRequired: receipt.evidence_review_required ?? false,
+      executionContext: LIVE_EXECUTION_CONTEXT,
     });
     if (!evidenceLink.ok) {
       revalidateOperatorOps();
@@ -184,7 +188,9 @@ export async function reportRanOut(input: {
   runId: string;
   productId: string | null;
   sure: boolean;
+  executionContext?: ExecutionContext;
 }): Promise<OperatorActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "operator-report-ran-out");
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!isUuid(input.runId)) return { ok: false, message: "Please go back and try again." };
@@ -204,7 +210,8 @@ export async function reportRanOut(input: {
   });
 }
 
-export async function tellOwnerAboutStock(input: { runId: string }): Promise<OperatorActionResult> {
+export async function tellOwnerAboutStock(input: { runId: string; executionContext?: ExecutionContext }): Promise<OperatorActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "operator-stock-owner-check");
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!isUuid(input.runId)) return { ok: false, message: "Please go back and try again." };

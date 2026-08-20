@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { OpsStepState } from "@/lib/ops-capture/types";
+import { assertProductionMutationAllowed, type ExecutionContext } from "@/lib/operator/execution-context";
 import { log } from "@/lib/server/observability/log";
 import { incrementMetric } from "@/lib/server/observability/metrics";
 import { resolveStaffContext } from "@/lib/server/staff-context";
@@ -61,7 +62,9 @@ function revalidateOps() {
 export async function startOrResumeChecklist(input: {
   branchId: string;
   kind: "opening" | "closing" | "stock_count";
+  executionContext?: ExecutionContext;
 }): Promise<ActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "ops-start-or-resume-checklist");
   const auth = await requireManager();
   if (!auth.ok) return auth;
 
@@ -81,7 +84,9 @@ export async function recordChecklistStep(input: {
   state: OpsStepState;
   payload?: Record<string, unknown>;
   idempotencyKey?: string;
+  executionContext?: ExecutionContext;
 }): Promise<ActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "ops-record-checklist-step");
   const auth = await requireManager();
   if (!auth.ok) return auth;
 
@@ -99,7 +104,8 @@ export async function recordChecklistStep(input: {
   return { ok: true, message: "Saved.", id: String(data) };
 }
 
-export async function completeChecklist(input: { sessionId: string }): Promise<ActionResult> {
+export async function completeChecklist(input: { sessionId: string; executionContext?: ExecutionContext }): Promise<ActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "ops-complete-checklist");
   const auth = await requireManager();
   if (!auth.ok) return auth;
 
@@ -121,7 +127,9 @@ export async function recordStockCountLine(input: {
   sessionId: string;
   batchId: string;
   countedWeightKg: number;
+  executionContext?: ExecutionContext;
 }): Promise<ActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "ops-record-stock-count-line");
   const auth = await requireManager();
   if (!auth.ok) return auth;
 
@@ -139,7 +147,9 @@ export async function applyStockCountLine(input: {
   sessionId: string;
   lineId: string;
   reason?: string;
+  executionContext?: ExecutionContext;
 }): Promise<ActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "ops-apply-stock-count-line");
   const auth = await requireManager();
   if (!auth.ok) return auth;
 

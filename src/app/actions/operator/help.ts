@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { simpleText, type OperatorActionResult } from "@/app/actions/operator/escalation";
+import { assertProductionMutationAllowed, type ExecutionContext } from "@/lib/operator/execution-context";
 import {
   helpProblemChoice,
   isHelpOperationId,
@@ -18,7 +19,8 @@ import { createSupabaseServerClient, hasSupabasePublicEnv } from "@/lib/supabase
 // it reaches the owner even when they are present. The operator is never blamed
 // and never blocked — they always get a calm "the owner has been told".
 
-export async function tellOwner(input: { operationId: string; problem: string; note?: string | null }): Promise<OperatorActionResult> {
+export async function tellOwner(input: { operationId: string; problem: string; note?: string | null; executionContext?: ExecutionContext }): Promise<OperatorActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "operator-tell-owner");
   const ctx = await resolveStaffContext("manager", { branchScoped: true });
   if (!ctx.ok) return { ok: false, message: ctx.message };
   if (!hasSupabasePublicEnv()) return { ok: false, message: "Try again." };

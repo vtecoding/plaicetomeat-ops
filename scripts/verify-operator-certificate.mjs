@@ -63,7 +63,7 @@ async function run() {
     await page.getByRole("button", { name: "Halal paper" }).click();
     await page.locator('input[type="file"]').setInputFiles(filePath);
     await page.getByRole("heading", { name: "Done" }).waitFor();
-    await page.getByText("Saved. Owner will check it.").waitFor();
+    await page.getByText("Saved. The owner will check it.").waitFor();
 
     const doc = await one("compliance_documents", "id,document_url,doc_type,status,created_at", (q) =>
       q.eq("doc_type", "halal").gt("created_at", marker).order("created_at", { ascending: false }).limit(1),
@@ -86,7 +86,7 @@ async function run() {
     check("owner alert created", !!alert, alert?.id ?? "");
 
     const audit = await one("audit_logs", "id", (q) =>
-      q.eq("event_type", "ops_session_completed").eq("target_type", "operator_workflow_run").filter("metadata->>documentId", "eq", doc.id).limit(1),
+      q.eq("event_type", "ops_session_completed").eq("target_type", "operator_workflow_run").eq("target_id", evidenceId).limit(1),
     );
     check("operator audit written", !!audit, audit?.id ?? "");
 

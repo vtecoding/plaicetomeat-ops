@@ -14,6 +14,9 @@ import {
 import type { UnitType } from "@/lib/domain/types";
 import { parseOperatorDraftSteps, type OperatorDraftRecord } from "@/lib/operator/workflows/drafts";
 import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { LIVE_EXECUTION_CONTEXT } from "@/lib/operator/execution-context";
+import { useOperatorDryRun } from "@/lib/operator/tutorial/context";
+import { completeShopDaySteps } from "@/lib/operator/tutorial/scenario";
 import { isolateLtr, operatorMoney, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 import {
   SERVE_AMOUNT_CHOICES,
@@ -113,9 +116,11 @@ export function OperatorServeFlow({
   initialDraft: OperatorDraftRecord | null;
 }) {
   const { t, error: operatorError, product: productName, locale } = useOperatorI18n();
+  const dryRun = useOperatorDryRun();
+  const effectiveTiles = useMemo(() => dryRun.active ? [{ id: "product:dry-run-chicken", productId: "dry-run-chicken", fallbackName: "Chicken Breast Fillets", label: "Chicken Breast Fillets", unitType: "kg" as const, pricePerUnit: 7 }] : tiles, [dryRun.active, tiles]);
   const resumable = useMemo(
-    () => initialDraft && parseOperatorDraftSteps(initialDraft.steps, "serve", RESUMABLE_MODES),
-    [initialDraft],
+    () => !dryRun.active && initialDraft && parseOperatorDraftSteps(initialDraft.steps, "serve", RESUMABLE_MODES),
+    [dryRun.active, initialDraft],
   );
   const [showResumePrompt, setShowResumePrompt] = useState(Boolean(resumable));
   const [draftBusy, setDraftBusy] = useState(false);
@@ -136,6 +141,17 @@ export function OperatorServeFlow({
   useEffect(() => {
     if (!showResumePrompt && !runId) setRunId(newRunId());
   }, [runId, showResumePrompt]);
+
+  const tutorialStepId = dryRun.session ? completeShopDaySteps[dryRun.session.currentStep]?.id : null;
+  useEffect(() => {
+    if (!dryRun.active) return;
+    const practiceTile = effectiveTiles[0];
+    const practiceLine: Line = { key: "dry-run-line", productId: "dry-run-chicken", name: "Chicken Breast Fillets", quantity: 2, unitType: "kg", label: "2kg", priceGbp: null, unitPriceGbp: 7, displayedTotalGbp: 14 };
+    if (tutorialStepId === "serve.product") setMode("buy");
+    if (tutorialStepId === "serve.weight" && practiceTile) { setPicked(practiceTile); setMode("amount"); }
+    if (tutorialStepId === "serve.cash") { setLines([practiceLine]); setMode("pay"); }
+    if (tutorialStepId === "serve.confirm") { setLines([practiceLine]); setPayKind("cash"); setMode("confirm"); }
+  }, [dryRun.active, effectiveTiles, tutorialStepId]);
 
   const displayedTotal = useMemo(
     () => roundServeMoney(lines.reduce((sum, line) => sum + line.displayedTotalGbp, 0)),
@@ -162,7 +178,7 @@ export function OperatorServeFlow({
       lines,
       payKind,
     },
-    enabled: !showResumePrompt && mode !== "done" && (mode !== "buy" || lines.length > 0),
+    enabled: !dryRun.active && !showResumePrompt && mode !== "done" && (mode !== "buy" || lines.length > 0),
   });
 
   function resumeDraft() {
@@ -170,7 +186,7 @@ export function OperatorServeFlow({
     const answers = resumable.answers;
     const savedLines = restoreLines(answers.lines);
     const savedPicked = typeof answers.pickedId === "string"
-      ? tiles.find((tile) => tile.id === answers.pickedId) ?? null
+      ? effectiveTiles.find((tile) => tile.id === answers.pickedId) ?? null
       : null;
     let restoredMode = resumable.mode as Mode;
     if (["amount", "other-amount", "price"].includes(restoredMode) && !savedPicked) {
@@ -264,7 +280,7 @@ export function OperatorServeFlow({
     setAmountDigits("");
     setPounds("");
     setPending(null);
-    setMode("add-more");
+    setMode(dryRun.active ? "pay" : "add-more");
   }
 
   function addOtherAmount() {
@@ -299,6 +315,11 @@ export function OperatorServeFlow({
   function save() {
     setError(null);
     const totalBeforeSave = displayedTotal;
+    if (dryRun.active) {
+      setResult({ total: totalBeforeSave, needsOwner: false, priceUpdated: false });
+      setMode("done");
+      return;
+    }
     startTransition(async () => {
       const saveResult = await saveSimpleSale({
         runId,
@@ -309,6 +330,7 @@ export function OperatorServeFlow({
           priceGbp: line.priceGbp,
         })),
         payKind,
+        executionContext: LIVE_EXECUTION_CONTEXT,
       });
       if (!saveResult.ok) {
         setError(saveResult.message);
@@ -348,7 +370,7 @@ export function OperatorServeFlow({
           {mode === "buy" && (
             <Panel title={t("serve.whatBought")}>
               <div className="grid gap-3 sm:grid-cols-2">
-                {tiles.map((tile) => (
+                {effectiveTiles.map((tile) => (
                   <BigButton
                     key={tile.id}
                     onClick={() => choose(tile)}
@@ -357,6 +379,7 @@ export function OperatorServeFlow({
                       : t(`serve.tile.${tile.id}` as OperatorTranslationKey)}
                     muted={!tile.productId && tile.id !== "other"}
                     testId={tile.productId ? `serve-product-${tile.productId}` : `serve-tile-${tile.id}`}
+                    tutorialTarget={tile.fallbackName === "Chicken Breast Fillets" ? "serve-product-chicken" : undefined}
                   />
                 ))}
               </div>
@@ -397,6 +420,7 @@ export function OperatorServeFlow({
                         ? isolateLtr(formatServePresetLabel(choice.label, choice.kg, picked?.pricePerUnit ?? null))
                         : formatServePresetLabel(choice.label, choice.kg, picked?.pricePerUnit ?? null)}
                       testId={`serve-weight-${choice.id}`}
+                      tutorialTarget={choice.kg === 2 ? "serve-weight" : undefined}
                     />
                   ))}
               <BigButton onClick={() => setMode("other-amount")} label={t(isCount ? "serve.more" : "serve.otherAmount")} muted />
@@ -455,7 +479,7 @@ export function OperatorServeFlow({
 
           {mode === "pay" && (
             <Panel title={t("serve.howPaid")}>
-              <BigButton onClick={() => { setPayKind("cash"); setMode("confirm"); }} label={t("serve.cash")} />
+              <BigButton onClick={() => { setPayKind("cash"); setMode("confirm"); }} label={t("serve.cash")} tutorialTarget="serve-payment-cash" />
               <BigButton onClick={() => { setPayKind("card"); setMode("confirm"); }} label={t("serve.card")} />
             </Panel>
           )}
@@ -463,7 +487,7 @@ export function OperatorServeFlow({
           {mode === "confirm" && (
             <Panel title={t("serve.saveSale")}>
               <Summary lines={[...summary, t("serve.paidBy", { method: t(payKind === "cash" ? "serve.cash" : "serve.card") })]} total={displayedTotal} />
-              <BigButton onClick={save} label={t("common.save")} busy={isPending || !runId} />
+              <BigButton onClick={save} label={t("common.save")} busy={isPending || !runId} tutorialTarget="serve-confirm" />
               <BigButton onClick={() => setMode("pay")} label={t("common.goBack")} muted />
             </Panel>
           )}
@@ -517,6 +541,7 @@ function BigButton({
   disabled,
   busy,
   testId,
+  tutorialTarget,
 }: {
   label: string;
   onClick: () => void;
@@ -524,6 +549,7 @@ function BigButton({
   disabled?: boolean;
   busy?: boolean;
   testId?: string;
+  tutorialTarget?: string;
 }) {
   const { t } = useOperatorI18n();
   return (
@@ -532,6 +558,7 @@ function BigButton({
       onClick={onClick}
       disabled={disabled || busy}
       data-testid={testId}
+      data-tutorial={tutorialTarget}
       className={[
         "flex min-h-[72px] w-full items-center justify-center rounded-2xl px-6 text-xl font-semibold transition active:scale-[0.99] disabled:opacity-50",
         muted ? "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]" : "bg-[var(--brand)] text-white",

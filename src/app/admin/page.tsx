@@ -90,12 +90,12 @@ export default async function AdminPage() {
           title="Check the shop"
           subtitle={`Money, stock, waste, margin, customers and certificates. For today's jobs, use Today. · ${formatDisplayDate(metrics.date)}`}
           actions={
-            <Link
+            <div className="flex flex-wrap gap-2"><Link
               href="/admin/today"
               className="inline-flex h-10 items-center rounded-lg bg-[var(--brand)] px-4 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_22px_-12px_rgba(15,81,50,0.6)] transition hover:bg-[var(--brand-700)]"
             >
               Back to Today
-            </Link>
+            </Link><Link href="/admin/tutorial" className="inline-flex h-10 items-center rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--brand)]">Owner Tutorial</Link></div>
           }
         />
 

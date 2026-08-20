@@ -6,6 +6,9 @@ import { ArrowLeft, Check } from "lucide-react";
 
 import { recordTillMovement, type TillReasonCode } from "@/app/actions/operator/till";
 import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { LIVE_EXECUTION_CONTEXT } from "@/lib/operator/execution-context";
+import { useOperatorDryRun } from "@/lib/operator/tutorial/context";
+import { completeShopDaySteps } from "@/lib/operator/tutorial/scenario";
 import { operatorMoney, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 // V18 A1 — guided "Till money in / out" (decision D-9). One question at a time,
@@ -19,8 +22,9 @@ const OUT_REASONS: TillReasonCode[] = ["supplier", "owner", "other"];
 
 export function OperatorTillFlow() {
   const { t, error: operatorError, locale } = useOperatorI18n();
+  const dryRun = useOperatorDryRun();
   const [runId, setRunId] = useState("");
-  const [mode, setMode] = useState<Mode>("direction");
+  const [mode, setMode] = useState<Mode>(() => dryRun.active ? "amount" : "direction");
   const [direction, setDirection] = useState<"in" | "out">("in");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState<TillReasonCode>("change");
@@ -31,6 +35,13 @@ export function OperatorTillFlow() {
   useEffect(() => {
     setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
   }, []);
+
+  const tutorialStepId = dryRun.session ? completeShopDaySteps[dryRun.session.currentStep]?.id : null;
+  useEffect(() => {
+    if (!dryRun.active) return;
+    if (tutorialStepId === "till.count") setMode("amount");
+    if (tutorialStepId === "till.confirm") { setAmount("114"); setMode("confirm"); }
+  }, [dryRun.active, tutorialStepId]);
 
   function restart() {
     setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
@@ -44,6 +55,10 @@ export function OperatorTillFlow() {
 
   function save() {
     setError(null);
+    if (dryRun.active) {
+      setMode("done");
+      return;
+    }
     startTransition(async () => {
       const res = await recordTillMovement({
         runId,
@@ -51,6 +66,7 @@ export function OperatorTillFlow() {
         amountGbp: Number(amount),
         reasonCode: reason,
         note: note.trim() === "" ? null : note.trim(),
+        executionContext: LIVE_EXECUTION_CONTEXT,
       });
       if (!res.ok) {
         setError(res.message);
@@ -103,8 +119,12 @@ export function OperatorTillFlow() {
                 step="any"
                 min="0"
                 value={amount}
-                onChange={(event) => setAmount(event.target.value)}
+                onChange={(event) => {
+                  setAmount(event.target.value);
+                  if (dryRun.active && event.target.value === "114") setMode("confirm");
+                }}
                 data-testid="operator-till-amount"
+                data-tutorial="till-count"
                 className="h-20 w-44 rounded-xl border-2 border-[var(--line)] bg-[var(--paper)] px-4 text-3xl font-semibold outline-none focus:border-[var(--brand)]"
               />
             </span>
@@ -150,7 +170,7 @@ export function OperatorTillFlow() {
               />
             </label>
           ) : null}
-          <BigButton onClick={save} label={t("common.save")} busy={isPending || !runId} />
+          <BigButton onClick={save} label={t("common.save")} busy={isPending || !runId} tutorialTarget="till-confirm" />
           <BigButton onClick={() => setMode("reason")} label={t("common.change")} muted />
         </Panel>
       )}
@@ -189,13 +209,14 @@ function Panel({ title, helper, children }: { title: string; helper?: string; ch
   );
 }
 
-function BigButton({ label, onClick, muted, disabled, busy }: { label: string; onClick: () => void; muted?: boolean; disabled?: boolean; busy?: boolean }) {
+function BigButton({ label, onClick, muted, disabled, busy, tutorialTarget }: { label: string; onClick: () => void; muted?: boolean; disabled?: boolean; busy?: boolean; tutorialTarget?: string }) {
   const { t } = useOperatorI18n();
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled || busy}
+      data-tutorial={tutorialTarget}
       className={[
         "flex min-h-[72px] w-full items-center justify-center rounded-2xl px-6 text-xl font-semibold transition active:scale-[0.99] disabled:opacity-50",
         muted ? "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]" : "bg-[var(--brand)] text-white",

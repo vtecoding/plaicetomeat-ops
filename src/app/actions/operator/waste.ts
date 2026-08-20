@@ -6,6 +6,7 @@ import {
   type OperatorActionResult,
 } from "@/app/actions/operator/escalation";
 import { linkOperatorEvidence } from "@/app/actions/operator/evidence";
+import { assertProductionMutationAllowed, LIVE_EXECUTION_CONTEXT, type ExecutionContext } from "@/lib/operator/execution-context";
 import type { WasteReasonChoice } from "@/lib/operator/workflows/waste";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -24,7 +25,8 @@ async function requireOperator() {
   return ctx.ok ? { ok: true as const, branchId: ctx.branchId, profileId: ctx.profile.id } : ctx;
 }
 
-export async function recordNoWaste(input: { runId: string }): Promise<OperatorActionResult> {
+export async function recordNoWaste(input: { runId: string; executionContext?: ExecutionContext }): Promise<OperatorActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "operator-record-no-waste");
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!isUuid(input.runId)) return { ok: false, message: "Please go back and try again." };
@@ -47,7 +49,9 @@ export async function recordSimpleWaste(input: {
   quantity: number;
   reason: WasteReasonChoice;
   photoEvidenceId?: string | null;
+  executionContext?: ExecutionContext;
 }): Promise<OperatorActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "operator-record-waste");
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!isUuid(input.runId)) return { ok: false, message: "Please go back and try again." };
@@ -88,6 +92,7 @@ export async function recordSimpleWaste(input: {
       sourceId: receipt.id,
       sourceRef: receipt.product_name ?? "Waste",
       reviewRequired: receipt.needs_owner ?? false,
+      executionContext: LIVE_EXECUTION_CONTEXT,
     });
   }
   revalidateOperatorOps();

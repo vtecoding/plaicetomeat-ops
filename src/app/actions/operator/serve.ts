@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { isUuid, simpleText } from "@/app/actions/operator/escalation";
+import { assertProductionMutationAllowed, type ExecutionContext } from "@/lib/operator/execution-context";
 import { formatServeMoney } from "@/lib/operator/workflows/serve-presentation";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
@@ -100,7 +101,9 @@ export async function saveSimpleSale(input: {
   runId: string;
   lines: ServeLineInput[];
   payKind: PayKind;
+  executionContext?: ExecutionContext;
 }): Promise<ServeSaleResult> {
+  assertProductionMutationAllowed(input.executionContext, "operator-save-sale");
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!hasSupabaseServiceEnv()) return { ok: false, message: "Try again." };

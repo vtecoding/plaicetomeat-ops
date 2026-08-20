@@ -15,6 +15,9 @@ import {
 import { parseOperatorDraftSteps, type OperatorDraftRecord } from "@/lib/operator/workflows/drafts";
 import { WASTE_REASON_CHOICES, type WasteReasonChoice } from "@/lib/operator/workflows/waste";
 import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { LIVE_EXECUTION_CONTEXT } from "@/lib/operator/execution-context";
+import { useOperatorDryRun } from "@/lib/operator/tutorial/context";
+import { completeShopDaySteps } from "@/lib/operator/tutorial/scenario";
 import { operatorMeasure, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 type ProductOption = { id: string; name: string; unitType: string };
@@ -32,15 +35,17 @@ const LAST_SAVED_STEP: Record<Mode, string> = {
 
 export function OperatorWasteFlow({ products, initialDraft }: { products: ProductOption[]; initialDraft: OperatorDraftRecord | null }) {
   const { t, error: operatorError, product: productName, locale } = useOperatorI18n();
+  const dryRun = useOperatorDryRun();
+  const effectiveProducts = useMemo(() => dryRun.active ? [{ id: "dry-run-chicken", name: "Chicken Breast Fillets", unitType: "kg" }] : products, [dryRun.active, products]);
   const resumable = useMemo(
-    () => initialDraft && parseOperatorDraftSteps(initialDraft.steps, "waste", RESUMABLE_MODES),
-    [initialDraft],
+    () => !dryRun.active && initialDraft && parseOperatorDraftSteps(initialDraft.steps, "waste", RESUMABLE_MODES),
+    [dryRun.active, initialDraft],
   );
   const [showResumePrompt, setShowResumePrompt] = useState(Boolean(resumable));
   const [draftBusy, setDraftBusy] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [runId, setRunId] = useState("");
-  const [mode, setMode] = useState<Mode>("start");
+  const [mode, setMode] = useState<Mode>(() => dryRun.active ? "product" : "start");
   const [productId, setProductId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState<WasteReasonChoice>("expired");
@@ -55,7 +60,16 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
     if (!showResumePrompt && !runId) setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
   }, [runId, showResumePrompt]);
 
-  const product = useMemo(() => products.find((item) => item.id === productId) ?? null, [products, productId]);
+  const tutorialStepId = dryRun.session ? completeShopDaySteps[dryRun.session.currentStep]?.id : null;
+  useEffect(() => {
+    if (!dryRun.active) return;
+    if (tutorialStepId === "waste.product") setMode("product");
+    else if (tutorialStepId === "waste.weight") { setProductId("dry-run-chicken"); setMode("amount"); }
+    else if (tutorialStepId === "waste.reason") setMode("reason");
+    else if (tutorialStepId === "waste.confirm") setMode("confirm");
+  }, [dryRun.active, tutorialStepId]);
+
+  const product = useMemo(() => effectiveProducts.find((item) => item.id === productId) ?? null, [effectiveProducts, productId]);
   const unit = product?.unitType ?? "kg";
   const draftSave = useOperatorDraftSave({
     runId,
@@ -63,7 +77,7 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
     mode,
     lastSavedStep: LAST_SAVED_STEP[mode],
     answers: { productId, quantity, reason, photoName, photoEvidenceId },
-    enabled: !showResumePrompt && mode !== "start" && mode !== "done",
+    enabled: !dryRun.active && !showResumePrompt && mode !== "start" && mode !== "done",
   });
 
   function resumeDraft() {
@@ -113,8 +127,13 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
 
   function saveNoWaste() {
     setError(null);
+    if (dryRun.active) {
+      setResult("none");
+      setMode("done");
+      return;
+    }
     startTransition(async () => {
-      const res = await recordNoWaste({ runId });
+      const res = await recordNoWaste({ runId, executionContext: LIVE_EXECUTION_CONTEXT });
       if (!res.ok) {
         setError(res.message);
         return;
@@ -126,6 +145,11 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
 
   function saveWaste() {
     setError(null);
+    if (dryRun.active) {
+      setResult("waste");
+      setMode("done");
+      return;
+    }
     startTransition(async () => {
       const res = await recordSimpleWaste({
         runId,
@@ -133,6 +157,7 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
         quantity: Number(quantity),
         reason,
         photoEvidenceId,
+        executionContext: LIVE_EXECUTION_CONTEXT,
       });
       if (!res.ok) {
         setError(res.message);
@@ -157,6 +182,7 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
     formData.set("sourceId", runId);
     formData.set("sourceRef", product?.name ?? "Waste photo");
     formData.set("operationId", runId);
+    formData.set("executionMode", "live");
 
     const res = await uploadOperatorEvidence(formData);
     setPhotoSaving(false);
@@ -197,14 +223,14 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
 
       {mode === "product" && (
         <Panel title={t("waste.what")}>
-          <ProductGrid products={products} onPick={(id) => { setProductId(id); setMode("amount"); }} />
+          <ProductGrid products={effectiveProducts} onPick={(id) => { setProductId(id); setMode("amount"); }} tutorialProduct="Chicken Breast Fillets" tutorialTarget="waste-product-chicken" />
           <BigButton onClick={() => { setProductId(null); setMode("amount"); }} label={t("common.notSure")} muted />
         </Panel>
       )}
 
       {mode === "amount" && (
         <Panel title={t("waste.howMuch")} helper={product ? productName(product.name) : t("common.bestGuess")}>
-          <AmountInput value={quantity} onChange={setQuantity} unit={unit} />
+          <AmountInput value={quantity} onChange={(value) => { setQuantity(value); if (dryRun.active && value === "0.5") setMode("reason"); }} unit={unit} tutorialTarget="waste-weight" />
           <BigButton onClick={() => setMode("reason")} label={t("common.next")} disabled={Number(quantity) <= 0} />
         </Panel>
       )}
@@ -212,7 +238,7 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
       {mode === "reason" && (
         <Panel title={t("waste.why")}>
           {WASTE_REASON_CHOICES.map((choice) => (
-            <BigButton key={choice.id} onClick={() => { setReason(choice.id); setMode("photo"); }} label={t(`waste.reason.${choice.id}` as OperatorTranslationKey)} muted={choice.id === "review"} />
+            <BigButton key={choice.id} onClick={() => { setReason(choice.id); setMode(dryRun.active ? "confirm" : "photo"); }} label={t(`waste.reason.${choice.id}` as OperatorTranslationKey)} muted={choice.id === "review"} tutorialTarget={choice.id === "damaged" ? "waste-reason" : undefined} />
           ))}
         </Panel>
       )}
@@ -245,7 +271,7 @@ export function OperatorWasteFlow({ products, initialDraft }: { products: Produc
               t(`waste.reason.${reason}` as OperatorTranslationKey),
             ]}
           />
-          <BigButton onClick={saveWaste} label={t("waste.save")} busy={isPending || !runId} />
+          <BigButton onClick={saveWaste} label={t("waste.save")} busy={isPending || !runId} tutorialTarget="waste-confirm" />
         </Panel>
       )}
 
@@ -282,13 +308,14 @@ function Panel({ title, helper, children }: { title: string; helper?: string; ch
   );
 }
 
-function BigButton({ label, onClick, muted, disabled, busy }: { label: string; onClick: () => void; muted?: boolean; disabled?: boolean; busy?: boolean }) {
+function BigButton({ label, onClick, muted, disabled, busy, tutorialTarget }: { label: string; onClick: () => void; muted?: boolean; disabled?: boolean; busy?: boolean; tutorialTarget?: string }) {
   const { t } = useOperatorI18n();
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled || busy}
+      data-tutorial={tutorialTarget}
       className={[
         "flex min-h-[72px] w-full items-center justify-center rounded-2xl px-6 text-xl font-semibold transition active:scale-[0.99] disabled:opacity-50",
         muted ? "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]" : "bg-[var(--brand)] text-white",
@@ -299,7 +326,7 @@ function BigButton({ label, onClick, muted, disabled, busy }: { label: string; o
   );
 }
 
-function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: (id: string) => void }) {
+function ProductGrid({ products, onPick, tutorialProduct, tutorialTarget }: { products: ProductOption[]; onPick: (id: string) => void; tutorialProduct?: string; tutorialTarget?: string }) {
   const { product: productName } = useOperatorI18n();
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -308,6 +335,7 @@ function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: 
           key={product.id}
           type="button"
           onClick={() => onPick(product.id)}
+          data-tutorial={product.name === tutorialProduct ? tutorialTarget : undefined}
           className="min-h-[88px] rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-4 py-3 text-start text-xl font-semibold text-[var(--ink)] transition active:scale-[0.99]"
         >
           {productName(product.name)}
@@ -317,7 +345,7 @@ function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: 
   );
 }
 
-function AmountInput({ value, onChange, unit }: { value: string; onChange: (value: string) => void; unit: string }) {
+function AmountInput({ value, onChange, unit, tutorialTarget }: { value: string; onChange: (value: string) => void; unit: string; tutorialTarget?: string }) {
   const { t } = useOperatorI18n();
   return (
     <label className="block">
@@ -331,6 +359,7 @@ function AmountInput({ value, onChange, unit }: { value: string; onChange: (valu
           value={value}
           onChange={(event) => onChange(event.target.value)}
           data-testid="operator-waste-quantity"
+          data-tutorial={tutorialTarget}
           className="h-20 w-44 rounded-xl border-2 border-[var(--line)] bg-[var(--paper)] px-4 text-3xl font-semibold outline-none focus:border-[var(--brand)]"
         />
         <bdi dir="ltr" className="operator-bidi text-2xl font-semibold text-[var(--muted)]">{t(`unit.${unit}` as OperatorTranslationKey)}</bdi>
