@@ -25,6 +25,9 @@ import {
 } from "@/lib/operator/workflows/stock";
 import { parseOperatorDraftSteps, type OperatorDraftRecord } from "@/lib/operator/workflows/drafts";
 import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { LIVE_EXECUTION_CONTEXT } from "@/lib/operator/execution-context";
+import { useOperatorDryRun } from "@/lib/operator/tutorial/context";
+import { completeShopDaySteps } from "@/lib/operator/tutorial/scenario";
 import { operatorMeasure, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 type ProductOption = { id: string; name: string; unitType: string };
@@ -86,9 +89,12 @@ export function OperatorStockFlow({
   initialDraft: OperatorDraftRecord | null;
 }) {
   const { t, error: operatorError, product: productName, locale } = useOperatorI18n();
+  const dryRun = useOperatorDryRun();
+  const effectiveProducts = useMemo(() => dryRun.active ? [{ id: "dry-run-lamb", name: "Lamb Leg Steaks", unitType: "kg" }] : products, [dryRun.active, products]);
+  const effectiveSuppliers = useMemo(() => dryRun.active ? [{ id: "dry-run-supplier", name: "Practice Supplier" }] : suppliers, [dryRun.active, suppliers]);
   const resumable = useMemo(
-    () => initialDraft && parseOperatorDraftSteps(initialDraft.steps, "delivery", RESUMABLE_MODES),
-    [initialDraft],
+    () => !dryRun.active && initialDraft && parseOperatorDraftSteps(initialDraft.steps, "delivery", RESUMABLE_MODES),
+    [dryRun.active, initialDraft],
   );
   const [showResumePrompt, setShowResumePrompt] = useState(Boolean(resumable));
   const [draftBusy, setDraftBusy] = useState(false);
@@ -119,8 +125,25 @@ export function OperatorStockFlow({
     if (!showResumePrompt && !runId) setRunId(globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
   }, [runId, showResumePrompt]);
 
-  const product = useMemo(() => products.find((item) => item.id === productId) ?? null, [products, productId]);
-  const supplier = useMemo(() => suppliers.find((item) => item.id === supplierId) ?? null, [suppliers, supplierId]);
+  const tutorialStepId = dryRun.session ? completeShopDaySteps[dryRun.session.currentStep]?.id : null;
+  useEffect(() => {
+    if (!dryRun.active) return;
+    if (tutorialStepId === "stock.received") setMode("start");
+    else if (tutorialStepId === "stock.product") setMode("delivery-product");
+    else if (tutorialStepId === "stock.weight") { setProductId("dry-run-lamb"); setMode("delivery-amount"); }
+    else if (tutorialStepId === "stock.expiry") {
+      setSupplierId("dry-run-supplier");
+      setStorageChoice("fridge");
+      setMode("delivery-expiry");
+    } else if (tutorialStepId === "stock.evidence") {
+      setMode("delivery-photo");
+    } else if (tutorialStepId === "stock.confirm") {
+      setMode("delivery-confirm");
+    }
+  }, [dryRun.active, tutorialStepId]);
+
+  const product = useMemo(() => effectiveProducts.find((item) => item.id === productId) ?? null, [effectiveProducts, productId]);
+  const supplier = useMemo(() => effectiveSuppliers.find((item) => item.id === supplierId) ?? null, [effectiveSuppliers, supplierId]);
   const unit = product?.unitType ?? "kg";
   const draftSave = useOperatorDraftSave({
     runId,
@@ -141,7 +164,7 @@ export function OperatorStockFlow({
       returnToReview,
       sureRanOut,
     },
-    enabled: !showResumePrompt && mode !== "start" && mode !== "done",
+    enabled: !dryRun.active && !showResumePrompt && mode !== "start" && mode !== "done",
   });
 
   function resumeDraft() {
@@ -255,7 +278,7 @@ export function OperatorStockFlow({
   function pickExpiry(choice: ExpiryChoice) {
     setExpiryChoice(choice);
     setExpirySource("manual");
-    setMode(returnToReview ? "delivery-review" : "delivery-confirm");
+    setMode(dryRun.active ? "delivery-photo" : returnToReview ? "delivery-review" : "delivery-confirm");
     setReturnToReview(false);
   }
 
@@ -265,6 +288,11 @@ export function OperatorStockFlow({
       return;
     }
     setError(null);
+    if (dryRun.active) {
+      setResult("stock");
+      setMode("done");
+      return;
+    }
     startTransition(async () => {
       const res = await confirmSimpleDelivery({
         runId,
@@ -275,6 +303,7 @@ export function OperatorStockFlow({
         storageChoice,
         noteEvidenceId,
         sources: { supplier: supplierSource, storage: storageSource, expiry: expirySource },
+        executionContext: LIVE_EXECUTION_CONTEXT,
       });
       if (!res.ok) {
         setError(res.message);
@@ -288,7 +317,7 @@ export function OperatorStockFlow({
   function saveRanOut() {
     setError(null);
     startTransition(async () => {
-      const res = await reportRanOut({ runId, productId, sure: sureRanOut });
+      const res = await reportRanOut({ runId, productId, sure: sureRanOut, executionContext: LIVE_EXECUTION_CONTEXT });
       if (!res.ok) {
         setError(res.message);
         return;
@@ -301,7 +330,7 @@ export function OperatorStockFlow({
   function askOwner() {
     setError(null);
     startTransition(async () => {
-      const res = await tellOwnerAboutStock({ runId });
+      const res = await tellOwnerAboutStock({ runId, executionContext: LIVE_EXECUTION_CONTEXT });
       if (!res.ok) {
         setError(res.message);
         return;
@@ -325,6 +354,7 @@ export function OperatorStockFlow({
     formData.set("sourceId", runId);
     formData.set("sourceRef", product?.name ?? "Delivery note");
     formData.set("operationId", runId);
+    formData.set("executionMode", "live");
 
     const res = await uploadOperatorEvidence(formData);
     setPhotoSaving(false);
@@ -356,7 +386,7 @@ export function OperatorStockFlow({
 
       {mode === "start" && (
         <Panel title={t("stock.whatHappened")}>
-          <BigButton onClick={() => setMode("delivery-product")} label={t("stock.deliveryArrived")} />
+          <BigButton onClick={() => setMode("delivery-product")} label={t("stock.deliveryArrived")} tutorialTarget="stock-received" />
           <BigButton onClick={() => setMode("ranout-product")} label={t("stock.ranOut")} />
           <BigButton onClick={askOwner} label={t("stock.unsureTell")} muted busy={isPending} />
           <Link
@@ -370,14 +400,23 @@ export function OperatorStockFlow({
 
       {mode === "delivery-product" && (
         <Panel title={t("stock.whatArrived")}>
-          <ProductGrid products={products} onPick={(id) => chooseDeliveryProduct(id)} />
+          <ProductGrid products={effectiveProducts} onPick={(id) => chooseDeliveryProduct(id)} tutorialProduct="Lamb Leg Steaks" tutorialTarget="stock-product-lamb" />
           <BigButton onClick={() => chooseDeliveryProduct(null)} label={t("stock.somethingElse")} muted />
         </Panel>
       )}
 
       {mode === "delivery-amount" && (
         <Panel title={t("stock.howMuchArrived")} helper={product ? productName(product.name) : t("common.bestGuess")}>
-          <AmountInput value={quantity} onChange={setQuantity} unit={unit} testId="operator-delivery-quantity" />
+          <AmountInput value={quantity} onChange={(value) => {
+            setQuantity(value);
+            if (dryRun.active && value === "12.5") {
+              setSupplierId("dry-run-supplier");
+              setStorageChoice("fridge");
+              setSupplierSource("manual");
+              setStorageSource("manual");
+              setMode("delivery-expiry");
+            }
+          }} unit={unit} testId="operator-delivery-quantity" tutorialTarget="stock-weight" />
           <BigButton onClick={afterAmount} label={t("common.next")} disabled={Number(quantity) <= 0} />
         </Panel>
       )}
@@ -416,7 +455,7 @@ export function OperatorStockFlow({
       {mode === "delivery-supplier" && (
         <Panel title={t("stock.whoBrought")}>
           <div className="grid gap-3">
-            {suppliers.map((item) => (
+            {effectiveSuppliers.map((item) => (
               <BigButton key={item.id} onClick={() => pickSupplier(item.id)} label={item.name} />
             ))}
             <BigButton onClick={() => pickSupplier(null)} label={t("common.notSure")} muted />
@@ -441,11 +480,12 @@ export function OperatorStockFlow({
             onClick={() => {
               setNotePhotoName(null);
               setNoteEvidenceId(null);
-              setMode(returnToReview ? "delivery-review" : "delivery-storage");
+              setMode(dryRun.active ? "delivery-confirm" : returnToReview ? "delivery-review" : "delivery-storage");
               setReturnToReview(false);
             }}
-            label={returnToReview ? t("common.back") : t("common.skipNow")}
+            label={dryRun.active ? t("dryRun.addPracticePhoto") : returnToReview ? t("common.back") : t("common.skipNow")}
             muted
+            tutorialTarget="stock-evidence"
           />
           {photoSaving ? <p className="text-base font-semibold text-[var(--muted)]">{t("common.savingPhoto")}</p> : null}
           {noteEvidenceId && notePhotoName ? <p className="text-base font-semibold text-[var(--muted)]">{t("common.photoSaved", { name: notePhotoName })}</p> : null}
@@ -463,7 +503,7 @@ export function OperatorStockFlow({
       {mode === "delivery-expiry" && (
         <Panel title={t("stock.whenOff")}>
           {EXPIRY_CHOICES.map((choice) => (
-            <BigButton key={choice.id} onClick={() => pickExpiry(choice.id)} label={t(`stock.expiry.${choice.id}` as OperatorTranslationKey)} muted={choice.id === "not_sure"} />
+            <BigButton key={choice.id} onClick={() => pickExpiry(choice.id)} label={t(`stock.expiry.${choice.id}` as OperatorTranslationKey)} muted={choice.id === "not_sure"} tutorialTarget={choice.id === "tomorrow" ? "stock-expiry" : undefined} />
           ))}
         </Panel>
       )}
@@ -478,7 +518,7 @@ export function OperatorStockFlow({
               t("stock.location", { place: storageChoice ? t(`stock.storage.${storageChoice}` as OperatorTranslationKey) : t("common.notSure") }),
             ]}
           />
-          <BigButton onClick={saveDelivery} label={t("stock.addDelivery")} busy={isPending || !runId} />
+          <BigButton onClick={saveDelivery} label={t("stock.addDelivery")} busy={isPending || !runId} tutorialTarget="stock-confirm" />
         </Panel>
       )}
 
@@ -551,13 +591,14 @@ function Panel({ title, helper, children }: { title: string; helper?: string; ch
   );
 }
 
-function BigButton({ label, onClick, muted, disabled, busy }: { label: string; onClick: () => void; muted?: boolean; disabled?: boolean; busy?: boolean }) {
+function BigButton({ label, onClick, muted, disabled, busy, tutorialTarget }: { label: string; onClick: () => void; muted?: boolean; disabled?: boolean; busy?: boolean; tutorialTarget?: string }) {
   const { t } = useOperatorI18n();
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled || busy}
+      data-tutorial={tutorialTarget}
       className={[
         "flex min-h-[72px] w-full items-center justify-center rounded-2xl px-6 text-xl font-semibold transition active:scale-[0.99] disabled:opacity-50",
         muted ? "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]" : "bg-[var(--brand)] text-white",
@@ -591,7 +632,7 @@ function ReviewRow({ label, value, onChange }: { label: string; value: string; o
   );
 }
 
-function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: (id: string) => void }) {
+function ProductGrid({ products, onPick, tutorialProduct, tutorialTarget }: { products: ProductOption[]; onPick: (id: string) => void; tutorialProduct?: string; tutorialTarget?: string }) {
   const { product: productName } = useOperatorI18n();
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -600,6 +641,7 @@ function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: 
           key={product.id}
           type="button"
           onClick={() => onPick(product.id)}
+          data-tutorial={product.name === tutorialProduct ? tutorialTarget : undefined}
           className="min-h-[88px] rounded-2xl border border-[var(--line)] bg-[var(--paper)] px-4 py-3 text-start text-xl font-semibold text-[var(--ink)] transition active:scale-[0.99]"
         >
           {productName(product.name)}
@@ -609,7 +651,7 @@ function ProductGrid({ products, onPick }: { products: ProductOption[]; onPick: 
   );
 }
 
-function AmountInput({ value, onChange, unit, testId }: { value: string; onChange: (value: string) => void; unit: string; testId: string }) {
+function AmountInput({ value, onChange, unit, testId, tutorialTarget }: { value: string; onChange: (value: string) => void; unit: string; testId: string; tutorialTarget?: string }) {
   const { t } = useOperatorI18n();
   return (
     <label className="block">
@@ -623,6 +665,7 @@ function AmountInput({ value, onChange, unit, testId }: { value: string; onChang
           value={value}
           onChange={(event) => onChange(event.target.value)}
           data-testid={testId}
+          data-tutorial={tutorialTarget}
           className="h-20 w-44 rounded-xl border-2 border-[var(--line)] bg-[var(--paper)] px-4 text-3xl font-semibold outline-none focus:border-[var(--brand)]"
         />
         <bdi dir="ltr" className="operator-bidi text-2xl font-semibold text-[var(--muted)]">{t(`unit.${unit}` as OperatorTranslationKey)}</bdi>

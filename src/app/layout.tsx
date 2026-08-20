@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import "./globals.css";
 import { NotificationOpenRecorder } from "@/components/notification-open-recorder";
 import { OPERATOR_DOCUMENT_LANGUAGE_BOOTSTRAP } from "@/lib/operator/i18n/document-bootstrap";
+import { DryRunRouteGuard } from "@/lib/operator/tutorial/route-guard";
 
 // UI / body — Inter, properly bundled (previously only named in CSS, so it silently fell
 // back to the system font, which is a big part of why the app felt generic).
@@ -57,7 +58,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: OPERATOR_DOCUMENT_LANGUAGE_BOOTSTRAP }}
         />
       </head>
-      <body><Suspense fallback={null}><NotificationOpenRecorder /></Suspense>{children}</body>
+      <body><Suspense fallback={null}><NotificationOpenRecorder /><DryRunRouteGuard /></Suspense>{children}</body>
     </html>
   );
 }

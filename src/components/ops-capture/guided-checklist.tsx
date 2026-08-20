@@ -10,6 +10,7 @@ import {
   startOrResumeChecklist,
 } from "@/app/actions/ops-capture";
 import { getChecklist } from "@/lib/ops-capture/checklists";
+import { LIVE_EXECUTION_CONTEXT } from "@/lib/operator/execution-context";
 import { buildReceipt } from "@/lib/ops-capture/progress";
 import type { ChecklistReceipt, ChecklistStepStatus, ChecklistSummary, OpsStepState } from "@/lib/ops-capture/types";
 import { cn } from "@/lib/utils";
@@ -63,7 +64,7 @@ export function GuidedChecklist({
 
   async function ensureSession(): Promise<string | null> {
     if (sessionId) return sessionId;
-    const res = await startOrResumeChecklist({ branchId, kind });
+    const res = await startOrResumeChecklist({ branchId, kind, executionContext: LIVE_EXECUTION_CONTEXT });
     if (!res.ok || !res.id) {
       setError(res.ok ? "Could not start this checklist." : res.message);
       return null;
@@ -99,6 +100,7 @@ export function GuidedChecklist({
       state,
       payload,
       idempotencyKey: globalThis.crypto?.randomUUID?.() ?? `${activeStep.key}-${Date.now()}`,
+      executionContext: LIVE_EXECUTION_CONTEXT,
     });
 
     if (!res.ok) {
@@ -117,7 +119,7 @@ export function GuidedChecklist({
     setBusy(true);
     setError(null);
 
-    const res = await completeChecklist({ sessionId });
+    const res = await completeChecklist({ sessionId, executionContext: LIVE_EXECUTION_CONTEXT });
     if (!res.ok) {
       setError(res.message);
       setBusy(false);

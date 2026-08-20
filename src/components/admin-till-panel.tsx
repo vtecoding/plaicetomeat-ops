@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 
 import { recordTillMovement, type TillReasonCode } from "@/app/actions/operator/till";
+import { LIVE_EXECUTION_CONTEXT } from "@/lib/operator/execution-context";
 import { Button } from "@/components/ui/button";
 import { buildCloseMoneyContexts, tillMovementLine, type MoneyPictureInput } from "@/lib/ops-capture/money-context";
 
@@ -38,6 +39,7 @@ export function AdminTillPanel({ picture }: { picture: MoneyPictureInput | null 
         amountGbp: Number(amount),
         reasonCode: reason,
         note: note.trim() === "" ? null : note.trim(),
+        executionContext: LIVE_EXECUTION_CONTEXT,
       });
       if (!res.ok) {
         setError(res.message);

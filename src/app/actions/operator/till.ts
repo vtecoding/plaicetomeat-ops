@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { isUuid, simpleText, type OperatorActionResult } from "@/app/actions/operator/escalation";
+import { assertProductionMutationAllowed, type ExecutionContext } from "@/lib/operator/execution-context";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -22,7 +23,9 @@ export async function recordTillMovement(input: {
   amountGbp: number;
   reasonCode: TillReasonCode;
   note?: string | null;
+  executionContext?: ExecutionContext;
 }): Promise<OperatorActionResult> {
+  assertProductionMutationAllowed(input.executionContext, "operator-record-till-movement");
   const ctx = await resolveStaffContext("manager", { branchScoped: true });
   if (!ctx.ok) return { ok: false, message: ctx.message };
   if (!isUuid(input.runId)) return { ok: false, message: "Go back and try again." };

@@ -7,12 +7,15 @@ import { ArrowLeft, Check } from "lucide-react";
 import { tellOwner } from "@/app/actions/operator/help";
 import { HELP_PROBLEM_CHOICES, type HelpProblemId } from "@/lib/operator/workflows/help";
 import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { LIVE_EXECUTION_CONTEXT } from "@/lib/operator/execution-context";
+import { useOperatorDryRun } from "@/lib/operator/tutorial/context";
 import { isolateLtr, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 type Mode = "choose" | "send" | "done";
 
 export function OperatorHelpFlow({ ownerContact }: { ownerContact: string | null }) {
   const { t, error: operatorError, locale } = useOperatorI18n();
+  const dryRun = useOperatorDryRun();
   const [mode, setMode] = useState<Mode>("choose");
   const [problem, setProblem] = useState<HelpProblemId>("other");
   const [note, setNote] = useState("");
@@ -30,8 +33,12 @@ export function OperatorHelpFlow({ ownerContact }: { ownerContact: string | null
 
   function send() {
     setError(null);
+    if (dryRun.active) {
+      setMode("done");
+      return;
+    }
     startTransition(async () => {
-      const res = await tellOwner({ operationId, problem, note });
+      const res = await tellOwner({ operationId, problem, note, executionContext: LIVE_EXECUTION_CONTEXT });
       if (!res.ok) {
         setError(res.message);
         return;

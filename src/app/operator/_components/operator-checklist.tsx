@@ -13,6 +13,9 @@ import { getChecklist } from "@/lib/ops-capture/checklists";
 import type { MoneyPictureInput } from "@/lib/ops-capture/money-context";
 import type { ChecklistReceipt, ChecklistSummary, OpsStepState } from "@/lib/ops-capture/types";
 import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { LIVE_EXECUTION_CONTEXT } from "@/lib/operator/execution-context";
+import { useOperatorDryRun } from "@/lib/operator/tutorial/context";
+import { completeShopDaySteps } from "@/lib/operator/tutorial/scenario";
 import { operatorMoney, type OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 
 // V17 Phase 2 — the operator-friendly face of the EXISTING opening/closing ritual.
@@ -25,6 +28,21 @@ import { operatorMoney, type OperatorTranslationKey } from "@/lib/operator/i18n/
 
 type StepRecord = { state: OpsStepState; payload: Record<string, unknown> };
 type Kind = "opening" | "closing";
+
+function completeTutorialChecklistStep(index: number): { kind: Kind; key: string | null } | null {
+  const id = completeShopDaySteps[index]?.id;
+  const map: Record<string, { kind: Kind; key: string | null }> = {
+    "open.checklist": { kind: "opening", key: "display_ready" },
+    "open.temperature": { kind: "opening", key: "fridge_temp" },
+    "open.float": { kind: "opening", key: "float_ready" },
+    "open.confirm": { kind: "opening", key: null },
+    "close.checklist": { kind: "closing", key: "clean_done" },
+    "close.temperature": { kind: "closing", key: "fridges_closed" },
+    "close.till": { kind: "closing", key: "cash_counted" },
+    "close.confirm": { kind: "closing", key: null },
+  };
+  return id ? map[id] ?? null : null;
+}
 
 /** A suggested value for a number step, drawn from history, that the operator confirms. */
 export type NumberPrefill = { value: number; source: string | null };
@@ -63,6 +81,7 @@ export function OperatorChecklist({
   moneyPicture?: MoneyPictureInput | null;
 }) {
   const { t, error: operatorError, locale } = useOperatorI18n();
+  const dryRun = useOperatorDryRun();
   const definition = useMemo(() => getChecklist(kind), [kind]);
   const steps = definition.steps;
 
@@ -73,9 +92,14 @@ export function OperatorChecklist({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<boolean>(initialReceipt !== null);
 
-  const activeIndex = steps.findIndex((step) => !states[step.key]);
-  const allHandled = activeIndex === -1;
-  const activeStep = done || allHandled ? null : steps[activeIndex];
+  const tutorialStepId = dryRun.session?.status === "active" ? completeTutorialChecklistStep(dryRun.session.currentStep) : null;
+  const tutorialKey = tutorialStepId && tutorialStepId.kind === kind ? tutorialStepId.key : undefined;
+  const tutorialFinishing = tutorialStepId?.kind === kind && tutorialStepId.key === null;
+  const activeIndex = dryRun.active
+    ? (tutorialKey ? steps.findIndex((step) => step.key === tutorialKey) : -1)
+    : steps.findIndex((step) => !states[step.key]);
+  const allHandled = dryRun.active ? tutorialFinishing : activeIndex === -1;
+  const activeStep = (!dryRun.active && done) || allHandled ? null : steps[activeIndex];
   const handledCount = Object.keys(states).length;
 
   const activePrefill = activeStep ? numberPrefills?.[activeStep.key] : undefined;
@@ -94,13 +118,18 @@ export function OperatorChecklist({
     setNumberValue(activePrefill ? String(activePrefill.value) : "");
   }, [activeStep?.key, activePrefill]);
 
-  if (done) {
+  if (done && !dryRun.active) {
     return <Finished kind={kind} />;
   }
 
   async function ensureSession(): Promise<string | null> {
     if (sessionId) return sessionId;
-    const res = await startOrResumeChecklist({ branchId, kind });
+    if (dryRun.active) {
+      const practiceId = `dry-run-${kind}`;
+      setSessionId(practiceId);
+      return practiceId;
+    }
+    const res = await startOrResumeChecklist({ branchId, kind, executionContext: LIVE_EXECUTION_CONTEXT });
     if (!res.ok || !res.id) {
       setError(res.ok ? "i18n:checklist.startError" : res.message);
       return null;
@@ -133,12 +162,13 @@ export function OperatorChecklist({
           }
         : {};
 
-    const res = await recordChecklistStep({
+    const res = dryRun.active ? { ok: true as const, message: "Practice only." } : await recordChecklistStep({
       sessionId: id,
       stepKey: activeStep.key,
       state,
       payload,
       idempotencyKey: globalThis.crypto?.randomUUID?.() ?? `${activeStep.key}-${Date.now()}`,
+      executionContext: LIVE_EXECUTION_CONTEXT,
     });
 
     if (!res.ok) {
@@ -174,14 +204,14 @@ export function OperatorChecklist({
   }
 
   async function finish() {
-    if (!sessionId || busy) return;
+    if ((!sessionId && !dryRun.active) || busy) return;
     if (readingBlockers.length > 0) {
       setError("i18n:checklist.readingNeeded");
       return;
     }
     setBusy(true);
     setError(null);
-    const res = await completeChecklist({ sessionId });
+    const res = dryRun.active ? { ok: true as const, message: "Practice only." } : await completeChecklist({ sessionId: sessionId!, executionContext: LIVE_EXECUTION_CONTEXT });
     if (!res.ok) {
       setError(res.message);
       setBusy(false);
@@ -245,6 +275,12 @@ export function OperatorChecklist({
                   value={numberValue}
                   onChange={(event) => setNumberValue(event.target.value)}
                   data-testid="operator-step-number"
+                  data-tutorial={
+                    kind === "opening" && activeStep.key === "fridge_temp" ? "open-temperature" :
+                    kind === "opening" && activeStep.key === "float_ready" ? "open-float" :
+                    kind === "closing" && activeStep.key === "cash_counted" ? "close-till" :
+                    kind === "closing" && activeStep.key === "fridges_closed" ? "close-temperature" : undefined
+                  }
                   className="h-16 w-40 rounded-xl border-2 border-[var(--line)] bg-[var(--paper)] px-4 text-2xl font-semibold outline-none focus:border-[var(--brand)]"
                 />
                 <bdi dir="ltr" className="operator-bidi text-2xl font-semibold text-[var(--muted)]">{activeStep.input.unit}</bdi>
@@ -258,6 +294,10 @@ export function OperatorChecklist({
               onClick={() => record("done")}
               disabled={busy || (activeStep.input.kind === "number" && numberValue.trim() === "")}
               data-testid="operator-step-yes"
+              data-tutorial={
+                kind === "opening" && activeStep.key === "display_ready" ? "open-checklist" :
+                kind === "closing" && activeStep.key === "clean_done" ? "close-checklist" : undefined
+              }
               className="flex min-h-[72px] w-full items-center justify-center gap-3 rounded-2xl bg-[var(--brand)] px-6 text-xl font-semibold text-white transition active:scale-[0.99] disabled:opacity-50"
             >
               <Check className="h-7 w-7" aria-hidden />
@@ -307,6 +347,7 @@ export function OperatorChecklist({
                 onClick={finish}
                 disabled={busy}
                 data-testid="operator-checklist-finish"
+                data-tutorial={kind === "opening" ? "open-confirm" : "close-confirm"}
                 className="mt-5 flex min-h-[72px] w-full items-center justify-center gap-3 rounded-2xl bg-[var(--brand)] px-6 text-xl font-semibold text-white transition active:scale-[0.99] disabled:opacity-50"
               >
                 <Check className="h-7 w-7" aria-hidden />

@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { CheckCircle2, Coins, DoorOpen, FileText, HelpCircle, Moon, ShoppingBag, Truck } from "lucide-react";
+import { CheckCircle2, Coins, DoorOpen, FileText, HelpCircle, Moon, ShoppingBag, Trash2, Truck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { OperatorText } from "@/app/operator/_components/operator-language";
 import type { OperatorTranslationKey } from "@/lib/operator/i18n/resources";
+import { StartDryRunCard } from "@/lib/operator/tutorial/context";
 import { getTodaysChecklistState } from "@/lib/server/ops-capture";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
@@ -22,6 +23,7 @@ type Door = {
   icon: LucideIcon;
   lead: boolean;
   done?: boolean;
+  tutorialTarget?: string;
 };
 
 export default async function OperatorHomePage() {
@@ -47,6 +49,7 @@ export default async function OperatorHomePage() {
       icon: DoorOpen,
       lead: lead === "open",
       done: openDone,
+      tutorialTarget: "nav-open",
     },
     {
       href: "/operator/serve",
@@ -55,6 +58,7 @@ export default async function OperatorHomePage() {
       helper: "home.serveHelp",
       icon: ShoppingBag,
       lead: lead === "serve",
+      tutorialTarget: "nav-serve",
     },
     {
       href: "/operator/stock",
@@ -63,6 +67,16 @@ export default async function OperatorHomePage() {
       helper: "home.stockHelp",
       icon: Truck,
       lead: false,
+      tutorialTarget: "nav-stock",
+    },
+    {
+      href: "/operator/waste",
+      testId: "record-waste",
+      title: "page.waste.title",
+      helper: "page.waste.helper",
+      icon: Trash2,
+      lead: false,
+      tutorialTarget: "nav-waste",
     },
     {
       href: "/operator/certificate",
@@ -80,6 +94,7 @@ export default async function OperatorHomePage() {
       icon: Moon,
       lead: lead === "close",
       done: closeDone,
+      tutorialTarget: "nav-close",
     },
   ];
 
@@ -95,6 +110,7 @@ export default async function OperatorHomePage() {
 
       <Link
         href="/operator/till"
+        data-tutorial="nav-till"
         data-testid="operator-till-link"
         className="mt-4 flex min-h-[72px] items-center gap-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-5 py-4 text-start shadow-sm transition active:scale-[0.99]"
       >
@@ -107,6 +123,7 @@ export default async function OperatorHomePage() {
 
       <Link
         href="/operator/help"
+        data-tutorial="nav-help"
         className="mt-4 flex min-h-[72px] items-center gap-4 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-5 py-4 text-start shadow-sm transition active:scale-[0.99]"
       >
         <HelpCircle className="h-8 w-8 shrink-0 text-[var(--clay)]" aria-hidden />
@@ -115,6 +132,8 @@ export default async function OperatorHomePage() {
           <OperatorText as="span" className="block text-base text-[var(--muted)]" k="home.helpHint" />
         </span>
       </Link>
+
+      <StartDryRunCard />
     </div>
   );
 }
@@ -126,6 +145,7 @@ function DoorTile({ door }: { door: Door }) {
     <Link
       href={door.href}
       data-testid={`operator-door-${door.testId}`}
+      data-tutorial={door.tutorialTarget}
       className={[
         "flex min-h-[156px] flex-col justify-between rounded-2xl border px-6 py-5 shadow-sm transition active:scale-[0.99]",
         door.lead ? "border-[var(--brand)] bg-[var(--brand-50)]" : "border-[var(--line)] bg-[var(--card)]",

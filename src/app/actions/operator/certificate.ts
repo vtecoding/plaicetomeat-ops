@@ -108,6 +108,7 @@ export async function capturePaperPhoto(formData: FormData): Promise<OperatorAct
     uploadData.set("sourceId", safeRunId);
     uploadData.set("sourceRef", label);
     uploadData.set("operationId", safeRunId);
+    uploadData.set("executionMode", "live");
 
     const upload = await uploadOperatorEvidence(uploadData);
     if (!upload.ok) {

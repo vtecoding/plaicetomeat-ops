@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { OperatorLanguageControl, OperatorLocaleSurface, OperatorScriptStyleControl, OperatorText } from "@/app/operator/_components/operator-language";
 import { LogoutButton } from "@/components/logout-button";
 import { OperatorLocaleProvider } from "@/lib/operator/i18n/context";
+import { OperatorDryRunProvider } from "@/lib/operator/tutorial/context";
 import { getOperatorLocale, getOperatorScriptStyle } from "@/lib/operator/i18n/server";
 import { requireStaffContext } from "@/lib/server/staff-context";
 
@@ -24,6 +25,7 @@ export default async function OperatorLayout({ children }: { children: ReactNode
   return (
     <OperatorLocaleProvider initialLocale={locale} initialScriptStyle={scriptStyle} applyDocumentDirection>
       <OperatorLocaleSurface>
+        <OperatorDryRunProvider>
         <header className="border-b border-[var(--line)] bg-[var(--card)]/80 px-5 py-4 backdrop-blur">
           <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-3">
             <div>
@@ -40,7 +42,8 @@ export default async function OperatorLayout({ children }: { children: ReactNode
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-6 pb-20">{children}</main>
+          <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-6 pb-20">{children}</main>
+        </OperatorDryRunProvider>
       </OperatorLocaleSurface>
     </OperatorLocaleProvider>
   );
