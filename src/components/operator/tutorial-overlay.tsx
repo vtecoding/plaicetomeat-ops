@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, RotateCcw, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, LoaderCircle, RotateCcw, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useOperatorI18n } from "@/lib/operator/i18n/context";
 import type { DryRunSession, TutorialStep } from "@/lib/operator/tutorial/types";
 
 type Rect = { top: number; left: number; right: number; bottom: number; width: number; height: number };
+type Size = { width: number; height: number };
 
 export function TutorialOverlay({ session, step, total, onBack, onNext, onExit, onRestart, onRecover }: {
   session: DryRunSession;
@@ -23,6 +24,9 @@ export function TutorialOverlay({ session, step, total, onBack, onNext, onExit, 
   const { dir, t } = useOperatorI18n();
   const [rect, setRect] = useState<Rect | null>(null);
   const [missing, setMissing] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
+  const [bubbleSize, setBubbleSize] = useState<Size>({ width: 340, height: 280 });
+  const bubbleRef = useRef<HTMLElement | null>(null);
   const rtl = dir === "rtl";
   const targetSelector = step.target ? `[data-tutorial="${step.target}"]` : null;
 
@@ -31,18 +35,33 @@ export function TutorialOverlay({ session, step, total, onBack, onNext, onExit, 
     setMissing(false);
     if (!targetSelector) return;
     let target: HTMLElement | null = null;
-    let resizeObserver: ResizeObserver | null = null;
+    let targetObserver: ResizeObserver | null = null;
     let mutationObserver: MutationObserver | null = null;
+    let poll = 0;
     let timeout = 0;
-    const previous: Partial<CSSStyleDeclaration> = {};
+    let previous: Partial<CSSStyleDeclaration> = {};
     const position = () => {
       if (!target?.isConnected) return;
       const next = target.getBoundingClientRect();
       setRect({ top: next.top, left: next.left, right: next.right, bottom: next.bottom, width: next.width, height: next.height });
     };
-    const attach = () => {
-      target = document.querySelector<HTMLElement>(targetSelector);
-      if (!target) return false;
+    const detach = () => {
+      targetObserver?.disconnect();
+      targetObserver = null;
+      if (target) {
+        target.style.position = previous.position ?? "";
+        target.style.zIndex = previous.zIndex ?? "";
+        target.style.boxShadow = previous.boxShadow ?? "";
+        target.style.borderRadius = previous.borderRadius ?? "";
+        target.removeAttribute("aria-describedby");
+      }
+      target = null;
+      previous = {};
+    };
+    const attach = (candidate: HTMLElement) => {
+      if (candidate === target) { position(); return; }
+      detach();
+      target = candidate;
       previous.position = target.style.position;
       previous.zIndex = target.style.zIndex;
       previous.boxShadow = target.style.boxShadow;
@@ -54,46 +73,47 @@ export function TutorialOverlay({ session, step, total, onBack, onNext, onExit, 
       target.setAttribute("aria-describedby", "dry-run-instruction");
       target.scrollIntoView({ block: "center", inline: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
       position();
-      resizeObserver = new ResizeObserver(position);
-      resizeObserver.observe(target);
-      window.addEventListener("resize", position);
-      window.addEventListener("scroll", position, true);
+      targetObserver = new ResizeObserver(position);
+      targetObserver.observe(target);
       window.setTimeout(() => target?.focus({ preventScroll: true }), 100);
-      return true;
+      setMissing(false);
     };
-    if (!attach()) {
-      mutationObserver = new MutationObserver(() => { if (attach()) mutationObserver?.disconnect(); });
-      mutationObserver.observe(document.body, { childList: true, subtree: true });
-      timeout = window.setTimeout(() => {
-        mutationObserver?.disconnect();
+    const scan = () => {
+      const candidate = document.querySelector<HTMLElement>(targetSelector);
+      if (candidate) attach(candidate);
+      else if (target && !target.isConnected) { detach(); setRect(null); }
+    };
+    scan();
+    mutationObserver = new MutationObserver(scan);
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
+    poll = window.setInterval(scan, 250);
+    timeout = window.setTimeout(() => {
+      if (!document.querySelector(targetSelector)) {
         setMissing(true);
-        if (process.env.NODE_ENV !== "production") console.error(`Tutorial target not found: ${step.target}\nstep: ${step.id}`);
-      }, 4000);
-    } else {
-      mutationObserver = new MutationObserver(() => {
-        if (!target?.isConnected) {
-          setRect(null);
-          setMissing(true);
-          if (process.env.NODE_ENV !== "production") console.error(`Tutorial target disappeared: ${step.target}\nstep: ${step.id}`);
-        }
-      });
-      mutationObserver.observe(document.body, { childList: true, subtree: true });
-    }
+        if (process.env.NODE_ENV !== "production") console.error(`Tutorial target not found after navigation settled: ${step.target}\nstep: ${step.id}`);
+      }
+    }, 15_000);
+    window.addEventListener("resize", position);
+    window.addEventListener("scroll", position, true);
     return () => {
       window.clearTimeout(timeout);
+      window.clearInterval(poll);
       mutationObserver?.disconnect();
-      resizeObserver?.disconnect();
       window.removeEventListener("resize", position);
       window.removeEventListener("scroll", position, true);
-      if (target) {
-        target.style.position = previous.position ?? "";
-        target.style.zIndex = previous.zIndex ?? "";
-        target.style.boxShadow = previous.boxShadow ?? "";
-        target.style.borderRadius = previous.borderRadius ?? "";
-        target.removeAttribute("aria-describedby");
-      }
+      detach();
     };
-  }, [step.id, step.target, targetSelector]);
+  }, [retryToken, step.id, step.target, targetSelector]);
+
+  useLayoutEffect(() => {
+    const bubble = bubbleRef.current;
+    if (!bubble) return;
+    const measure = () => setBubbleSize({ width: bubble.offsetWidth, height: bubble.offsetHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bubble);
+    return () => observer.disconnect();
+  }, [missing, step.id]);
 
   useEffect(() => {
     const allowed = (element: Element | null) => {
@@ -123,31 +143,41 @@ export function TutorialOverlay({ session, step, total, onBack, onNext, onExit, 
     };
   }, [targetSelector]);
 
-  const bubbleStyle = useMemo(() => getBubbleStyle(rect, step.placement ?? "bottom", rtl), [rect, rtl, step.placement]);
+  const bubbleStyle = useMemo(() => typeof window === "undefined" ? {} : getBubbleStyle(rect, step.placement ?? "bottom", rtl, bubbleSize), [bubbleSize, rect, rtl, step.placement]);
   const dimmers = rect ? getDimmers(rect) : [{ top: 0, left: 0, width: "100vw", height: "100vh" }];
+  const progress = Math.round(((session.currentStep + 1) / total) * 100);
+  const findingTarget = Boolean(targetSelector && !rect && !missing);
   if (typeof document === "undefined") return null;
 
   return createPortal(
     <div className="pointer-events-none fixed inset-0 z-[1000]" data-testid="tutorial-overlay">
       {dimmers.map((style, index) => <div key={index} className="pointer-events-none fixed bg-[#07150f]/72 backdrop-blur-[1px]" style={style} aria-hidden />)}
-      <section data-tutorial-control role="dialog" aria-modal="false" aria-live="polite" aria-label={t(step.titleKey)} className="pointer-events-auto fixed z-[1004] w-[min(340px,calc(100vw-24px))] rounded-2xl border border-[#d6c9b6] bg-white p-4 text-[#231f20] shadow-2xl" style={bubbleStyle}>
+      <section ref={bubbleRef} data-tutorial-control role="dialog" aria-modal="false" aria-live="polite" aria-label={t(step.titleKey)} className="pointer-events-auto fixed z-[1004] max-h-[calc(100vh-24px)] w-[min(380px,calc(100vw-24px))] overflow-y-auto rounded-2xl border border-[#d6c9b6] bg-white p-5 text-[#231f20] shadow-2xl" style={bubbleStyle}>
         {missing ? <>
           <h2 className="text-lg font-black">{t("dryRun.recoverTitle")}</h2>
           <p className="mt-1 text-sm text-[#5c5148]">{t("dryRun.recoverBody")}</p>
-          <Button className="mt-4 w-full" onClick={onRecover}>{t("dryRun.returnHome")}</Button>
+          <div className="mt-4 grid gap-2">
+            <Button className="min-h-12 w-full" onClick={() => { setMissing(false); setRetryToken((value) => value + 1); }}>{t("dryRun.tryAgain")}</Button>
+            <Button variant="outline" className="min-h-12 w-full" onClick={onRecover}>{t("dryRun.restart")}</Button>
+          </div>
         </> : <>
           <div className="flex items-center justify-between gap-3">
-            <span className="rounded-full bg-[#fff2bf] px-2.5 py-1 text-xs font-black text-[#694d00]">{t("dryRun.step", { current: session.currentStep + 1, total })}</span>
-            <button data-tutorial-control type="button" onClick={onExit} className="rounded-md p-1.5 hover:bg-[#f4efe7]" aria-label={t("dryRun.exit")}><X className="h-5 w-5" aria-hidden /></button>
+            <div><span className="block text-[11px] font-black uppercase tracking-[.12em] text-[#694d00]">{t("dryRun.practiceLabel")}</span><span className="mt-0.5 block text-sm font-black text-[#352500]">{t("dryRun.step", { current: session.currentStep + 1, total })}</span></div>
+            <button data-tutorial-control type="button" onClick={onExit} className="grid min-h-11 min-w-11 place-items-center rounded-xl hover:bg-[#f4efe7]" aria-label={t("dryRun.exit")}><X className="h-5 w-5" aria-hidden /></button>
           </div>
+          <div role="progressbar" aria-label={t("dryRun.progressLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="mt-3 h-2 overflow-hidden rounded-full bg-[#eee5d8]"><div className="h-full rounded-full bg-[#df9d00] transition-[width] duration-300" style={{ width: `${progress}%` }} /></div>
           <h2 className="mt-3 text-xl font-black">{t(step.titleKey)}</h2>
-          <p id="dry-run-instruction" className="mt-1 text-base leading-snug text-[#4e463f]">{t(step.instructionKey)}</p>
+          <p id="dry-run-instruction" className="mt-1 text-[17px] font-medium leading-relaxed text-[#3f3934]">{t(step.instructionKey)}</p>
+          <div className="mt-3 flex items-start gap-2 rounded-xl bg-[#fff7d6] px-3 py-2.5 text-sm leading-snug text-[#5d4300]">
+            {findingTarget ? <LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden /> : <span className="mt-0.5 block h-2.5 w-2.5 shrink-0 rounded-full bg-[#df9d00]" aria-hidden />}
+            <span><strong className="block">{step.requiredEvent ? t("dryRun.yourTurn") : t("dryRun.practiceLabel")}</strong>{findingTarget ? t("dryRun.loadingStep") : step.requiredEvent ? t("dryRun.noRush") : t("dryRun.readAndContinue")}</span>
+          </div>
           <div className="mt-4 flex items-center justify-between gap-2">
             <div className="flex gap-1">
-              <Button data-tutorial-control variant="ghost" size="sm" onClick={onBack} disabled={session.currentStep === 0}>{rtl ? <ArrowRight className="h-4 w-4" aria-hidden /> : <ArrowLeft className="h-4 w-4" aria-hidden />}{t("dryRun.back")}</Button>
-              <Button data-tutorial-control variant="ghost" size="icon" onClick={onRestart} aria-label={t("dryRun.restart")}><RotateCcw className="h-4 w-4" aria-hidden /></Button>
+              <Button data-tutorial-control variant="ghost" className="min-h-11" onClick={onBack} disabled={session.currentStep === 0}>{rtl ? <ArrowRight className="h-4 w-4" aria-hidden /> : <ArrowLeft className="h-4 w-4" aria-hidden />}{t("dryRun.back")}</Button>
+              <Button data-tutorial-control variant="ghost" size="icon" className="min-h-11 min-w-11" onClick={onRestart} aria-label={t("dryRun.restart")}><RotateCcw className="h-4 w-4" aria-hidden /></Button>
             </div>
-            {!step.requiredEvent && <Button data-tutorial-control size="sm" onClick={onNext}>{step.id === "complete" ? t("dryRun.finish") : t("dryRun.next")}{rtl ? <ArrowLeft className="h-4 w-4" aria-hidden /> : <ArrowRight className="h-4 w-4" aria-hidden />}</Button>}
+            {!step.requiredEvent && <Button data-tutorial-control className="min-h-11 px-5" onClick={onNext}>{step.id === "complete" ? t("dryRun.finish") : t("dryRun.next")}{rtl ? <ArrowLeft className="h-4 w-4" aria-hidden /> : <ArrowRight className="h-4 w-4" aria-hidden />}</Button>}
           </div>
         </>}
       </section>
@@ -164,16 +194,30 @@ function getDimmers(rect: Rect): React.CSSProperties[] {
   return [{ top: 0, left: 0, right: 0, height: top }, { top: bottom, left: 0, right: 0, bottom: 0 }, { top, left: 0, width: left, height: Math.max(0, bottom - top) }, { top, left: right, right: 0, height: Math.max(0, bottom - top) }];
 }
 
-function getBubbleStyle(rect: Rect | null, placement: TutorialStep["placement"], rtl: boolean): React.CSSProperties {
-  const width = Math.min(340, window.innerWidth - 24);
-  const height = 250;
+function getBubbleStyle(rect: Rect | null, placement: TutorialStep["placement"], rtl: boolean, measured: Size): React.CSSProperties {
+  const width = Math.min(Math.max(measured.width, 340), window.innerWidth - 24);
+  const height = Math.min(Math.max(measured.height, 260), window.innerHeight - 24);
   if (!rect) return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
-  let top = rect.bottom + 18;
-  let left = rtl ? rect.right - width : rect.left;
-  if (placement === "top" || top + height > window.innerHeight - 12) top = rect.top - height - 18;
-  if (placement === "left") { top = rect.top; left = rect.left - width - 18; }
-  if (placement === "right") { top = rect.top; left = rect.right + 18; }
-  top = Math.max(12, Math.min(top, window.innerHeight - height - 12));
-  left = Math.max(12, Math.min(left, window.innerWidth - width - 12));
-  return { top, left };
+  if (window.innerWidth < 640) {
+    const targetIsLow = rect.top > window.innerHeight * 0.48;
+    return targetIsLow ? { top: 12, left: 12, right: 12 } : { bottom: 12, left: 12, right: 12 };
+  }
+  const opposite: Record<NonNullable<TutorialStep["placement"]>, NonNullable<TutorialStep["placement"]>> = { top: "bottom", bottom: "top", left: "right", right: "left" };
+  const horizontal: NonNullable<TutorialStep["placement"]>[] = rtl ? ["right", "left"] : ["left", "right"];
+  const order = [...new Set([placement ?? "bottom", opposite[placement ?? "bottom"], ...horizontal])] as NonNullable<TutorialStep["placement"]>[];
+  const candidate = (side: NonNullable<TutorialStep["placement"]>) => {
+    if (side === "top") return { top: rect.top - height - 18, left: rtl ? rect.right - width : rect.left };
+    if (side === "bottom") return { top: rect.bottom + 18, left: rtl ? rect.right - width : rect.left };
+    if (side === "left") return { top: rect.top, left: rect.left - width - 18 };
+    return { top: rect.top, left: rect.right + 18 };
+  };
+  for (const side of order) {
+    const next = candidate(side);
+    if (next.top >= 12 && next.left >= 12 && next.top + height <= window.innerHeight - 12 && next.left + width <= window.innerWidth - 12) return next;
+  }
+  const fallback = candidate(placement ?? "bottom");
+  return {
+    top: Math.max(12, Math.min(fallback.top, window.innerHeight - height - 12)),
+    left: Math.max(12, Math.min(fallback.left, window.innerWidth - width - 12)),
+  };
 }
