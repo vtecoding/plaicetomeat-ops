@@ -71,7 +71,7 @@ requireText(
 );
 requireText(
   "src/app/operator/serve/operator-serve-flow.tsx",
-  /How many boxes\?[\s\S]*How many\?/,
+  /"serve\.howManyBoxes"[\s\S]*"serve\.howMany"/,
   "serve must use count-specific prompts",
 );
 requireText(
