@@ -40,6 +40,7 @@ export function OperatorCertificateFlow() {
       formData.set("file", file);
       formData.set("paperKind", paperKind);
       formData.set("runId", runId);
+      formData.set("executionMode", "live");
       const res = await capturePaperPhoto(formData);
       if (!res.ok) {
         setError(res.message);

@@ -8,6 +8,7 @@ import {
   type OperatorActionResult,
 } from "@/app/actions/operator/escalation";
 import type { OperatorEvidenceType } from "@/lib/operator/evidence-types";
+import { assertProductionMutationAllowed } from "@/lib/operator/execution-context";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient, createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
@@ -38,6 +39,10 @@ async function requireOperator() {
 }
 
 export async function capturePaperPhoto(formData: FormData): Promise<OperatorActionResult> {
+  assertProductionMutationAllowed(
+    valueFrom(formData, "executionMode") === "live" ? { mode: "live" } : undefined,
+    "operator-capture-certificate",
+  );
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!hasSupabaseServiceEnv()) return { ok: false, message: "Try again." };

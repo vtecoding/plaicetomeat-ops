@@ -23,6 +23,7 @@ describe("real Operator mutation boundaries", () => {
       "src/app/actions/operator/till.ts",
       "src/app/actions/operator/help.ts",
       "src/app/actions/operator/evidence.ts",
+      "src/app/actions/operator/certificate.ts",
     ];
     for (const file of files) {
       const source = fs.readFileSync(path.resolve(process.cwd(), file), "utf8");
