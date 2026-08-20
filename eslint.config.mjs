@@ -18,6 +18,8 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Supabase CLI runtime output generated after `supabase start` in release CI.
+      "supabase/.temp/**",
       // Deno runtime (npm: specifiers, Deno globals) — outside the Node/Next lint world.
       "supabase/functions/**",
     ],
