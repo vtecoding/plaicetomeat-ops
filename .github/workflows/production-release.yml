@@ -53,6 +53,11 @@ jobs:
       - run: corepack pnpm lint
       - run: corepack pnpm test
       - run: corepack pnpm architecture:check
+      # The architecture guard intentionally regenerates these human-readable
+      # reports. They are evidence, not release inputs, and include timestamps;
+      # restore the committed copies so exact-artifact certification stays clean.
+      - name: Restore generated architecture reports
+        run: git restore --worktree -- docs/v15/Owner-Brain-Compliance.md docs/v16/Surface-Convergence.md
       - run: corepack pnpm build
 
       - name: Link Vercel project without deploying
