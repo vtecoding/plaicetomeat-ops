@@ -58,6 +58,18 @@ async function makeOrder(status, key) {
     .select("id")
     .single();
   if (error) throw error;
+
+  const { error: itemError } = await service.from("order_items").insert({
+    branch_id: BRANCH_A,
+    order_id: data.id,
+    product_name_snapshot: "Verify item",
+    quantity: 1,
+    unit_type: "each",
+    unit_price_snapshot: 9.99,
+    line_total: 9.99,
+  });
+  if (itemError) throw itemError;
+
   return data.id;
 }
 
