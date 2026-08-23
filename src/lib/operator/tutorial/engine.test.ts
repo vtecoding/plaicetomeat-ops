@@ -16,7 +16,9 @@ describe("dry-run tutorial engine", () => {
     let session = advanceInstruction(createDryRunSession("en", now, "session-2"));
     session = handleTutorialEvent(session, { id: "open", name: "operator.open.selected" });
     session = handleTutorialEvent(session, { id: "clean", name: "operator.open.checklist_confirmed" });
-    expect(handleTutorialEvent(session, { id: "warm", name: "operator.temperature.entered", value: "4.1" })).toBe(session);
+    expect(handleTutorialEvent(session, { id: "random", name: "operator.temperature.entered", value: "4.1" })).toBe(session);
+    session = handleTutorialEvent(session, { id: "warm", name: "operator.temperature.entered", value: "8.5" });
+    expect(session.simulatedState.openingTemperature).toBe("8.5");
     session = handleTutorialEvent(session, { id: "correct", name: "operator.temperature.entered", value: "3.2" });
     expect(session.simulatedState.openingTemperature).toBe("3.2");
     expect(handleTutorialEvent(session, { id: "correct", name: "operator.temperature.entered", value: "3.2" })).toBe(session);
@@ -40,7 +42,7 @@ describe("dry-run tutorial engine", () => {
     const session = createDryRunSession("en", now, "session-4");
     expect(restoreSession(serializeSession(session), new Date("2026-08-20T09:00:00.000Z"))?.id).toBe("session-4");
     expect(restoreSession(serializeSession(session), new Date("2026-08-20T17:00:01.000Z"))).toBeNull();
-    expect(restoreSession(JSON.stringify({ ...session, scenarioId: "complete-shop-day-v1" }), now)).toBeNull();
+    expect(restoreSession(JSON.stringify({ ...session, scenarioId: "complete-shop-day-v2" }), now)).toBeNull();
     expect(restoreSession(JSON.stringify({ ...session, snapshots: null }), now)).toBeNull();
     expect(restoreSession("not-json", now)).toBeNull();
   });

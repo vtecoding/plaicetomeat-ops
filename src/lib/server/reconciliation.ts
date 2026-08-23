@@ -1,14 +1,16 @@
 import "server-only";
 
 import { alertHref, alertSpecFor, type AlertAction, type AlertAutoResolve } from "@/lib/domain/alert-registry";
+import { toOwnerDecisionCopy, type OwnerDecisionCopy } from "@/lib/domain/owner-decision";
 import { batchIdFromCostRef } from "@/lib/domain/reconciliation";
 import { wasteReasonLabel, type WasteReasonChoice } from "@/lib/operator/workflows/waste";
 import { emitAuditLog } from "@/lib/server/audit";
+import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
 type ServiceClient = ReturnType<typeof createSupabaseServiceClient>;
 
-export type ReconcileItem = {
+export type ReconcileItem = OwnerDecisionCopy & {
   alertId: string;
   kind: string;
   action: AlertAction;
@@ -139,6 +141,12 @@ export async function getReconciliationItems(
     const entityRef = alert.entity_ref == null ? null : String(alert.entity_ref);
 
     const item: ReconcileItem = {
+      ...toOwnerDecisionCopy({
+        kind,
+        summary: String(alert.summary ?? ""),
+        severity: alert.severity === "critical" ? "critical" : "warning",
+        action: spec.action,
+      }),
       alertId: String(alert.id),
       kind,
       action: spec.action,
@@ -200,3 +208,15 @@ export async function getReconciliationItems(
 
 /** B2 name for new callers; compatibility export above keeps existing imports stable. */
 export const getOwnerJobs = getReconciliationItems;
+
+/**
+ * Owner-only reader for role-aware shared surfaces. It resolves authority inside
+ * the server boundary so a manager/operator render never fetches this payload.
+ */
+export async function getOwnerJobsForCurrentOwner(
+  options: { markSeen?: boolean } = {},
+): Promise<ReconcileTray | null> {
+  const context = await resolveStaffContext("owner", { branchScoped: true });
+  if (!context.ok) return null;
+  return getReconciliationItems(context.branchId, options);
+}

@@ -13,7 +13,7 @@ export function roleLandingPath(role: StaffRole, operatorMode = false): string {
   if (isOperatorAccount(role, operatorMode)) {
     return "/operator";
   }
-  return role === "staff" ? "/counter" : "/admin/today";
+  return role === "staff" ? "/counter" : "/operator";
 }
 
 const BACKSLASH = String.fromCharCode(92);

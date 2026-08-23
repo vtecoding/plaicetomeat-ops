@@ -112,7 +112,11 @@ describe("loginAction security events", () => {
 
     await expect(loginAction({ error: null }, loginForm())).rejects.toThrow(/^redirect:/);
     expect(h.recordSecurityEventMock).not.toHaveBeenCalled();
-    expect(h.cookieStore.set).toHaveBeenCalled();
+    expect(h.cookieStore.set).toHaveBeenCalledWith(
+      "ptm_staff_last_seen",
+      "signed-token",
+      expect.objectContaining({ httpOnly: true, maxAge: 12 * 60 * 60, sameSite: "lax" }),
+    );
   });
 
   it("never includes the raw email in security metadata (hashed only)", async () => {

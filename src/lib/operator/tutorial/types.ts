@@ -14,6 +14,7 @@ export type TutorialStep = {
   target: string | null;
   titleKey: OperatorTranslationKey;
   instructionKey: OperatorTranslationKey;
+  feedbackKey?: OperatorTranslationKey;
   placement?: TutorialPlacement;
   requiredEvent?: string;
   expectedValue?: string | number | boolean;
@@ -34,7 +35,7 @@ export type SimulatedState = {
 
 export type DryRunSession = {
   id: string;
-  scenarioId: "complete-shop-day-v2";
+  scenarioId: "complete-shop-day-v3";
   mode: "dry-run";
   locale: OperatorLocale;
   currentStep: number;

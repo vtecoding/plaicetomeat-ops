@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { DRY_RUN_STORAGE_KEY, restoreSession } from "./engine";
 import { completeShopDaySteps } from "./scenario";
 
-export const OWNER_TUTORIAL_STORAGE_KEY = "ptm_owner_tutorial_v1";
+export const OWNER_TUTORIAL_STORAGE_KEY = "ptm_owner_tutorial_v2";
 
 /** Keeps an active training audience inside its synthetic surface after direct navigation. */
 export function DryRunRouteGuard() {

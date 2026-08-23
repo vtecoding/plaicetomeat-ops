@@ -335,7 +335,13 @@ async function main() {
   check("till_variance alert raised above threshold", (varAlerts?.length ?? 0) === 1, `count=${varAlerts?.length}`);
   check("alert is plain English (over, no jargon)", /£9\.00 over/.test(varAlerts?.[0]?.summary ?? ""), varAlerts?.[0]?.summary ?? "");
 
-  // Below-threshold close (a second session, same day): NO alert.
+  // Reset the throwaway closing fixture through the service role before testing
+  // the other threshold. The product itself correctly permits only one close per
+  // Shop Day; these two cases need isolated closing records.
+  await admin.from("ops_checklist_events").delete().eq("session_id", closeId);
+  await admin.from("ops_checklist_sessions").delete().eq("id", closeId);
+
+  // Below-threshold close: NO alert.
   const { data: closeId2 } = await manager.rpc("ops_start_or_resume_session", { p_branch_id: BRANCH, p_kind: "closing", p_source: "closing" });
   const { data: picture4 } = await manager.rpc("day_money_expected_v18", { p_branch_id: BRANCH, p_business_date: today });
   await step(closeId2, "waste_logged", "done");
@@ -346,7 +352,7 @@ async function main() {
   await step(closeId2, "clean_done", "done");
   await step(closeId2, "lock_up", "done");
   const { error: closeErr2 } = await manager.rpc("ops_complete_session", { p_session_id: closeId2, p_source: "checklist" });
-  check("second closing completes", !closeErr2, closeErr2?.message ?? "");
+  check("below-threshold closing completes", !closeErr2, closeErr2?.message ?? "");
   const { data: varAlerts2 } = await admin
     .from("owner_alerts").select("id").eq("branch_id", BRANCH)
     .eq("kind", "till_variance").eq("entity_ref", `close:${closeId2}`);

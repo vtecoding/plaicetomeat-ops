@@ -23,42 +23,41 @@ test.describe("v9 owner brain — today", () => {
       await expect(setup).toBeVisible();
       await expect(page.getByTestId("decisions-do-now")).toHaveCount(0);
     } else {
-      // V15.1 TODAY OS — the dominant "Do now" zone (≤3), an optional collapsed Later
-      // reserve, and demoted reference info. The "How the shop is doing" status panel is
-      // retired; the weekly summary is demoted to a secondary collapsed panel.
+      // The dominant "Do now" zone contains the complete immediate workload (≤3).
+      // Later is optional and collapsed; analysis is absent from Today.
       await expect(page.getByTestId("do-now-zone")).toBeVisible();
       await expect(page.getByRole("heading", { name: "Do now", exact: true })).toBeVisible();
       const doNowRows = page.getByTestId("decisions-do-now").getByTestId("decision-row");
       expect(await doNowRows.count()).toBeLessThanOrEqual(3);
       // Dashboard retirement: the status panel is gone from TODAY.
       await expect(page.getByTestId("shop-status")).toHaveCount(0);
-      // Weekly summary still exists, but demoted (collapsed/secondary), never above Do Now.
-      await expect(page.getByTestId("weekly-owner-summary")).toBeVisible();
+      await expect(page.getByTestId("weekly-owner-summary")).toHaveCount(0);
+      await expect(page.getByTestId("yesterday-money")).toHaveCount(0);
+      await expect(page.getByTestId("reconcile-today-panel")).toHaveCount(0);
     }
   });
 
   test("a decision opens a standardised decision card", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 
-    // Some decisions deliberately route one tap straight to their work surface
-    // (for example an expired certificate opens Compliance). Select a decision
-    // whose declared destination is the standardised Today detail card. Detail-
-    // card decisions can sit in the deliberately collapsed Later reserve.
-    await page.getByTestId("later-reserve").locator("summary").click().catch(() => {});
-    const rows = page.locator('[data-testid="decision-row"][href^="/admin/today/"]');
+    test.skip((await page.getByTestId("setup-mode").count()) > 0, "Shop is in setup mode — no decision to open");
+    const rows = page.getByTestId("decisions-do-now").getByTestId("decision-row");
     const count = await rows.count();
-    test.skip(count === 0, "No detail-card decision in the current data set");
+    test.skip(count === 0, "No Do now decision in the current data set");
 
     await rows.first().click();
     await expect(page).toHaveURL(/\/admin\/today\/.+/);
     await expect(page.getByTestId("decision-card")).toBeVisible();
 
-    // Every card answers the four questions, plus who and when.
+    // Every card answers the decision questions before showing optional evidence.
     await expect(page.getByText("What happened?")).toBeVisible();
-    await expect(page.getByText("Why it matters")).toBeVisible();
-    await expect(page.getByText("Recommended action")).toBeVisible();
-    await expect(page.getByText("Money impact")).toBeVisible();
-    await expect(page.getByText("Who should do it")).toBeVisible();
+    await expect(page.getByText("Why does it matter?")).toBeVisible();
+    await expect(page.getByText("PTM recommends")).toBeVisible();
+    const evidence = page.getByTestId("decision-evidence");
+    await expect(evidence).toBeVisible();
+    await expect(evidence).not.toHaveAttribute("open", "");
+    await evidence.locator("summary").click();
+    await expect(page.getByText("Who", { exact: true })).toBeVisible();
     await expect(page.getByText("When", { exact: true })).toBeVisible();
   });
 
@@ -81,17 +80,8 @@ test.describe("v9 owner brain — today", () => {
 
     test.skip((await page.getByTestId("setup-mode").count()) > 0, "Shop is in setup mode — nothing to walk");
 
-    // The day-shape banner always renders in active mode.
-    await expect(page.getByTestId("day-shape")).toBeVisible();
-
-    const walkStart = page.getByTestId("walk-start");
-    if ((await walkStart.count()) === 0) {
-      // Clear-to-trade day: the banner says so and there is nothing to walk.
-      await expect(page.getByText("You're clear to trade")).toBeVisible();
-      return;
-    }
-
-    await walkStart.click();
+    await page.getByTestId("owner-menu-link").click();
+    await page.getByRole("link", { name: /Walk me through today/ }).click();
     await expect(page).toHaveURL(/\/admin\/today\/walk/);
     await expect(page.getByTestId("guided-walk")).toBeVisible();
     await expect(page.getByTestId("guided-step")).toBeVisible();
@@ -108,9 +98,13 @@ test.describe("v9 owner brain — today", () => {
     await expect(page.getByRole("heading", { name: "Ready for trading" })).toBeVisible();
   });
 
-  test("offers a route to Business Insights (the single analysis hub)", async ({ page }) => {
+  test("keeps analytics behind the Menu", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 
+    await expect(page.getByTestId("business-insights-link")).toHaveCount(0);
+    await page.getByTestId("owner-menu-link").click();
+    await expect(page).toHaveURL(/\/admin\/menu/);
+    await expect(page.getByTestId("owner-menu")).toBeVisible();
     const insights = page.getByTestId("business-insights-link");
     await expect(insights).toBeVisible();
     await insights.click();

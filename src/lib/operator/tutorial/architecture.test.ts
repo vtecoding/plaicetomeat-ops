@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { assertProductionMutationAllowed, ProductionMutationBlockedError } from "@/lib/operator/execution-context";
 import { en, ps } from "@/lib/operator/i18n/resources";
-import { completeShopDaySteps } from "./scenario";
+import { completeShopDayChapters, completeShopDaySteps } from "./scenario";
 import { tutorialTargets } from "./targets";
 
 function sourceTree(root: string): string {
@@ -32,12 +32,16 @@ describe("dry-run architecture invariants", () => {
     }
   });
 
-  it("uses 35 unique stable semantic targets that exist in canonical Operator UI", () => {
-    expect(completeShopDaySteps).toHaveLength(35);
+  it("uses 37 stable semantic steps in five complete chapters and canonical Operator UI", () => {
+    expect(completeShopDaySteps).toHaveLength(37);
+    expect(completeShopDayChapters.map((chapter) => chapter.id)).toEqual(["open", "serve", "stock", "waste", "close"]);
+    expect(completeShopDayChapters[0]?.firstStepId).toBe(completeShopDaySteps[0]?.id);
+    expect(completeShopDayChapters.at(-1)?.lastStepId).toBe(completeShopDaySteps.at(-1)?.id);
     const registered = new Set<string>(tutorialTargets);
     const referenced = completeShopDaySteps.flatMap((step) => step.target ? [step.target] : []);
     expect(referenced.every((target) => registered.has(target))).toBe(true);
-    expect(new Set(referenced).size).toBe(referenced.length);
+    const uses = referenced.reduce<Record<string, number>>((counts, target) => ({ ...counts, [target]: (counts[target] ?? 0) + 1 }), {});
+    expect(Object.entries(uses).filter(([, count]) => count > 1).map(([target]) => target).sort()).toEqual(["open-temperature", "till-count"]);
     const operatorSources = sourceTree(path.resolve(process.cwd(), "src/app/operator"));
     for (const target of tutorialTargets) expect(operatorSources).toContain(`\"${target}\"`);
   });

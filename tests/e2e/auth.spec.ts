@@ -9,10 +9,28 @@ test.describe("authentication", () => {
     await expectNoBackOfficeNav(page);
   });
 
-  test("manager can log in and reach /admin", async ({ page }) => {
-    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+  test("manager logs in to the shared Shop Day and can reach /admin", async ({ page }) => {
+    await login(page, USERS.manager, { expectLanding: /\/operator/ });
+    await expect(page).toHaveURL(/\/operator/);
+    await expect(page.getByTestId("operator-home")).toBeVisible();
+    await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin/);
-    await expect(page.getByRole("link", { name: "Today", exact: true }).first()).toBeVisible();
+  });
+
+  test("a valid Supabase login silently renews a missing staff activity cookie", async ({ context, page }) => {
+    await login(page, USERS.owner, { expectLanding: /\/operator/ });
+
+    const initialCookie = (await context.cookies()).find((cookie) => cookie.name === "ptm_staff_last_seen");
+    expect(initialCookie?.expires).toBeGreaterThan(Date.now() / 1000);
+
+    // Simulate the old browser-session-only activity cookie disappearing while
+    // the server-validated Supabase identity cookie remains intact.
+    await context.clearCookies({ name: "ptm_staff_last_seen" });
+    await page.goto("/admin/today");
+
+    await expect(page).toHaveURL(/\/admin\/today/);
+    const renewedCookie = (await context.cookies()).find((cookie) => cookie.name === "ptm_staff_last_seen");
+    expect(renewedCookie?.value).toBeTruthy();
   });
 
   test("staff can log in and reach /counter", async ({ page }) => {
@@ -23,14 +41,16 @@ test.describe("authentication", () => {
     await expect(page.getByRole("link", { name: "Today", exact: true })).toHaveCount(0);
   });
 
-  test("owner can reach both /admin and /counter", async ({ page }) => {
-    await login(page, USERS.owner, { expectLanding: /\/admin/ });
+  test("owner lands on Shop Day and can reach both /admin and /counter", async ({ page }) => {
+    await login(page, USERS.owner, { expectLanding: /\/operator/ });
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/admin/);
     await page.goto("/counter");
     await expect(page).toHaveURL(/\/counter/);
   });
 
-  test("manager can also reach /counter", async ({ page }) => {
-    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+  test("manager lands on Shop Day and can also reach /counter", async ({ page }) => {
+    await login(page, USERS.manager, { expectLanding: /\/operator/ });
     await page.goto("/counter");
     await expect(page).toHaveURL(/\/counter/);
   });

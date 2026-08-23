@@ -8,6 +8,7 @@ import {
 import { linkOperatorEvidence } from "@/app/actions/operator/evidence";
 import { assertProductionMutationAllowed, LIVE_EXECUTION_CONTEXT, type ExecutionContext } from "@/lib/operator/execution-context";
 import type { ExpiryChoice, StorageChoice } from "@/lib/operator/workflows/stock";
+import { requireShopDayAction } from "@/lib/server/shop-day";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import {
   createSupabaseServerClient,
@@ -126,6 +127,9 @@ export async function confirmSimpleDelivery(input: {
     return { ok: false, message: "Please enter how much arrived." };
   }
 
+  const shopDay = await requireShopDayAction(auth.branchId, "receive_delivery");
+  if (!shopDay.ok) return { ok: false, message: shopDay.message };
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("record_operator_delivery_v18", {
     p_run_id: input.runId,
@@ -194,6 +198,9 @@ export async function reportRanOut(input: {
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!isUuid(input.runId)) return { ok: false, message: "Please go back and try again." };
+
+  const shopDay = await requireShopDayAction(auth.branchId, "receive_delivery");
+  if (!shopDay.ok) return { ok: false, message: shopDay.message };
 
   const product = input.productId ? await getProduct(auth.branchId, input.productId) : null;
   return ownerCheck({

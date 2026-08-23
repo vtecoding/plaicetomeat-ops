@@ -1,4 +1,4 @@
-import { Beef, ClipboardCheck, LayoutDashboard, ListChecks, ShieldCheck, ShoppingBasket, TrendingUp } from "lucide-react";
+import { Beef, ClipboardCheck, LayoutDashboard, ListChecks, Menu, ShieldCheck, ShoppingBasket } from "lucide-react";
 
 import type { StaffRole } from "@/lib/domain/route-access";
 
@@ -20,7 +20,7 @@ export const STAFF_LINKS: NavLink[] = [
 // single analysis destination. (Briefing was retired — it redirects to Today.)
 export const MANAGER_LINKS: NavLink[] = [
   { href: "/admin/today", label: "Today", icon: ListChecks },
-  { href: "/admin", label: "Shop detail", icon: TrendingUp },
+  { href: "/admin/menu", label: "Menu", icon: Menu },
 ];
 
 export type ResolvedNav = {
@@ -47,7 +47,7 @@ export function resolveNav(role: StaffRole | null | undefined): ResolvedNav {
     return { primary: PUBLIC_LINKS, shopView: null };
   }
 
-  const primary = [...STAFF_LINKS, ...(isManager ? MANAGER_LINKS : [])];
+  const primary = isManager ? MANAGER_LINKS : STAFF_LINKS;
   const shopView = PUBLIC_LINKS.find((link) => link.href === "/shop") ?? null;
   return { primary, shopView };
 }

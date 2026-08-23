@@ -20,7 +20,17 @@ name: Production Backup
 on:
   schedule:
     - cron: "0 2 * * *"   # 02:00 UTC daily
-  workflow_dispatch:        # manual trigger for ad-hoc backups or drill prep
+  workflow_dispatch:
+    inputs:
+      migration_action:
+        description: "After the certified backup, verify or apply pending migrations"
+        required: true
+        default: "backup-only"
+        type: choice
+        options:
+          - backup-only
+          - verify
+          - apply
 
 jobs:
   backup:
@@ -162,3 +172,42 @@ jobs:
           else
             echo "- **Status**: FAILED — no backup directory found" >> $GITHUB_STEP_SUMMARY
           fi
+
+  migration:
+    name: ${{ inputs.migration_action == 'apply' && 'Apply production migration' || 'Verify production migration' }}
+    if: github.event_name == 'workflow_dispatch' && inputs.migration_action != 'backup-only'
+    needs: backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+
+    steps:
+      - name: Checkout the same source as the certified backup
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Show linked migration history
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npx supabase migration list --db-url "$SUPABASE_DB_URL"
+
+      - name: Dry-run pending production migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npx supabase db push --db-url "$SUPABASE_DB_URL" --dry-run
+
+      - name: Apply the dry-run migration set
+        if: inputs.migration_action == 'apply'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npx supabase db push --db-url "$SUPABASE_DB_URL"
+
+      - name: Verify migration history after apply
+        if: inputs.migration_action == 'apply'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npx supabase migration list --db-url "$SUPABASE_DB_URL"

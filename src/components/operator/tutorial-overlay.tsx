@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, LoaderCircle, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, LoaderCircle, RotateCcw, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { useOperatorI18n } from "@/lib/operator/i18n/context";
+import { completeShopDayChapters, tutorialChapterProgress } from "@/lib/operator/tutorial/scenario";
 import type { DryRunSession, TutorialStep } from "@/lib/operator/tutorial/types";
 
 type Rect = { top: number; left: number; right: number; bottom: number; width: number; height: number };
@@ -71,7 +72,12 @@ export function TutorialOverlay({ session, step, total, onBack, onNext, onExit, 
       target.style.boxShadow = "0 0 0 4px #fbbf24, 0 0 0 9px rgba(251,191,36,.35)";
       target.style.borderRadius = target.style.borderRadius || "8px";
       target.setAttribute("aria-describedby", "dry-run-instruction");
-      target.scrollIntoView({ block: "center", inline: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      // A phone cannot place a tall instruction card beside a tall action card.
+      // Aligning the action near the top reserves a stable, non-overlapping
+      // instruction area below it; wider screens can keep the target centred.
+      // When a last-page target cannot scroll that high, the placement solver
+      // naturally uses the available space above it instead.
+      target.scrollIntoView({ block: window.innerWidth < 640 ? "start" : "center", inline: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
       position();
       targetObserver = new ResizeObserver(position);
       targetObserver.observe(target);
@@ -146,6 +152,7 @@ export function TutorialOverlay({ session, step, total, onBack, onNext, onExit, 
   const bubbleStyle = useMemo(() => typeof window === "undefined" ? {} : getBubbleStyle(rect, step.placement ?? "bottom", rtl, bubbleSize), [bubbleSize, rect, rtl, step.placement]);
   const dimmers = rect ? getDimmers(rect) : [{ top: 0, left: 0, width: "100vw", height: "100vh" }];
   const progress = Math.round(((session.currentStep + 1) / total) * 100);
+  const chapterProgress = tutorialChapterProgress(session.currentStep);
   const findingTarget = Boolean(targetSelector && !rect && !missing);
   if (typeof document === "undefined") return null;
 
@@ -162,15 +169,17 @@ export function TutorialOverlay({ session, step, total, onBack, onNext, onExit, 
           </div>
         </> : <>
           <div className="flex items-center justify-between gap-3">
-            <div><span className="block text-[11px] font-black uppercase tracking-[.12em] text-[#694d00]">{t("dryRun.practiceLabel")}</span><span className="mt-0.5 block text-sm font-black text-[#352500]">{t("dryRun.step", { current: session.currentStep + 1, total })}</span></div>
+            <div><span className="block text-[11px] font-black uppercase tracking-[.12em] text-[#694d00]">{t("dryRun.chapter", { current: chapterProgress.chapterIndex + 1, total: completeShopDayChapters.length })}</span><span className="mt-0.5 block text-sm font-black text-[#352500]">{t(chapterProgress.chapter.titleKey)}</span></div>
             <button data-tutorial-control type="button" onClick={onExit} className="grid min-h-11 min-w-11 place-items-center rounded-xl hover:bg-[#f4efe7]" aria-label={t("dryRun.exit")}><X className="h-5 w-5" aria-hidden /></button>
           </div>
           <div role="progressbar" aria-label={t("dryRun.progressLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="mt-3 h-2 overflow-hidden rounded-full bg-[#eee5d8]"><div className="h-full rounded-full bg-[#df9d00] transition-[width] duration-300" style={{ width: `${progress}%` }} /></div>
+          <div className="mt-2 flex items-center justify-between gap-3 text-[11px] font-bold text-[#694d00]"><span>{t("dryRun.chapterStep", { current: chapterProgress.stepInChapter, total: chapterProgress.stepsInChapter })}</span><span>{t("dryRun.step", { current: session.currentStep + 1, total })}</span></div>
+          <div className="mt-2 grid grid-cols-5 gap-1.5" data-testid="dry-run-chapter-progress" aria-label={t("dryRun.chapter", { current: chapterProgress.chapterIndex + 1, total: completeShopDayChapters.length })}>{completeShopDayChapters.map((chapter, index) => <span key={chapter.id} title={t(chapter.titleKey)} className={["grid h-5 place-items-center rounded-full text-[10px] font-black", index < chapterProgress.chapterIndex ? "bg-[#0f6240] text-white" : index === chapterProgress.chapterIndex ? "bg-[#ffd447] text-[#352500] ring-2 ring-[#df9d00]" : "bg-[#eee5d8] text-[#71685e]"].join(" ")}>{index < chapterProgress.chapterIndex ? <Check className="h-3 w-3" aria-hidden /> : index + 1}</span>)}</div>
           <h2 className="mt-3 text-xl font-black">{t(step.titleKey)}</h2>
           <p id="dry-run-instruction" className="mt-1 text-[17px] font-medium leading-relaxed text-[#3f3934]">{t(step.instructionKey)}</p>
-          <div className="mt-3 flex items-start gap-2 rounded-xl bg-[#fff7d6] px-3 py-2.5 text-sm leading-snug text-[#5d4300]">
+          <div className={["mt-3 flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm leading-snug", step.feedbackKey ? "border border-[#e69a98] bg-[#fff1f1] text-[#7a1b1b]" : "bg-[#fff7d6] text-[#5d4300]"].join(" ")}>
             {findingTarget ? <LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden /> : <span className="mt-0.5 block h-2.5 w-2.5 shrink-0 rounded-full bg-[#df9d00]" aria-hidden />}
-            <span><strong className="block">{step.requiredEvent ? t("dryRun.yourTurn") : t("dryRun.practiceLabel")}</strong>{findingTarget ? t("dryRun.loadingStep") : step.requiredEvent ? t("dryRun.noRush") : t("dryRun.readAndContinue")}</span>
+            <span><strong className="block">{step.feedbackKey ? t("dryRun.safeStop") : step.requiredEvent ? t("dryRun.yourTurn") : t("dryRun.practiceLabel")}</strong>{findingTarget ? t("dryRun.loadingStep") : step.feedbackKey ? t(step.feedbackKey) : step.requiredEvent ? t("dryRun.noRush") : t("dryRun.readAndContinue")}</span>
           </div>
           <div className="mt-4 flex items-center justify-between gap-2">
             <div className="flex gap-1">
@@ -198,26 +207,29 @@ function getBubbleStyle(rect: Rect | null, placement: TutorialStep["placement"],
   const width = Math.min(Math.max(measured.width, 340), window.innerWidth - 24);
   const height = Math.min(Math.max(measured.height, 260), window.innerHeight - 24);
   if (!rect) return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
-  if (window.innerWidth < 640) {
-    const targetIsLow = rect.top > window.innerHeight * 0.48;
-    return targetIsLow ? { top: 12, left: 12, right: 12 } : { bottom: 12, left: 12, right: 12 };
-  }
+  const edge = 12;
+  const gap = 18;
+  const clamp = (value: number, maximum: number) => Math.max(edge, Math.min(value, maximum));
+  const intersects = (candidate: { top: number; left: number }) => candidate.left < rect.right + gap && candidate.left + width > rect.left - gap && candidate.top < rect.bottom + gap && candidate.top + height > rect.top - gap;
   const opposite: Record<NonNullable<TutorialStep["placement"]>, NonNullable<TutorialStep["placement"]>> = { top: "bottom", bottom: "top", left: "right", right: "left" };
   const horizontal: NonNullable<TutorialStep["placement"]>[] = rtl ? ["right", "left"] : ["left", "right"];
-  const order = [...new Set([placement ?? "bottom", opposite[placement ?? "bottom"], ...horizontal])] as NonNullable<TutorialStep["placement"]>[];
+  const vertical: NonNullable<TutorialStep["placement"]>[] = ["bottom", "top"];
+  const order = [...new Set([placement ?? "bottom", opposite[placement ?? "bottom"], ...vertical, ...horizontal])] as NonNullable<TutorialStep["placement"]>[];
   const candidate = (side: NonNullable<TutorialStep["placement"]>) => {
-    if (side === "top") return { top: rect.top - height - 18, left: rtl ? rect.right - width : rect.left };
-    if (side === "bottom") return { top: rect.bottom + 18, left: rtl ? rect.right - width : rect.left };
-    if (side === "left") return { top: rect.top, left: rect.left - width - 18 };
-    return { top: rect.top, left: rect.right + 18 };
+    if (side === "top") return { top: rect.top - height - gap, left: clamp(rtl ? rect.right - width : rect.left, window.innerWidth - width - edge) };
+    if (side === "bottom") return { top: rect.bottom + gap, left: clamp(rtl ? rect.right - width : rect.left, window.innerWidth - width - edge) };
+    if (side === "left") return { top: clamp(rect.top, window.innerHeight - height - edge), left: rect.left - width - gap };
+    return { top: clamp(rect.top, window.innerHeight - height - edge), left: rect.right + gap };
   };
   for (const side of order) {
     const next = candidate(side);
-    if (next.top >= 12 && next.left >= 12 && next.top + height <= window.innerHeight - 12 && next.left + width <= window.innerWidth - 12) return next;
+    if (next.top >= edge && next.left >= edge && next.top + height <= window.innerHeight - edge && next.left + width <= window.innerWidth - edge && !intersects(next)) return next;
   }
-  const fallback = candidate(placement ?? "bottom");
-  return {
-    top: Math.max(12, Math.min(fallback.top, window.innerHeight - height - 12)),
-    left: Math.max(12, Math.min(fallback.left, window.innerWidth - width - 12)),
-  };
+  // No full-size candidate fits. Dock into the larger safe vertical region and
+  // constrain the dialog to that region; its existing overflow-y-auto keeps every
+  // instruction/control reachable without ever covering the highlighted target.
+  const above = Math.max(0, rect.top - gap - edge);
+  const below = Math.max(0, window.innerHeight - rect.bottom - gap - edge);
+  if (below >= above) return { top: rect.bottom + gap, left: edge, right: edge, maxHeight: below };
+  return { top: edge, left: edge, right: edge, maxHeight: above };
 }

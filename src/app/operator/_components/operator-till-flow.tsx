@@ -39,7 +39,7 @@ export function OperatorTillFlow() {
   const tutorialStepId = dryRun.session ? completeShopDaySteps[dryRun.session.currentStep]?.id : null;
   useEffect(() => {
     if (!dryRun.active) return;
-    if (tutorialStepId === "till.count") setMode("amount");
+    if (tutorialStepId === "till.count.mistake" || tutorialStepId === "till.count") setMode("amount");
     if (tutorialStepId === "till.confirm") { setAmount("114"); setMode("confirm"); }
   }, [dryRun.active, tutorialStepId]);
 

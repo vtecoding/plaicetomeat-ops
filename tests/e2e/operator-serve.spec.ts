@@ -4,7 +4,7 @@ import { login, USERS } from "./helpers";
 import { resetStateBeforeEach } from "./reset-state";
 
 test.describe("V18 counted counter sales", () => {
-  resetStateBeforeEach();
+  resetStateBeforeEach({ openShopDay: true });
 
   test("serves each and box lines with visible prices and a saved total", async ({ page }) => {
     await login(page, USERS.operator, { expectLanding: /\/operator$/ });

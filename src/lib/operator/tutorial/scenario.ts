@@ -1,10 +1,12 @@
+import type { OperatorTranslationKey } from "@/lib/operator/i18n/resources";
 import type { TutorialStep } from "./types";
 
 export const completeShopDaySteps: readonly TutorialStep[] = [
   { id: "intro", route: "/operator", target: null, titleKey: "dryRun.intro.title", instructionKey: "dryRun.intro.instruction" },
   { id: "open.navigate", route: "/operator", target: "nav-open", titleKey: "dryRun.openNav.title", instructionKey: "dryRun.openNav.instruction", requiredEvent: "operator.open.selected" },
   { id: "open.checklist", route: "/operator/open", target: "open-checklist", titleKey: "dryRun.openChecklist.title", instructionKey: "dryRun.openChecklist.instruction", requiredEvent: "operator.open.checklist_confirmed" },
-  { id: "open.temperature", route: "/operator/open", target: "open-temperature", titleKey: "dryRun.openTemp.title", instructionKey: "dryRun.openTemp.instruction", requiredEvent: "operator.temperature.entered", expectedValue: "3.2" },
+  { id: "open.temperature.mistake", route: "/operator/open", target: "open-temperature", titleKey: "dryRun.openTempMistake.title", instructionKey: "dryRun.openTempMistake.instruction", requiredEvent: "operator.temperature.entered", expectedValue: "8.5" },
+  { id: "open.temperature", route: "/operator/open", target: "open-temperature", titleKey: "dryRun.openTemp.title", instructionKey: "dryRun.openTemp.instruction", feedbackKey: "dryRun.openTemp.feedback", requiredEvent: "operator.temperature.entered", expectedValue: "3.2" },
   { id: "open.float", route: "/operator/open", target: "open-float", titleKey: "dryRun.openFloat.title", instructionKey: "dryRun.openFloat.instruction", requiredEvent: "operator.till.float_entered", expectedValue: "100" },
   { id: "open.confirm", route: "/operator/open", target: "open-confirm", titleKey: "dryRun.openConfirm.title", instructionKey: "dryRun.openConfirm.instruction", requiredEvent: "operator.shop.opened" },
   { id: "serve.intro", route: "/operator", target: null, titleKey: "dryRun.serveIntro.title", instructionKey: "dryRun.serveIntro.instruction" },
@@ -27,7 +29,8 @@ export const completeShopDaySteps: readonly TutorialStep[] = [
   { id: "waste.reason", route: "/operator/waste", target: "waste-reason", titleKey: "dryRun.wasteReason.title", instructionKey: "dryRun.wasteReason.instruction", requiredEvent: "operator.waste.reason_selected", expectedValue: "damaged" },
   { id: "waste.confirm", route: "/operator/waste", target: "waste-confirm", titleKey: "dryRun.wasteConfirm.title", instructionKey: "dryRun.wasteConfirm.instruction", requiredEvent: "operator.waste.confirmed" },
   { id: "till.navigate", route: "/operator", target: "nav-till", titleKey: "dryRun.tillNav.title", instructionKey: "dryRun.tillNav.instruction", requiredEvent: "operator.till.selected" },
-  { id: "till.count", route: "/operator/till", target: "till-count", titleKey: "dryRun.tillCount.title", instructionKey: "dryRun.tillCount.instruction", requiredEvent: "operator.till.count_entered", expectedValue: "114" },
+  { id: "till.count.mistake", route: "/operator/till", target: "till-count", titleKey: "dryRun.tillMistake.title", instructionKey: "dryRun.tillMistake.instruction", requiredEvent: "operator.till.count_entered", expectedValue: "96" },
+  { id: "till.count", route: "/operator/till", target: "till-count", titleKey: "dryRun.tillCount.title", instructionKey: "dryRun.tillCount.instruction", feedbackKey: "dryRun.tillCount.feedback", requiredEvent: "operator.till.count_entered", expectedValue: "114" },
   { id: "till.confirm", route: "/operator/till", target: "till-confirm", titleKey: "dryRun.tillConfirm.title", instructionKey: "dryRun.tillConfirm.instruction", requiredEvent: "operator.till.count_confirmed" },
   { id: "help.open", route: "/operator", target: "nav-help", titleKey: "dryRun.help.title", instructionKey: "dryRun.help.instruction", requiredEvent: "operator.help.opened" },
   { id: "close.navigate", route: "/operator", target: "nav-close", titleKey: "dryRun.closeNav.title", instructionKey: "dryRun.closeNav.instruction", requiredEvent: "operator.close.selected" },
@@ -37,3 +40,31 @@ export const completeShopDaySteps: readonly TutorialStep[] = [
   { id: "close.confirm", route: "/operator/close", target: "close-confirm", titleKey: "dryRun.closeConfirm.title", instructionKey: "dryRun.closeConfirm.instruction", requiredEvent: "operator.shop.closed" },
   { id: "complete", route: "/operator", target: null, titleKey: "dryRun.complete.title", instructionKey: "dryRun.complete.instruction" },
 ];
+
+export type TutorialChapter = {
+  id: "open" | "serve" | "stock" | "waste" | "close";
+  titleKey: OperatorTranslationKey;
+  firstStepId: string;
+  lastStepId: string;
+};
+
+export const completeShopDayChapters: readonly TutorialChapter[] = [
+  { id: "open", titleKey: "dryRun.chapter.open", firstStepId: "intro", lastStepId: "open.confirm" },
+  { id: "serve", titleKey: "dryRun.chapter.serve", firstStepId: "serve.intro", lastStepId: "serve.success" },
+  { id: "stock", titleKey: "dryRun.chapter.stock", firstStepId: "stock.navigate", lastStepId: "stock.confirm" },
+  { id: "waste", titleKey: "dryRun.chapter.waste", firstStepId: "waste.navigate", lastStepId: "waste.confirm" },
+  { id: "close", titleKey: "dryRun.chapter.close", firstStepId: "till.navigate", lastStepId: "complete" },
+] as const;
+
+export function tutorialChapterProgress(currentStep: number) {
+  const chapterIndex = completeShopDayChapters.findIndex((chapter) => {
+    const first = completeShopDaySteps.findIndex((step) => step.id === chapter.firstStepId);
+    const last = completeShopDaySteps.findIndex((step) => step.id === chapter.lastStepId);
+    return currentStep >= first && currentStep <= last;
+  });
+  const safeIndex = chapterIndex < 0 ? 0 : chapterIndex;
+  const chapter = completeShopDayChapters[safeIndex];
+  const first = completeShopDaySteps.findIndex((step) => step.id === chapter.firstStepId);
+  const last = completeShopDaySteps.findIndex((step) => step.id === chapter.lastStepId);
+  return { chapter, chapterIndex: safeIndex, stepInChapter: currentStep - first + 1, stepsInChapter: last - first + 1 };
+}

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const read = (relative: string) => readFileSync(resolve(process.cwd(), relative), "utf8");
 
-describe("'Walk me through it' CTA contrast", () => {
+describe("Owner CTA contrast", () => {
   it("scopes base element resets under @layer base so utilities win (root cause)", () => {
     const css = read("src/app/globals.css");
     const layerIndex = css.indexOf("@layer base");
@@ -15,14 +15,13 @@ describe("'Walk me through it' CTA contrast", () => {
     expect(css.indexOf("color: inherit")).toBeGreaterThan(layerIndex);
   });
 
-  it("renders the walk CTA as visible green text on white, not white-on-white", () => {
+  it("renders the Menu CTA as visible green text on white, not white-on-white", () => {
     const page = read("src/app/admin/today/page.tsx");
-    // Isolate the opening tag of the CTA: from the <Link that owns `walk-start` up to its `>`.
-    const marker = page.indexOf("walk-start");
+    const marker = page.indexOf("owner-menu-link");
     expect(marker).toBeGreaterThan(-1);
     const opening = page.slice(page.lastIndexOf("<Link", marker), page.indexOf(">", marker) + 1);
     expect(opening).toContain("bg-white");
-    expect(opening).toContain("text-[#0f5132]");
+    expect(opening).toContain("text-[var(--brand)]");
     expect(opening).not.toContain("text-white");
   });
 });

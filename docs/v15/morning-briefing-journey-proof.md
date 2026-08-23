@@ -1,6 +1,6 @@
 # V15.3 · Morning Briefing Engine — Operator-Journey Proof
 
-Generated: 2026-07-14T19:17:39.910Z
+Generated: 2026-08-22T20:22:06.392Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test · viewport: 1366×1000
 
 A real start-of-day journey against the running app. Screenshot in
@@ -8,24 +8,21 @@ A real start-of-day journey against the running app. Screenshot in
 
 ## The briefing the owner read
 
-- **Yesterday:** YESTERDAY
-Yesterday was quiet — no sales went through.
-- **Today:** TODAY
-One thing needs a quick look today. A couple more to check below.
-- **You can ignore:** YOU CAN IGNORE
-No stock is about to expire.
+- **Yesterday:** Yesterday was quiet — no sales went through.
+- **Today:** Some stock needs checking and writing off. A couple more to check below.
+- **You can ignore:** Everything else can wait — the list below has what matters.
 
-Briefing length: **26 words** (limit 100). Actions length: 48 words.
+Briefing length: **31 words** (limit 100). Actions length: 47 words.
 
 ## Checks
 
 - PASS: operator signs in — http://127.0.0.1:3001/admin/today
 - PASS: morning briefing is present — found
 - PASS: three sections present and non-empty — Y:y T:y I:y
-- PASS: briefing sits above Do Now — briefing top=310px, Do Now top=512px
-- PASS: briefing + Do Now read without scrolling (above the fold) — Do Now bottom=984px (viewport 1000px)
+- PASS: briefing sits above Do Now — briefing top=188px, Do Now top=298px
+- PASS: briefing + Do Now read without scrolling (above the fold) — Do Now bottom=715px (viewport 1000px)
 - PASS: no metric / number / percentage in the briefing — clean
 - PASS: no confidence / ranking / score language in the briefing — clean
-- PASS: briefing within the 100-word limit — 26 words (target 40–80, max 100)
-- PASS: briefing is shorter than the actions — briefing 26 words vs actions 48 words
+- PASS: briefing within the 100-word limit — 31 words (target 40–80, max 100)
+- PASS: briefing is shorter than the actions — briefing 31 words vs actions 47 words
 - PASS: briefing does not contradict Do Now — consistent

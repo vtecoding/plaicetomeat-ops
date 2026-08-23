@@ -18,9 +18,11 @@ test.describe("shop intelligence after consolidation", () => {
     await expect(page.getByTestId("owner-brain-home")).toBeVisible();
   });
 
-  test("the analysis now lives on Business Insights, reachable from Today", async ({ page }) => {
+  test("the analysis lives behind Menu", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 
+    await expect(page.getByTestId("business-insights-link")).toHaveCount(0);
+    await page.getByTestId("owner-menu-link").click();
     const link = page.getByTestId("business-insights-link");
     await expect(link).toBeVisible();
     await link.click();

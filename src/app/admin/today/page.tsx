@@ -3,39 +3,24 @@ import {
   Archive,
   ArrowRight,
   AlertTriangle,
-  BookOpen,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   Circle,
-  ClipboardCheck,
-  Clock,
-  LayoutDashboard,
-  ListChecks,
-  PlayCircle,
+  Menu,
   Sprout,
   Sunrise,
-  Sunset,
-  TrendingUp,
 } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
 import { acknowledgeOwnerAlert } from "@/app/actions/owner-alert";
 import type { DataState } from "@/lib/domain/data-result";
-import { buildYesterdayMoneyLines } from "@/lib/ops-capture/money-context";
-import { buildDayShape, buildMorningBriefing } from "@/lib/owner-brain/brain";
+import { buildMorningBriefing } from "@/lib/owner-brain/brain";
 import { getOperationalSnapshotV1 } from "@/lib/server/operational-snapshot";
 import { getOwnerAwaySummary, type OwnerAwaySummary } from "@/lib/server/owner-away";
-import { getYesterdayMoneyCard, type YesterdayMoneyCard } from "@/lib/server/payment-truth";
-import { getReconciliationItems, type ReconcileTray } from "@/lib/server/reconciliation";
 import { requireStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import type {
-  DayShape,
-  MorningBriefing,
-  OperatorAction,
-  OwnerWeeklySummary,
-} from "@/lib/owner-brain/types";
+import type { MorningBriefing, OperatorAction } from "@/lib/owner-brain/types";
 import type { GettingStarted } from "@/lib/shop-intelligence/types";
 import { cn, formatDisplayDate } from "@/lib/utils";
 
@@ -52,12 +37,9 @@ export default async function TodayPage({searchParams}:{searchParams:Promise<{al
     const {data}=await createSupabaseServiceClient().from("owner_alerts").select("id,summary,severity,acknowledged_at,resolved_at").eq("id",linkedId).eq("branch_id",branchId).maybeSingle<LinkedAlert>();
     linkedAlert=data;
   }
-  const [snapshot, ownerAway, reconcile, moneyCard] = await Promise.all([
+  const [snapshot, ownerAway] = await Promise.all([
     getOperationalSnapshotV1(branchId),
     profile.role === "owner" ? getOwnerAwaySummary(branchId) : Promise.resolve(null),
-    getReconciliationItems(branchId, { markSeen: false }),
-    // V18 A1 (PTM-OPS-001): yesterday's money — takings split + till result.
-    profile.role === "owner" ? getYesterdayMoneyCard(branchId) : Promise.resolve(null),
   ]);
   const brain = snapshot.result.data?.brain;
   const morning = snapshot.result.data?.intelligence.morning;
@@ -73,12 +55,22 @@ export default async function TodayPage({searchParams}:{searchParams:Promise<{al
 
   return (
     <PageFrame>
-      <main className="mx-auto max-w-4xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid="owner-brain-home">
-        <header className="px-1">
-          <p className="eyebrow text-[var(--brand)]">Today · {date}</p>
-          <h1 className="mt-2 font-display text-[2rem] font-semibold leading-[1.04] tracking-[-0.02em] text-[var(--ink)] sm:text-[2.45rem]">
-            What needs you today
-          </h1>
+      <main className="mx-auto max-w-4xl px-4 pb-28 pt-4 sm:px-6 sm:pt-6 lg:px-8" data-testid="owner-brain-home">
+        <header className="flex items-end justify-between gap-4 px-1">
+          <div>
+            <p className="eyebrow text-[var(--brand)]">Today · {date}</p>
+            <h1 className="mt-2 font-display text-[2rem] font-semibold leading-[1.04] tracking-[-0.02em] text-[var(--ink)] sm:text-[2.45rem]">
+              What needs you today
+            </h1>
+          </div>
+          <Link
+            href="/admin/menu"
+            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-4 text-sm font-bold text-[var(--brand)] shadow-sm transition hover:border-[#c5ddd0] hover:bg-[var(--brand-50)]"
+            data-testid="owner-menu-link"
+          >
+            <Menu className="h-5 w-5" aria-hidden />
+            Menu
+          </Link>
         </header>
         <div className="rule-engraved mt-4" />
 
@@ -90,38 +82,23 @@ export default async function TodayPage({searchParams}:{searchParams:Promise<{al
         </section>}
 
         {snapshot.result.state !== "HEALTHY" && <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />}
-        {ownerAway && <OwnerAwayTodayPanel summary={ownerAway} />}
+        {ownerAway?.settings.ownerAway && <OwnerAwayTodayPanel summary={ownerAway} />}
 
         {!brain ? null : brain.setupMode ? (
           <SetupMode gettingStarted={brain.gettingStarted} />
         ) : (
           <>
-            {/* V15.3 — the 20-second briefing sits above Do Now. It orients (Yesterday /
-                Today / Ignore); it never decides. Compact by design so the actions stay
-                dominant and reachable without scrolling. */}
+            {/* Context only: three trusted sentences rendered as one compact briefing. */}
             {briefing && <MorningBriefingPanel briefing={briefing} />}
 
-            {/* V18 A1 — the money line (audit PTM-OPS-001). Deliberately a Today card
-                OUTSIDE buildMorningBriefing (the briefing engine is doctrine-bound to
-                zero numbers). Plain sentences only: "Till matched" / "Till was £9 short". */}
-            {moneyCard && <YesterdayMoneyPanel card={moneyCard} />}
+            {/* Do Now is the first and largest operating surface. Optional guidance lives
+                in Menu so all three immediate decisions fit on a phone. */}
+            <DoNowZone actions={brain.doNow} />
 
-            {/* V15.1 TODAY OS — Do Now dominates the page. It is the first and largest thing
-                the operator acts on; the day-shape + guided walk fold in as a slim lead-in so
-                nothing competes with the three actions. */}
-            <DoNowZone day={buildDayShape(brain.doNow)} actions={brain.doNow} />
-
-            {/* Everything below recedes. Later is collapsed; the weekly summary is demoted to a
-                collapsed "for reference" panel. No dashboard surface sits above Do Now. */}
+            {/* Everything below recedes. Later is collapsed and analysis lives in Menu. */}
             <LaterReserve actions={brain.later} />
-            {/* B2 owner jobs: one lifecycle for every unresolved alert, kept below Do Now so
-                the primary three actions retain their visual priority. */}
-            {reconcile.count > 0 && <ReconciliationTodayPanel tray={reconcile} />}
-            <SecondaryInfo weekly={brain.weekly} />
           </>
         )}
-
-        <MoreDetail isOwner={profile.role === "owner"} />
       </main>
     </PageFrame>
   );
@@ -157,34 +134,6 @@ function OwnerAwayTodayPanel({ summary }: { summary: OwnerAwaySummary }) {
   );
 }
 
-function ReconciliationTodayPanel({ tray }: { tray: ReconcileTray }) {
-  return (
-    <Link
-      href="/admin/reconcile"
-      className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-[var(--cream)]/40 px-5 py-4 transition hover:border-[#c5ddd0] hover:bg-white"
-      data-testid="reconcile-today-panel"
-    >
-      <span className="flex min-w-0 items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[var(--muted)] ring-1 ring-[var(--line)]">
-          <ClipboardCheck className="h-5 w-5" aria-hidden />
-        </span>
-        <span className="min-w-0">
-          <span className="block font-display text-lg font-semibold text-[var(--ink)]">
-            {tray.count} open owner {tray.count === 1 ? "job" : "jobs"}
-          </span>
-          <span className="block text-sm font-medium text-[var(--muted)]">
-            {tray.unseenCount > 0 ? `${tray.unseenCount} new. ` : ""}Open the work, then leave a note when it is sorted.
-          </span>
-        </span>
-      </span>
-      <span className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-4 text-sm font-semibold text-[var(--brand)] ring-1 ring-[var(--line)]">
-        Open
-        <ChevronRight className="h-4 w-4" aria-hidden />
-      </span>
-    </Link>
-  );
-}
-
 function TruthStateBanner({ state, message }: { state: DataState; message: string }) {
   const label: Record<DataState, string> = {
     HEALTHY: "Live data",
@@ -195,13 +144,30 @@ function TruthStateBanner({ state, message }: { state: DataState; message: strin
     CONFIGURATION_REQUIRED: "Configuration required",
   };
 
+  const unavailable = state === "DEGRADED" || state === "UNAVAILABLE";
+  const needsAttention = unavailable || state === "CONFIGURATION_REQUIRED" || state === "UNAUTHORISED";
+  const heading = unavailable
+    ? "PTM couldn't check everything right now."
+    : state === "CONFIGURATION_REQUIRED"
+      ? "PTM needs setting up."
+      : state === "UNAUTHORISED"
+        ? "You don't have access to this check."
+        : label[state];
+
   return (
     <section
-      className="mt-4 rounded-xl border border-[#eccb85] bg-[#fbf1da] p-4 text-sm text-[#5a3900] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
+      className={cn(
+        "mt-4 rounded-xl text-sm",
+        needsAttention
+          ? "border border-[#eccb85] bg-[#fbf1da] p-4 text-[#5a3900] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
+          : "px-1 py-2 text-[var(--muted)]",
+      )}
       data-testid="truth-state-banner"
     >
-      <p className="font-bold">{label[state]}</p>
+      <p className="font-bold">{heading}</p>
       <p className="mt-1 font-medium">{message}</p>
+      {unavailable && <Link href="/admin/today" className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-white px-4 font-bold text-[#5a3900] ring-1 ring-[#eccb85]">Try again</Link>}
+      {state === "CONFIGURATION_REQUIRED" && <Link href="/admin/settings" className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-white px-4 font-bold text-[#5a3900] ring-1 ring-[#eccb85]">Open settings</Link>}
     </section>
   );
 }
@@ -274,64 +240,33 @@ function SetupMode({ gettingStarted }: { gettingStarted: GettingStarted }) {
  * Yesterday (context) · Today (the shape) · what to ignore (reassurance). Deliberately
  * lighter than Do Now — it explains, it never decides, and it never shows a number.
  */
-function YesterdayMoneyPanel({ card }: { card: YesterdayMoneyCard }) {
-  const lines = buildYesterdayMoneyLines(card);
-
-  return (
-    <section
-      className="mt-5 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-5 shadow-sm"
-      data-testid="yesterday-money"
-    >
-      <p className="eyebrow text-[var(--brand)]">Yesterday&rsquo;s money</p>
-      <div className="mt-2 space-y-1">
-        {lines.map((line) => (
-          <p key={line} className="text-[15px] leading-6 text-[var(--ink)]">
-            {line}
-          </p>
-        ))}
-      </div>
-      <Link href="/admin/orders" className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[var(--brand)] hover:underline">
-        See yesterday&rsquo;s orders
-      </Link>
-    </section>
-  );
-}
-
 function MorningBriefingPanel({ briefing }: { briefing: MorningBriefing }) {
-  const rows: Array<{ label: string; text: string; testid: string }> = [
-    { label: "Yesterday", text: briefing.yesterday, testid: "briefing-yesterday" },
-    { label: "Today", text: briefing.today, testid: "briefing-today" },
-    { label: "You can ignore", text: briefing.ignore, testid: "briefing-ignore" },
-  ];
-
   return (
     <section
-      className="mt-4 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--card)] shadow-[0_1px_0_rgba(255,255,255,0.7),0_18px_40px_-34px_rgba(40,28,16,0.4)]"
+      className="mt-3 px-1 py-2 sm:mt-4 sm:rounded-xl sm:border sm:border-[var(--line)] sm:bg-[var(--cream)]/35 sm:px-4 sm:py-3"
       data-testid="morning-briefing"
     >
-      <div className="flex items-center gap-2.5 border-b border-[var(--line)] bg-[var(--cream)]/50 px-5 py-3">
+      <div className="flex items-start gap-2.5">
         <Sunrise className="h-4 w-4 text-[var(--brand)]" aria-hidden />
-        <h2 className="eyebrow text-[var(--muted)]">Your morning briefing</h2>
+        <div>
+          <h2 className="eyebrow text-[var(--muted)]">Morning briefing</h2>
+          <p className="mt-1 text-sm font-medium leading-5 text-[#3a322b] sm:leading-6">
+            <span data-testid="briefing-yesterday">{briefing.yesterday}</span>{" "}
+            <span data-testid="briefing-today">{briefing.today}</span>{" "}
+            <span data-testid="briefing-ignore">{briefing.ignore}</span>
+          </p>
+        </div>
       </div>
-      <dl className="grid gap-3 px-5 py-4">
-        {rows.map((row) => (
-          <div key={row.testid} className="flex flex-col gap-0.5 sm:flex-row sm:gap-4" data-testid={row.testid}>
-            <dt className="shrink-0 text-[0.7rem] font-bold uppercase tracking-[0.1em] text-[var(--faint)] sm:w-28 sm:pt-1">{row.label}</dt>
-            <dd className="text-[0.95rem] font-medium leading-6 text-[#3a322b]">{row.text}</dd>
-          </div>
-        ))}
-      </dl>
     </section>
   );
 }
 
 /**
- * V15.1 — the operating-system centre of TODAY. The single dominant zone (bordered, raised)
- * that the operator reads first. At most three actions, chosen by the V15 Action Compression
- * Engine; there is no path to a fourth. The day-shape and guided walk fold in as a slim
- * lead-in so they support — never compete with — the three actions.
+ * The operating-system centre of TODAY. At most three actions, chosen by the existing
+ * Action Compression Engine; there is no path to a fourth. Secondary guidance stays in
+ * Menu so these decisions remain the complete first-viewport workload.
  */
-function DoNowZone({ day, actions }: { day: DayShape; actions: OperatorAction[] }) {
+function DoNowZone({ actions }: { actions: OperatorAction[] }) {
   return (
     <section
       className="mt-4 scroll-mt-24 overflow-hidden rounded-2xl border border-[#c5ddd0] bg-[var(--card)] shadow-[0_1px_0_rgba(255,255,255,0.85),0_34px_64px_-44px_rgba(15,81,50,0.5)]"
@@ -349,7 +284,7 @@ function DoNowZone({ day, actions }: { day: DayShape; actions: OperatorAction[] 
         </span>
       </div>
 
-      <div className="px-5 py-5 sm:px-6">
+      <div className="px-3 py-3 sm:px-6 sm:py-5">
         {actions.length === 0 ? (
           <div className="flex items-center gap-3 rounded-xl border border-[#cfe6da] bg-[#f4faf6] p-4" data-testid="day-shape">
             <CheckCircle2 className="h-6 w-6 shrink-0 text-[var(--brand)]" aria-hidden />
@@ -359,32 +294,13 @@ function DoNowZone({ day, actions }: { day: DayShape; actions: OperatorAction[] 
             </div>
           </div>
         ) : (
-          <>
-            {/* Slim lead-in: the shape of the day + an optional guided walk. Subordinate to the
-                action cards below — small, muted, never a filled banner. */}
-            <div className="flex flex-wrap items-center justify-between gap-3" data-testid="day-shape">
-              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--muted)]">
-                <Clock className="h-4 w-4" aria-hidden />
-                {day.timeLabel ? `${day.timeLabel}, one thing at a time` : "One thing at a time"}
-              </p>
-              <Link
-                href="/admin/today/walk"
-                data-testid="walk-start"
-                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[#c5ddd0] bg-white px-4 text-sm font-semibold text-[#0f5132] shadow-[0_1px_0_rgba(255,255,255,0.6)] transition hover:border-[#0f5132] hover:bg-[var(--brand-50)]"
-              >
-                <PlayCircle className="h-4 w-4" aria-hidden />
-                Walk me through it
-              </Link>
-            </div>
-
-            <ol className="mt-4 grid gap-3" data-testid="decisions-do-now">
-              {actions.map((action, index) => (
-                <li key={action.id}>
-                  <ActionCard action={action} ordinal={index + 1} />
-                </li>
-              ))}
-            </ol>
-          </>
+          <ol className="grid gap-3" data-testid="decisions-do-now">
+            {actions.map((action, index) => (
+              <li key={action.id}>
+                <ActionCard action={action} ordinal={index + 1} />
+              </li>
+            ))}
+          </ol>
         )}
       </div>
     </section>
@@ -399,19 +315,19 @@ function DoNowZone({ day, actions }: { day: DayShape; actions: OperatorAction[] 
 function ActionCard({ action, ordinal }: { action: OperatorAction; ordinal: number }) {
   return (
     <Link
-      href={action.href}
+      href={`/admin/today/${encodeURIComponent(action.id)}`}
       data-testid="decision-row"
-      className="group flex items-center gap-4 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 transition duration-150 hover:-translate-y-0.5 hover:border-[#c5ddd0] hover:bg-white hover:shadow-[0_20px_34px_-24px_rgba(40,28,16,0.5)] sm:p-5"
+      className="group flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-3 transition duration-150 hover:-translate-y-0.5 hover:border-[#c5ddd0] hover:bg-white hover:shadow-[0_20px_34px_-24px_rgba(40,28,16,0.5)] sm:gap-4 sm:p-5"
     >
       <span
         aria-hidden
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-b from-[#13653e] to-[#0a3a24] font-display text-lg font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_8px_16px_-10px_rgba(15,81,50,0.7)]"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-b from-[#13653e] to-[#0a3a24] font-display text-base font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_8px_16px_-10px_rgba(15,81,50,0.7)] sm:h-10 sm:w-10 sm:text-lg"
       >
         {ordinal}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-lg font-bold leading-snug text-[var(--ink)] sm:text-[1.2rem]">{action.title}</p>
-        <p className="mt-1 text-sm font-medium leading-6 text-[var(--muted)]">{action.reason}</p>
+        <p className="text-base font-bold leading-snug text-[var(--ink)] sm:text-[1.2rem]">{action.title}</p>
+        <p className="mt-1 line-clamp-2 text-sm font-medium leading-5 text-[var(--muted)] sm:leading-6">{action.reason}</p>
       </div>
       <ChevronRight className="h-6 w-6 shrink-0 text-[var(--faint)] transition group-hover:translate-x-0.5 group-hover:text-[var(--brand)]" aria-hidden />
     </Link>
@@ -461,7 +377,7 @@ function LaterReserve({ actions }: { actions: OperatorAction[] }) {
 function DecisionRow({ action }: { action: OperatorAction }) {
   return (
     <Link
-      href={action.href}
+      href={`/admin/today/${encodeURIComponent(action.id)}`}
       data-testid="decision-row"
       className="group flex items-center gap-3 rounded-xl border border-[var(--line)] bg-white p-4 transition duration-150 hover:-translate-y-0.5 hover:border-[#cbd9cf] hover:shadow-[0_18px_30px_-24px_rgba(40,28,16,0.5)]"
     >
@@ -493,114 +409,5 @@ function MoneyChip({ tone: kind, label }: { tone: OperatorAction["impactTone"]; 
     >
       {label}
     </span>
-  );
-}
-
-/**
- * V15.1 — information demotion. The "How the shop is doing" status panel is retired from
- * TODAY entirely (it changed no behaviour — "the shop is doing well" is not an action).
- * The weekly summary is kept for completeness but demoted to a collapsed, muted "for
- * reference" panel that sits below Do Now and never competes with it.
- */
-function SecondaryInfo({ weekly }: { weekly: OwnerWeeklySummary }) {
-  return (
-    <details className="group mt-6 rounded-2xl border border-[var(--line)] bg-[var(--cream)]/40 p-5" data-testid="weekly-owner-summary">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-        <div>
-          <p className="eyebrow text-[var(--faint)]">For reference</p>
-          <h2 className="mt-1 font-display text-lg font-semibold text-[var(--muted)]">Your week at a glance · {weekly.rangeLabel}</h2>
-        </div>
-        <ChevronDown className="h-5 w-5 shrink-0 text-[var(--faint)] transition group-open:rotate-180" aria-hidden />
-      </summary>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <SummaryColumn title="Wins" tone="green" items={weekly.wins} emptyText="Building up." />
-        <SummaryColumn title="Risks" tone="amber" items={weekly.risks} emptyText="None to flag." />
-        <SummaryColumn title="Opportunities" tone="neutral" items={weekly.opportunities} emptyText="None yet." />
-      </div>
-    </details>
-  );
-}
-
-function SummaryColumn({
-  title,
-  tone,
-  items,
-  emptyText,
-}: {
-  title: string;
-  tone: "green" | "amber" | "neutral";
-  items: string[];
-  emptyText: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border p-4",
-        tone === "green" && "border-[#cfe6da] bg-[#f4faf6]",
-        tone === "amber" && "border-[#eed9b0] bg-[#fdf7ec]",
-        tone === "neutral" && "border-[var(--line)] bg-white",
-      )}
-    >
-      <p
-        className={cn(
-          "text-[0.7rem] font-bold uppercase tracking-[0.1em]",
-          tone === "green" && "text-[var(--brand)]",
-          tone === "amber" && "text-[#8b5e00]",
-          tone === "neutral" && "text-[var(--muted)]",
-        )}
-      >
-        {title}
-      </p>
-      {items.length === 0 ? (
-        <p className="mt-2 text-sm text-[var(--muted)]">{emptyText}</p>
-      ) : (
-        <ul className="mt-2 grid gap-1.5">
-          {items.map((item) => (
-            <li key={item} className="text-sm leading-6 text-[#3a322b]">
-              {item}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function MoreDetail({ isOwner }: { isOwner: boolean }) {
-  const links = [
-    { href: "/admin/away", label: "Owner Away", detail: "Check the shop while out", icon: AlertTriangle, testid: "owner-away-link", ownerOnly: true },
-    { href: "/admin/open", label: "Open the shop", detail: "Morning checklist", icon: Sunrise, testid: "open-shop-link" },
-    { href: "/admin/close", label: "Close the shop", detail: "End-of-day checklist", icon: Sunset, testid: "close-shop-link" },
-    { href: "/admin/stock-count", label: "Stock count", detail: "Count what's really there", icon: ClipboardCheck, testid: "stock-count-link" },
-    { href: "/counter", label: "Counter", detail: "Serve and prepare orders", icon: LayoutDashboard },
-    { href: "/admin", label: "Shop detail", detail: "Check money, stock and orders", icon: TrendingUp, testid: "business-insights-link" },
-    { href: "/admin/playbooks", label: "Playbooks", detail: "How to do each job", icon: BookOpen },
-    { href: "/admin/guide", label: "Help & guide", detail: "Quick how-to and dry run", icon: BookOpen },
-    { href: "/admin/setup", label: "Setup checklist", detail: "Get ready to open", icon: ListChecks },
-  ];
-  return (
-    <section className="mt-8">
-      <div className="flex items-center gap-3 px-1">
-        <p className="eyebrow text-[var(--faint)]">More</p>
-        <span aria-hidden className="rule-engraved flex-1" />
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {links.filter((item) => !("ownerOnly" in item) || !item.ownerOnly || isOwner).map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            {...(item.testid ? { "data-testid": item.testid } : {})}
-            className="group flex min-h-24 flex-col rounded-2xl border border-[var(--line)] bg-[var(--card)] p-4 shadow-[0_1px_0_rgba(255,255,255,0.6)] transition duration-150 hover:-translate-y-0.5 hover:border-[#c5ddd0] hover:shadow-[0_20px_34px_-26px_rgba(40,28,16,0.5)]"
-          >
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-[var(--brand-50)] text-[var(--brand)] ring-1 ring-[#d6e8df] transition group-hover:bg-[var(--brand)] group-hover:text-white">
-              <item.icon className="h-5 w-5" aria-hidden />
-            </span>
-            <p className="mt-3 text-base font-bold text-[var(--ink)]">{item.label}</p>
-            <p className="mt-1 text-sm text-[var(--muted)]">{item.detail}</p>
-          </Link>
-        ))}
-      </div>
-    </section>
   );
 }

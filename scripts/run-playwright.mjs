@@ -99,6 +99,7 @@ if (!isHosted && process.env.PLAYWRIGHT_SKIP_DB_RESET !== "true") {
 
   const seedStatus = run("node", ["scripts/seed-dev.mjs"], { env });
   if (seedStatus !== 0) process.exit(seedStatus);
+
 }
 
 process.exit(run("npx", ["playwright", "test", ...targets, "--reporter=list"], { env }));

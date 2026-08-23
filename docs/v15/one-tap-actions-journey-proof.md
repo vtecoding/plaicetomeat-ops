@@ -1,23 +1,25 @@
-# V15.2 · One-Tap Action Layer — Operator-Journey Proof
+# Owner decision → action hand-off — Journey Proof
 
-Generated: 2026-07-14T19:17:37.600Z
+Generated: 2026-08-22T20:22:04.602Z
 App: http://127.0.0.1:3001 · operator: owner@ptm.test
 
 A real start-of-day journey against the running app on live data. Screenshot in
-`./screens/one-tap-destination.png`.
+`./screens/decision-first.png`.
 
-## TODAY's primary actions and where one tap takes the operator
+## TODAY's primary actions and their decision pages
 
-- **V18 catch weight 0fa9d2d3 is costing money** → `/admin/today/action-waste-v18-catch-weight-0fa9d2d3-reduce-order` (review)
-- **Expired Cert Meats certificate is expired** → `/admin/compliance` (one tap to the work)
-- **Verification Pending Foods certificate needs renewal** → `/admin/compliance` (one tap to the work)
+- **Check Chicken Breast Fillets now** → `/admin/today/action-stock-chicken-breast-fillets--5`
+- **Expired Cert Meats certificate is expired** → `/admin/today/action-compliance-expired-cert-meats-expired`
+- **Verification Pending Foods certificate needs renewal** → `/admin/today/action-compliance-verification-pending-foods-missing`
 
 ## Journey checks
 
 - PASS: operator signs in — http://127.0.0.1:3001/admin/today
-- PASS: Do-now actions link straight to the work (one tap, with focus context) — 2/3 carry from=today: V18 catch weight 0fa9d2d3 is costing money → /admin/today/action-waste-v18-catch-weight-0fa9d2d3-reduce-order | Expired Cert Meats certificate is expired → /admin/compliance | Verification Pending Foods certificate needs renewal → /admin/compliance
-- PASS: no action opens the wrong destination — all land on known work routes
-- PASS: destination shows the 'From Today' action context, naming the item — headline: Fix
-- PASS: destination offers an explicit Back-to-Today return — /admin/compliance
-- PASS: action context survives a refresh — banner still present after reload
-- PASS: completion path returns to TODAY — http://127.0.0.1:3001/admin/today
+- PASS: every Do-now action opens a decision page first — Check Chicken Breast Fillets now → /admin/today/action-stock-chicken-breast-fillets--5 | Expired Cert Meats certificate is expired → /admin/today/action-compliance-expired-cert-meats-expired | Verification Pending Foods certificate needs renewal → /admin/today/action-compliance-verification-pending-foods-missing
+- PASS: decision page explains problem, impact and recommendation — /admin/today/action-stock-chicken-breast-fillets--5
+- PASS: supporting evidence is collapsed by default — collapsed
+- PASS: recommended action points to a known work screen — /admin/stock-count · context=true
+- PASS: work screen preserves the Today context — headline: Fix
+- PASS: action context survives a refresh — context still present
+- PASS: Browser Back returns to the decision — http://127.0.0.1:3001/admin/today/action-stock-chicken-breast-fillets--5
+- PASS: Not now returns to Today — http://127.0.0.1:3001/admin/today

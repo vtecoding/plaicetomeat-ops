@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { isUuid, simpleText } from "@/app/actions/operator/escalation";
 import { assertProductionMutationAllowed, type ExecutionContext } from "@/lib/operator/execution-context";
 import { formatServeMoney } from "@/lib/operator/workflows/serve-presentation";
+import { requireShopDayAction } from "@/lib/server/shop-day";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient, hasSupabaseServiceEnv } from "@/lib/supabase/server";
 
@@ -43,7 +44,7 @@ type AtomicServeReceipt = {
 
 async function requireOperator() {
   const ctx = await resolveStaffContext("manager", { branchScoped: true });
-  return ctx.ok ? { ok: true as const } : ctx;
+  return ctx.ok ? { ok: true as const, branchId: ctx.branchId } : ctx;
 }
 
 function cleanPay(value: string): PayKind | null {
@@ -116,6 +117,9 @@ export async function saveSimpleSale(input: {
     return { ok: false, message: "Choose between 1 and 12 sale lines." };
   }
   const lines = cleanLines(input.lines);
+
+  const shopDay = await requireShopDayAction(auth.branchId, "serve_customer");
+  if (!shopDay.ok) return { ok: false, message: shopDay.message };
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("create_operator_serve_order_v18", {

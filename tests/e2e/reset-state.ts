@@ -9,7 +9,7 @@ function shouldResetLocalState() {
   return /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(baseUrl);
 }
 
-export function resetStateBeforeEach() {
+export function resetStateBeforeEach({ openShopDay = false }: { openShopDay?: boolean } = {}) {
   test.beforeEach(() => {
     if (!shouldResetLocalState()) return;
 
@@ -18,5 +18,13 @@ export function resetStateBeforeEach() {
       env: process.env,
       stdio: "pipe",
     });
+
+    if (openShopDay) {
+      execFileSync("node", ["scripts/ensure-test-shop-day-open.mjs"], {
+        cwd: process.cwd(),
+        env: process.env,
+        stdio: "pipe",
+      });
+    }
   });
 }
