@@ -7,6 +7,8 @@ const stage = read("scripts/stage-release-candidate.mjs");
 const promote = read("scripts/promote-certified-release.mjs");
 const workflow = read(".github/workflows/production-release.yml");
 const controlPlane = read("scripts/verify-vercel-control-plane.mjs");
+const playwright = read("playwright.config.ts");
+const releaseArtifact = read("scripts/lib/release-artifact.mjs");
 const migration = read("supabase/migrations/202608130900_p0_truth_and_schema_compatibility.sql");
 const runbook = read("docs/release-runbook.md");
 const config = JSON.parse(read("config/release-contract.json"));
@@ -16,6 +18,7 @@ if (!stage.includes('"--skip-domain"')) failures.push("staging does not suppress
 if (!stage.includes("verify-vercel-control-plane.mjs") || !promote.includes("verify-vercel-control-plane.mjs")) failures.push("stage/promote do not re-check the live Vercel authority boundary");
 if (!controlPlane.includes("autoAssignCustomDomains !== false") || !controlPlane.includes('createDeployments !== "disabled"')) failures.push("live control-plane guard does not require both routing paths disabled");
 if (!stage.includes("validateDeploymentHealth") || !stage.includes("verify-release-gate.mjs")) failures.push("staging does not certify the exact deployment");
+if (!workflow.includes("VERCEL_AUTOMATION_BYPASS_SECRET") || !playwright.includes("x-vercel-protection-bypass") || !releaseArtifact.includes("x-vercel-protection-bypass")) failures.push("protected staged deployments are not authenticated during certification");
 if (!promote.includes("validateReleaseCertificate") || !promote.includes('"promote"')) failures.push("promotion is not certificate-bound");
 if (workflow.indexOf("release:stage") < 0 || workflow.indexOf("release:promote") <= workflow.indexOf("release:stage")) failures.push("authoritative workflow does not stage before promote");
 if (!workflow.includes("environment: production") || !workflow.includes("github.ref == 'refs/heads/main'")) failures.push("production workflow lacks protected main/environment boundary");

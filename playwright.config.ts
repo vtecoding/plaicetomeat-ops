@@ -4,6 +4,7 @@ const port = process.env.PORT ?? '3100';
 const baseURL = process.env.NEXT_PUBLIC_APP_URL ?? `http://127.0.0.1:${port}`;
 const usesLocalServer = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(baseURL);
 const retries = Number.parseInt(process.env.PLAYWRIGHT_RETRIES ?? '', 10);
+const protectionBypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
 export default defineConfig({
   testDir: 'tests',
@@ -17,6 +18,12 @@ export default defineConfig({
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
     baseURL,
+    extraHTTPHeaders: protectionBypass
+      ? {
+          'x-vercel-protection-bypass': protectionBypass,
+          'x-vercel-set-bypass-cookie': 'true',
+        }
+      : undefined,
     trace: 'on-first-retry',
     headless: true,
     viewport: { width: 1280, height: 800 },
