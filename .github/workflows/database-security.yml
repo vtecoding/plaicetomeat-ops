@@ -36,6 +36,7 @@ jobs:
       - run: node scripts/verify-ops-capture.mjs
       - name: V18 truth and replay gates
         run: |
+          node scripts/ensure-test-shop-day-open.mjs
           corepack pnpm verify:payment-truth
           corepack pnpm verify:inventory-policy
           corepack pnpm verify:untracked-isolation

@@ -189,10 +189,10 @@ async function main() {
     const after = await manager.rpc("ops_record_step", { p_session_id: openingId, p_step_key: "late", p_state: "done" });
     check("no step after completion", !!after.error && /finished/i.test(after.error.message), after.error?.message);
 
-    // A new start after completion opens a FRESH session (not the completed one).
+    // One business date has one opening identity. A retry after completion must
+    // return that completed session rather than creating a second Shop Day.
     const fresh = await manager.rpc("ops_start_or_resume_session", { p_branch_id: BRANCH_A, p_kind: "opening" });
-    check("new start after completion is a new session", fresh.data !== openingId, `completed=${openingId} fresh=${fresh.data}`);
-    await service.from("ops_checklist_sessions").delete().eq("id", fresh.data);
+    check("start after completion is idempotent", fresh.data === openingId, `completed=${openingId} retry=${fresh.data}`);
   }
 
   // 6. Stock count: evidence-only recording, then correction ONLY via the existing path.
