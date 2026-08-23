@@ -38,6 +38,9 @@ jobs:
         run: |
           node scripts/ensure-test-shop-day-open.mjs
           corepack pnpm verify:payment-truth
+          # payment-truth isolates and cleans up its own opening/closing cases;
+          # restore the trading precondition for the remaining writer verifiers.
+          node scripts/ensure-test-shop-day-open.mjs
           corepack pnpm verify:inventory-policy
           corepack pnpm verify:untracked-isolation
           corepack pnpm verify:refund-truth
