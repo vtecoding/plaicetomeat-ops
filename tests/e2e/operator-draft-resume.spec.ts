@@ -4,7 +4,7 @@ import { login, USERS } from "./helpers";
 import { resetStateBeforeEach } from "./reset-state";
 
 test.describe("V18 operator workflow drafts", () => {
-  resetStateBeforeEach();
+  resetStateBeforeEach({ openShopDay: true });
 
   test("a delivery resumes from the last saved step after refresh", async ({ page }) => {
     await login(page, USERS.operator, { expectLanding: /\/operator$/ });
