@@ -6,6 +6,8 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { fetchDeploymentHealth, validateDeploymentHealth } from "./lib/release-artifact.mjs";
+
 const MODE = (process.env.RELEASE_GATE_MODE ?? "release").toLowerCase();
 const MIGRATIONS_DIR = join(process.cwd(), "supabase", "migrations");
 const MANIFEST_FILE = join(process.cwd(), "src", "lib", "server", "migration-manifest.generated.ts");
@@ -140,20 +142,16 @@ async function validateExactDeployment() {
     return;
   }
   try {
-    const url = new URL("/api/health", deploymentUrl);
-    const response = await fetch(url, { redirect: "error" });
-    const report = await response.json();
+    const report = await fetchDeploymentHealth(deploymentUrl, { attempts: 1, delayMs: 0 });
     const observedSha = String(report?.build?.commit ?? "");
-    const exactSha = !!releaseSha && !!observedSha && (releaseSha.startsWith(observedSha) || observedSha.startsWith(releaseSha));
-    const exactGeneration = Number(report?.compatibility?.applicationGeneration) === APP_GENERATION;
-    const compatible = report?.compatibility?.compatible === true;
-    if (response.ok && exactSha && exactGeneration && compatible) {
+    const healthErrors = validateDeploymentHealth(report, {
+      expectedSha: releaseSha,
+      applicationGeneration: APP_GENERATION,
+    });
+    if (healthErrors.length === 0) {
       pass("exact staged deployment certified", `${new URL(deploymentUrl).host} sha=${observedSha} app=${APP_GENERATION}`);
     } else {
-      fail(
-        "exact staged deployment certified",
-        `http=${response.status} sha=${observedSha || "unknown"} app=${report?.compatibility?.applicationGeneration ?? "unknown"} compatible=${compatible}`,
-      );
+      fail("exact staged deployment certified", healthErrors.join("; "));
     }
   } catch (error) {
     fail("exact staged deployment certified", error.message);
