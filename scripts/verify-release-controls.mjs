@@ -19,6 +19,7 @@ if (!stage.includes("verify-vercel-control-plane.mjs") || !promote.includes("ver
 if (!controlPlane.includes("autoAssignCustomDomains !== false") || !controlPlane.includes('createDeployments !== "disabled"')) failures.push("live control-plane guard does not require both routing paths disabled");
 if (!stage.includes("validateDeploymentHealth") || !stage.includes("verify-release-gate.mjs")) failures.push("staging does not certify the exact deployment");
 if (!workflow.includes("VERCEL_AUTOMATION_BYPASS_SECRET") || !playwright.includes("x-vercel-protection-bypass") || !releaseArtifact.includes("x-vercel-protection-bypass")) failures.push("protected staged deployments are not authenticated during certification");
+if (!workflow.includes("playwright install --with-deps chromium")) failures.push("production release does not provision the hosted certification browser");
 if (!promote.includes("validateReleaseCertificate") || !promote.includes('"promote"')) failures.push("promotion is not certificate-bound");
 if (workflow.indexOf("release:stage") < 0 || workflow.indexOf("release:promote") <= workflow.indexOf("release:stage")) failures.push("authoritative workflow does not stage before promote");
 if (!workflow.includes("environment: production") || !workflow.includes("github.ref == 'refs/heads/main'")) failures.push("production workflow lacks protected main/environment boundary");
