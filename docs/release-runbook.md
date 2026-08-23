@@ -11,8 +11,12 @@ repository:
 - Vercel Production has automatic custom-domain assignment disabled.
 - Vercel Git deployments are disabled. The project is currently Git-linked, so
   leaving them enabled would create a second production build path from `main`.
-- Human roles do not hold `Full Production Deployment`; that permission belongs
-  only to the GitHub release identity. This covers deploy, promote and rollback.
+- On RBAC-capable Vercel plans, human roles do not hold `Full Production
+  Deployment`; that permission belongs only to the GitHub release identity.
+- On the current Hobby plan, PTM uses the documented single-owner exception:
+  the owner token is stored only in the protected GitHub environment, while Git
+  deployments and automatic domain assignment remain disabled. Deployments
+  still use the same immutable stage, certify and promote workflow.
 - The GitHub `production` environment requires an owner reviewer and exposes the
   production Supabase and Vercel secrets only to that environment.
 - Main is protected and all quality, database-security, migration-upgrade and
@@ -21,9 +25,10 @@ repository:
   The Checks API requires an OAuth integration; a normal Vercel access token is
   not sufficient to create that check from this repository.
 
-If any control is absent, the release truth boundary is not certified.
-`verify:vercel-control-plane` enforces the two Vercel routing settings and fails
-on Hobby because that plan cannot evidence the required production RBAC split.
+If any applicable control is absent, the release truth boundary is not
+certified. `verify:vercel-control-plane` enforces both Vercel routing settings,
+verifies the plan, and records whether deployment authority is RBAC-restricted
+or operating under the Hobby single-owner exception.
 
 ## 1. Pre-flight
 
