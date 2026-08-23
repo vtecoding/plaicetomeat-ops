@@ -34,7 +34,7 @@ test.describe("route protection", () => {
   });
 
   test("managers cannot reach owner-only release/audit tools", async ({ page }) => {
-    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await login(page, USERS.manager, { expectLanding: /\/operator/ });
     for (const path of OWNER_ONLY) {
       await page.goto(path);
       await expect(page, `manager should not reach ${path}`).not.toHaveURL(new RegExp(path.replace(/\//g, "\\/") + "$"));
@@ -49,7 +49,7 @@ test.describe("route protection", () => {
   });
 
   test("manager sees back-office nav; plain staff does not", async ({ page, browser }) => {
-    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await login(page, USERS.manager, { expectLanding: /\/operator/ });
     await page.goto("/counter");
     await expect(page.getByRole("link", { name: "Today", exact: true })).toBeVisible();
 

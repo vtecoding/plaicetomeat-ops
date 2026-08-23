@@ -154,7 +154,7 @@ test.describe("V18 Owner jobs", () => {
     expect(alertError?.message).toBeUndefined();
 
     try {
-      await login(page, USERS.owner, { expectLanding: /\/admin/ });
+      await login(page, USERS.owner, { expectLanding: /\/operator/ });
       await page.goto("/admin/reconcile");
       await expect(page.getByRole("heading", { name: "Jobs waiting for you" })).toBeVisible();
       await expect(page.getByTestId("owner-job-group-operator_delivery_cost_pending")).toContainText("2 jobs");

@@ -81,7 +81,7 @@ test.describe("V18 order corrections", () => {
     });
     expect(lineError?.message).toBeUndefined();
 
-    await login(page, USERS.manager, { expectLanding: /\/admin/ });
+    await login(page, USERS.manager, { expectLanding: /\/operator/ });
     await page.goto("/counter");
     let card = page.locator("article", { hasText: orderRef });
     await expect(card).toBeVisible();
