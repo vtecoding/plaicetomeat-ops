@@ -99,6 +99,14 @@ if (!isHosted && process.env.PLAYWRIGHT_SKIP_DB_RESET !== "true") {
 
   const seedStatus = run("node", ["scripts/seed-dev.mjs"], { env });
   if (seedStatus !== 0) process.exit(seedStatus);
+
+  // The V18 journeys exercise real trading writers. Establish their operational
+  // precondition through the authenticated opening RPCs instead of bypassing the
+  // Shop Day invariant or forging a completed session in test data.
+  if (suite === "v18") {
+    const openStatus = run("node", ["scripts/ensure-test-shop-day-open.mjs"], { env });
+    if (openStatus !== 0) process.exit(openStatus);
+  }
 }
 
 process.exit(run("npx", ["playwright", "test", ...targets, "--reporter=list"], { env }));
