@@ -23,6 +23,7 @@ if (!workflow.includes("VERCEL_AUTOMATION_BYPASS_SECRET") || !playwright.include
 if (!workflow.includes("playwright install --with-deps chromium")) failures.push("production release does not provision the hosted certification browser");
 if (!releaseGate.includes("fetchDeploymentHealth") || !releaseGate.includes("validateDeploymentHealth")) failures.push("promotion gate bypasses the shared protected-deployment health verifier");
 if (!promote.includes("validateReleaseCertificate") || !promote.includes('"promote"')) failures.push("promotion is not certificate-bound");
+if (!promote.includes('"alias"') || !promote.includes("productionDomain")) failures.push("promotion does not explicitly route the public domain to the certified deployment");
 if (workflow.indexOf("release:stage") < 0 || workflow.indexOf("release:promote") <= workflow.indexOf("release:stage")) failures.push("authoritative workflow does not stage before promote");
 if (!workflow.includes("environment: production") || !workflow.includes("github.ref == 'refs/heads/main'")) failures.push("production workflow lacks protected main/environment boundary");
 if (!migration.includes("VALUES (true, 19, 18, 19, '202608130900')")) failures.push("expand migration lacks generation 18-19 overlap");
