@@ -47,7 +47,11 @@ jobs:
           } > .env.local
       - run: node scripts/seed-dev.mjs
       - run: node scripts/verify-v11-migrations.mjs
+      - run: node scripts/ensure-test-shop-day-open.mjs
       - run: corepack pnpm verify:payment-truth
+      # payment-truth deliberately isolates and removes its opening/closing
+      # fixtures; restore the real trading precondition for subsequent writers.
+      - run: node scripts/ensure-test-shop-day-open.mjs
       - run: corepack pnpm verify:refund-truth
       - run: corepack pnpm typecheck
       - run: corepack pnpm lint
