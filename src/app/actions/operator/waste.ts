@@ -8,6 +8,7 @@ import {
 import { linkOperatorEvidence } from "@/app/actions/operator/evidence";
 import { assertProductionMutationAllowed, LIVE_EXECUTION_CONTEXT, type ExecutionContext } from "@/lib/operator/execution-context";
 import type { WasteReasonChoice } from "@/lib/operator/workflows/waste";
+import { requireShopDayAction } from "@/lib/server/shop-day";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -30,6 +31,9 @@ export async function recordNoWaste(input: { runId: string; executionContext?: E
   const auth = await requireOperator();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!isUuid(input.runId)) return { ok: false, message: "Please go back and try again." };
+
+  const shopDay = await requireShopDayAction(auth.branchId, "record_waste");
+  if (!shopDay.ok) return { ok: false, message: shopDay.message };
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("complete_operator_no_waste_v18", {
@@ -68,6 +72,9 @@ export async function recordSimpleWaste(input: {
   if (!Number.isFinite(quantity) || quantity <= 0) {
     return { ok: false, message: "Please enter how much was thrown away." };
   }
+
+  const shopDay = await requireShopDayAction(auth.branchId, "record_waste");
+  if (!shopDay.ok) return { ok: false, message: shopDay.message };
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("record_operator_waste_v18", {

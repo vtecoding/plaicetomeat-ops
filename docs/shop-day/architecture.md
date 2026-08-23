@@ -33,6 +33,12 @@ The first implementation derives this phase from the existing persisted opening 
 9. Refresh, browser restart and network interruption resume persisted work.
 10. Shop closure has one answer: closed, or an explicit list of blockers.
 
+## Implemented boundary
+
+The shared `/operator` home consumes `PersistedShopDay` for both Dad and Uncle. Dad's owner role receives a server-authorised projection of the durable `owner_alerts` lifecycle; Uncle's manager render never runs that query. Sales, deliveries, waste and till movements are gated in the UI, in their server actions, and again inside guarded database writers. Starting the close and recording trading work share a branch/day transaction lock, while completed operation identities may still replay safely after a lost response.
+
+`owner_alerts` remains the one persisted owner-work record. The owner presentation answers what happened, why it matters, what to do, and what happens if it is ignored; it does not create a second decision table.
+
 ## Next boundary
 
-The next increment will add the server-side obligation and decision projection, then make the shared Operator home consume `PersistedShopDay`. Existing workflows move underneath that shell incrementally; routes are not duplicated or renamed merely for presentation.
+Move the remaining closing obligations into the same explicit gate projection, then certify one deterministic full day and the adversarial stale-tab/concurrent-close cases against the hosted system. Only after that human sign-off should the older admin navigation be buried further or analytics be added.

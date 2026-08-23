@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { isUuid, simpleText, type OperatorActionResult } from "@/app/actions/operator/escalation";
 import { assertProductionMutationAllowed, type ExecutionContext } from "@/lib/operator/execution-context";
+import { requireShopDayAction } from "@/lib/server/shop-day";
 import { resolveStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -41,6 +42,9 @@ export async function recordTillMovement(input: {
   if (!Number.isFinite(amountGbp) || amountGbp <= 0 || amountGbp > 10000) {
     return { ok: false, message: "How much money?" };
   }
+
+  const shopDay = await requireShopDayAction(ctx.branchId, "count_till");
+  if (!shopDay.ok) return { ok: false, message: shopDay.message };
 
   const amountPence = Math.round(amountGbp * 100) * (input.direction === "in" ? 1 : -1);
 

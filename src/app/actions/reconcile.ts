@@ -8,8 +8,8 @@ import { createSupabaseServiceClient, hasSupabaseServiceEnv } from "@/lib/supaba
 
 type Result = { ok: true; message: string } | { ok: false; message: string };
 
-async function requireManager() {
-  const ctx = await resolveStaffContext("manager", { branchScoped: true });
+async function requireOwner() {
+  const ctx = await resolveStaffContext("owner", { branchScoped: true });
   return ctx.ok ? { ok: true as const, branchId: ctx.branchId, profileId: ctx.profile.id } : ctx;
 }
 
@@ -31,7 +31,7 @@ export async function resolveDeliveryCost(input: {
   batchId: string;
   invoiceCost: number;
 }): Promise<Result> {
-  const auth = await requireManager();
+  const auth = await requireOwner();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!hasSupabaseServiceEnv()) return { ok: false, message: "Try again." };
 
@@ -67,7 +67,7 @@ export async function resolveDeliveryCost(input: {
  * check. A genuine correction is a separate waste workflow (the card's "Open full details").
  */
 export async function confirmWasteReason(input: { alertId: string }): Promise<Result> {
-  const auth = await requireManager();
+  const auth = await requireOwner();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!hasSupabaseServiceEnv()) return { ok: false, message: "Try again." };
 
@@ -90,7 +90,7 @@ export async function confirmWasteReason(input: { alertId: string }): Promise<Re
 
 /** Resolve any registry job that has no richer inline transaction. */
 export async function resolveOwnerAlert(input: { alertId: string; note: string }): Promise<Result> {
-  const auth = await requireManager();
+  const auth = await requireOwner();
   if (!auth.ok) return { ok: false, message: auth.message };
   if (!hasSupabaseServiceEnv()) return { ok: false, message: "Try again." };
 

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { deriveShopDayPhase, type ShopDayPhase, type ShopDayRitualStatus } from "@/lib/domain/shop-day";
+import { canPerformShopDayAction, deriveShopDayPhase, shopDayActionInstruction, type ShopDayAction, type ShopDayPhase, type ShopDayRitualStatus } from "@/lib/domain/shop-day";
 import { getBranchBusinessDate } from "@/lib/server/payment-truth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -48,4 +48,26 @@ export async function getPersistedShopDay(branchId: string, now = new Date()): P
   }
 
   return { branchId, businessDate, phase: derived.phase, openingStatus, closingStatus };
+}
+
+export type ShopDayActionPermission =
+  | { ok: true; shopDay: PersistedShopDay }
+  | { ok: false; message: string; shopDay: PersistedShopDay | null };
+
+/** Server-side gate used by every Operator trading mutation. */
+export async function requireShopDayAction(
+  branchId: string,
+  action: ShopDayAction,
+): Promise<ShopDayActionPermission> {
+  try {
+    const shopDay = await getPersistedShopDay(branchId);
+    if (canPerformShopDayAction(shopDay.phase, action)) return { ok: true, shopDay };
+    return {
+      ok: false,
+      message: shopDayActionInstruction(shopDay.phase) ?? "This shop work is not available right now.",
+      shopDay,
+    };
+  } catch {
+    return { ok: false, message: "PTM could not check the shop day. Nothing was saved. Try again.", shopDay: null };
+  }
 }

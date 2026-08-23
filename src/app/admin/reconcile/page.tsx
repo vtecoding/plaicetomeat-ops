@@ -7,7 +7,7 @@ import { requireStaffContext } from "@/lib/server/staff-context";
 export const dynamic = "force-dynamic";
 
 export default async function ReconcilePage() {
-  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
+  const { branchId } = await requireStaffContext("owner", { branchScoped: true });
   const tray = await getReconciliationItems(branchId);
 
   return (

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canPerformShopDayAction,
   deriveShopDayPhase,
+  shopDayActionInstruction,
   transitionShopDay,
   unresolvedGateObligations,
   type ShopDayObligation,
@@ -91,6 +92,14 @@ describe("transitionShopDay", () => {
     expect(canPerformShopDayAction("trading", "receive_delivery")).toBe(true);
     expect(canPerformShopDayAction("trading", "record_waste")).toBe(true);
     expect(canPerformShopDayAction("trading", "count_till")).toBe(true);
+  });
+
+  it("returns a human next step for every blocked phase", () => {
+    expect(shopDayActionInstruction("not_open")).toContain("opening");
+    expect(shopDayActionInstruction("opening")).toContain("opening");
+    expect(shopDayActionInstruction("closing")).toContain("Closing");
+    expect(shopDayActionInstruction("closed")).toContain("closed");
+    expect(shopDayActionInstruction("trading")).toBeNull();
   });
 
   it("reports all unresolved obligations for a gate", () => {

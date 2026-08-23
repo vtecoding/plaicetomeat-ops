@@ -124,6 +124,18 @@ export function canPerformShopDayAction(phase: ShopDayPhase, action: ShopDayActi
   }
 }
 
+/** Plain refusal returned by server actions when a trading write is out of sequence. */
+export function shopDayActionInstruction(phase: ShopDayPhase): string | null {
+  if (phase === "trading") return null;
+  if (phase === "not_open" || phase === "opening") {
+    return "Finish opening the shop before recording trading work.";
+  }
+  if (phase === "closing") {
+    return "Closing has started. Finish the close before starting more trading work.";
+  }
+  return "The shop is closed for this trading day.";
+}
+
 function refuse(
   phase: ShopDayPhase,
   reason: string,
