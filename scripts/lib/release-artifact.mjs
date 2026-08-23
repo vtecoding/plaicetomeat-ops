@@ -56,9 +56,30 @@ export function evaluatePromotionDecision({
 
 export async function fetchDeploymentHealth(deploymentUrl, { attempts = 12, delayMs = 5000 } = {}) {
   let lastError;
+  const protectionBypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  const headers = protectionBypass
+    ? {
+        "x-vercel-protection-bypass": protectionBypass,
+        "x-vercel-set-bypass-cookie": "true",
+      }
+    : undefined;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const response = await fetch(new URL("/api/health", deploymentUrl), { redirect: "error" });
+      const healthUrl = new URL("/api/health", deploymentUrl);
+      let response = await fetch(healthUrl, {
+        headers,
+        redirect: protectionBypass ? "manual" : "error",
+      });
+      if (protectionBypass && response.status >= 300 && response.status < 400) {
+        const followUrl = new URL(response.headers.get("location") ?? healthUrl, healthUrl);
+        if (followUrl.origin !== healthUrl.origin) throw new Error("protection bypass redirected outside the deployment origin");
+        const cookie = response.headers.get("set-cookie")?.split(";", 1)[0];
+        if (!cookie) throw new Error("protection bypass did not issue its verification cookie");
+        response = await fetch(followUrl, {
+          headers: { ...headers, cookie },
+          redirect: "error",
+        });
+      }
       const report = await response.json();
       if (response.ok) return report;
       lastError = new Error(`health returned HTTP ${response.status}`);

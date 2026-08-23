@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   evaluatePromotionDecision,
+  fetchDeploymentHealth,
   validateDeploymentHealth,
   validateReleaseCertificate,
 } from "../../../scripts/lib/release-artifact.mjs";
@@ -14,6 +15,11 @@ const healthy = {
 };
 
 describe("exact release artifact boundary", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
   it("accepts only the staged deployment that reports the certified SHA and generation", () => {
     expect(validateDeploymentHealth(healthy, { expectedSha: sha, applicationGeneration: 19 })).toEqual([]);
     expect(validateDeploymentHealth({ ...healthy, build: { commit: "ffffffffffff" } }, { expectedSha: sha, applicationGeneration: 19 })).toContainEqual(expect.stringContaining("does not match"));
@@ -62,5 +68,34 @@ describe("exact release artifact boundary", () => {
     expect(evaluatePromotionDecision({ ...base, deploymentCommitMatches: false }).allowed).toBe(false);
     expect(evaluatePromotionDecision({ ...base, controlSourceClean: false }).allowed).toBe(false);
     expect(evaluatePromotionDecision({ ...base, lineageCertified: false }).allowed).toBe(false);
+  });
+
+  it("uses the Vercel automation bypass cookie for protected candidate health", async () => {
+    const deploymentUrl = "https://ptm-abc.vercel.app";
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(null, {
+        status: 307,
+        headers: {
+          location: `${deploymentUrl}/api/health`,
+          "set-cookie": "_vercel_jwt=verification-cookie; Path=/; Secure; HttpOnly",
+        },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(healthy), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }));
+    vi.stubEnv("VERCEL_AUTOMATION_BYPASS_SECRET", "automation-secret");
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchDeploymentHealth(deploymentUrl, { attempts: 1, delayMs: 0 })).resolves.toEqual(healthy);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      "x-vercel-protection-bypass": "automation-secret",
+      "x-vercel-set-bypass-cookie": "true",
+    });
+    expect(fetchMock.mock.calls[1]?.[1]?.headers).toMatchObject({
+      cookie: "_vercel_jwt=verification-cookie",
+      "x-vercel-protection-bypass": "automation-secret",
+    });
   });
 });
