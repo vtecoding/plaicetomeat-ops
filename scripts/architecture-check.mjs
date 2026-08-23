@@ -70,7 +70,7 @@ const GUARDS = [
   { id: "operator-journeys", principle: "Friction", tier: "live", script: "scripts/verify-operator-journeys.mjs", what: "operator journeys complete end-to-end" },
   { id: "action-compression", principle: "Decisions", tier: "live", script: "scripts/verify-action-compression.mjs", what: "Do-Now never exceeds three actions" },
   { id: "today-os", principle: "Decisions", tier: "live", script: "scripts/verify-today-os.mjs", what: "TODAY leads with Do-Now above the fold" },
-  { id: "one-tap-actions", principle: "Friction", tier: "live", script: "scripts/verify-one-tap-actions.mjs", what: "every decision routes one tap to the work" },
+  { id: "one-tap-actions", principle: "Friction", tier: "live", script: "scripts/verify-one-tap-actions.mjs", what: "every decision explains first, then hands off in one tap" },
   { id: "morning-briefing", principle: "Decisions", tier: "live", script: "scripts/verify-morning-briefing.mjs", what: "morning briefing orients without numbers" },
   { id: "customer-winback", principle: "Decisions", tier: "live", script: "scripts/verify-customer-winback.mjs", what: "lapsed-regular win-back surfaces correctly" },
 ];

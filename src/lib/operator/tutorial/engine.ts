@@ -3,12 +3,12 @@ import { completeShopDaySteps } from "./scenario";
 import { applyTutorialEvent, cloneSimulation, createInitialSimulation } from "./simulation";
 import type { DryRunSession, TutorialEvent } from "./types";
 
-export const DRY_RUN_STORAGE_KEY = "ptm_operator_dry_run_v2";
+export const DRY_RUN_STORAGE_KEY = "ptm_operator_dry_run_v3";
 export const DRY_RUN_DURATION_MS = 8 * 60 * 60 * 1000;
 
 export function createDryRunSession(locale: OperatorLocale, now = new Date(), id = crypto.randomUUID()): DryRunSession {
   const initial = createInitialSimulation();
-  return { id, scenarioId: "complete-shop-day-v2", mode: "dry-run", locale, currentStep: 0, completedSteps: [], simulatedState: initial, snapshots: [cloneSimulation(initial)], processedEventIds: [], startedAt: now.toISOString(), expiresAt: new Date(now.getTime() + DRY_RUN_DURATION_MS).toISOString(), status: "active" };
+  return { id, scenarioId: "complete-shop-day-v3", mode: "dry-run", locale, currentStep: 0, completedSteps: [], simulatedState: initial, snapshots: [cloneSimulation(initial)], processedEventIds: [], startedAt: now.toISOString(), expiresAt: new Date(now.getTime() + DRY_RUN_DURATION_MS).toISOString(), status: "active" };
 }
 
 export function acceptsEvent(session: DryRunSession, event: TutorialEvent) {
@@ -51,7 +51,7 @@ export function restoreSession(value: string | null, now = new Date()): DryRunSe
   if (!value) return null;
   try {
     const parsed = JSON.parse(value) as DryRunSession;
-    if (parsed.mode !== "dry-run" || parsed.scenarioId !== "complete-shop-day-v2") return null;
+    if (parsed.mode !== "dry-run" || parsed.scenarioId !== "complete-shop-day-v3") return null;
     if (new Date(parsed.expiresAt).getTime() <= now.getTime()) return null;
     if (!Number.isInteger(parsed.currentStep) || parsed.currentStep < 0 || parsed.currentStep >= completeShopDaySteps.length) return null;
     if (!Array.isArray(parsed.snapshots) || !Array.isArray(parsed.processedEventIds)) return null;

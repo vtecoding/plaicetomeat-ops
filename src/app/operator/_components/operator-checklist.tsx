@@ -33,6 +33,7 @@ function completeTutorialChecklistStep(index: number): { kind: Kind; key: string
   const id = completeShopDaySteps[index]?.id;
   const map: Record<string, { kind: Kind; key: string | null }> = {
     "open.checklist": { kind: "opening", key: "display_ready" },
+    "open.temperature.mistake": { kind: "opening", key: "fridge_temp" },
     "open.temperature": { kind: "opening", key: "fridge_temp" },
     "open.float": { kind: "opening", key: "float_ready" },
     "open.confirm": { kind: "opening", key: null },

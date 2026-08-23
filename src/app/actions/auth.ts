@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { resolvePostLoginPath } from "@/lib/domain/auth";
 import { SECURITY_REASON } from "@/lib/domain/security-events";
-import { issueEnvelope } from "@/lib/domain/session-envelope";
+import { issueEnvelope, STAFF_SESSION_ABSOLUTE_TIMEOUT_MS } from "@/lib/domain/session-envelope";
 import type { StaffRole } from "@/lib/domain/route-access";
 import { isLoginLocked, recordLoginAttempt } from "@/lib/server/login-attempts";
 import { log } from "@/lib/server/observability/log";
@@ -36,6 +36,7 @@ async function setStaffSessionCookie(userId: string): Promise<void> {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
+    maxAge: STAFF_SESSION_ABSOLUTE_TIMEOUT_MS / 1000,
   });
 }
 

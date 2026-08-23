@@ -15,6 +15,22 @@ test.describe("authentication", () => {
     await expect(page.getByRole("link", { name: "Today", exact: true }).first()).toBeVisible();
   });
 
+  test("a valid Supabase login silently renews a missing staff activity cookie", async ({ context, page }) => {
+    await login(page, USERS.owner, { expectLanding: /\/admin/ });
+
+    const initialCookie = (await context.cookies()).find((cookie) => cookie.name === "ptm_staff_last_seen");
+    expect(initialCookie?.expires).toBeGreaterThan(Date.now() / 1000);
+
+    // Simulate the old browser-session-only activity cookie disappearing while
+    // the server-validated Supabase identity cookie remains intact.
+    await context.clearCookies({ name: "ptm_staff_last_seen" });
+    await page.goto("/admin/today");
+
+    await expect(page).toHaveURL(/\/admin\/today/);
+    const renewedCookie = (await context.cookies()).find((cookie) => cookie.name === "ptm_staff_last_seen");
+    expect(renewedCookie?.value).toBeTruthy();
+  });
+
   test("staff can log in and reach /counter", async ({ page }) => {
     await login(page, USERS.staff, { expectLanding: /\/counter/ });
     await expect(page).toHaveURL(/\/counter/);

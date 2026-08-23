@@ -1,14 +1,12 @@
-// V15.2 · One-Tap Action Layer — operator-journey validation.
+// Owner decision → action hand-off — operator-journey validation.
 //
-// A REAL start-of-day journey against the running app, proving that TODAY's primary
-// actions remove navigation:
-//   1. Each Do-now action links straight to a work screen (not the read-only detail page),
-//      carrying the item focus + "from today" context.
-//   2. Every such link points at one of the four known work routes — never a wrong entity.
-//   3. Tapping one lands on that screen showing the "From Today" action-context banner that
-//      names the exact item, plus an explicit Back-to-Today return.
-//   4. The context survives a full page refresh (it lives in the URL).
-//   5. Back-to-Today returns the operator to /admin/today.
+// A REAL start-of-day journey against the running app, proving the universal owner loop:
+//   1. Every Do-now action opens its concise decision page first.
+//   2. The first viewport states what happened, why it matters and PTM's recommendation.
+//   3. Evidence is collapsed until requested.
+//   4. The recommendation hands off in one tap to the authoritative work screen, carrying
+//      item focus + "from today" context; review-only decisions keep evidence on the detail.
+//   5. Browser Back returns to the decision and Not now returns to Today.
 // Captures a screenshot and writes an evidence pack under docs/v15/.
 //
 // Usage (app must be running + local Supabase up + seeded):
@@ -67,14 +65,14 @@ async function main() {
     return finish();
   }
 
-  // 1+2. Read every Do-now action's link and classify its destination.
+  // 1. Every primary item enters the same concise decision grammar.
   const doNowRows = page.getByTestId("decisions-do-now").getByTestId("decision-row");
   const count = await doNowRows.count();
   const links = [];
   for (let i = 0; i < count; i += 1) {
     const href = (await doNowRows.nth(i).getAttribute("href")) ?? "";
     const label = (await doNowRows.nth(i).locator("p").first().innerText().catch(() => "")).trim();
-    links.push({ href, path: pathOf(href), label, oneTap: /from=today/.test(href) });
+    links.push({ href, path: pathOf(href), label });
   }
 
   if (count === 0) {
@@ -83,43 +81,64 @@ async function main() {
     return finish({ count, links });
   }
 
-  const oneTapLinks = links.filter((l) => l.oneTap);
+  const wrongDetails = links.filter((link) => !link.path.startsWith("/admin/today/"));
   record(
-    "Do-now actions link straight to the work (one tap, with focus context)",
-    oneTapLinks.length > 0,
-    `${oneTapLinks.length}/${count} carry from=today: ${links.map((l) => `${l.label} → ${l.path}`).join(" | ")}`,
+    "every Do-now action opens a decision page first",
+    wrongDetails.length === 0,
+    links.map((link) => `${link.label} → ${link.path}`).join(" | "),
   );
 
-  // 2. No one-tap action points at a wrong destination.
-  const wrong = oneTapLinks.filter((l) => !WORK_ROUTES.includes(l.path));
-  record("no action opens the wrong destination", wrong.length === 0, wrong.length ? `unexpected: ${wrong.map((l) => l.path).join(", ")}` : "all land on known work routes");
-
-  // 3–5. Follow the first one-tap action and prove the destination knows why we arrived.
-  const first = oneTapLinks[0] ?? links[0];
+  // 2–5. Follow a decision and prove the complete decision → hand-off → return loop.
+  const first = links[0];
   if (first) {
     await page.goto(new URL(first.href, BASE).toString(), { waitUntil: "networkidle", timeout: 60000 });
 
-    const banner = page.getByTestId("action-context");
-    const onArrival = (await banner.count()) > 0;
-    const headline = onArrival ? (await page.getByTestId("action-context-headline").innerText().catch(() => "")).trim() : "";
-    record("destination shows the 'From Today' action context, naming the item", onArrival && headline.length > 0, `headline: ${headline || "(none)"}`);
-    record("destination offers an explicit Back-to-Today return", (await page.getByTestId("action-context-back").count()) > 0, first.path);
+    const detailPresent = (await page.getByTestId("decision-detail").count()) > 0;
+    const decisionText = await page.getByTestId("decision-detail").innerText().catch(() => "");
+    record(
+      "decision page explains problem, impact and recommendation",
+      detailPresent && /What happened\?/i.test(decisionText) && /Why does it matter\?/i.test(decisionText) && /PTM recommends/i.test(decisionText),
+      first.path,
+    );
 
-    // 4. Context survives a full refresh (it lives in the URL).
-    await page.reload({ waitUntil: "networkidle" });
-    const survives = (await page.getByTestId("action-context").count()) > 0;
-    record("action context survives a refresh", survives, survives ? "banner still present after reload" : "banner lost on reload");
+    const evidence = page.getByTestId("decision-evidence");
+    const evidenceCollapsed = (await evidence.count()) > 0 && !(await evidence.evaluate((element) => element.hasAttribute("open")).catch(() => true));
+    record("supporting evidence is collapsed by default", evidenceCollapsed, evidenceCollapsed ? "collapsed" : "missing or expanded");
 
     await page.addStyleTag({ content: KILL_ANIM }).catch(() => {});
-    await page.waitForTimeout(300);
-    await page.screenshot({ path: `${SHOTS}/one-tap-destination.png`, fullPage: true }).catch(() => {});
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: `${SHOTS}/decision-first.png`, fullPage: true }).catch(() => {});
 
-    // 5. Back-to-Today returns to TODAY.
+    const recommendation = page.getByTestId("recommended-action");
+    if ((await recommendation.count()) === 0) {
+      record("review-only decision keeps its evidence on the detail page", (await page.locator('a[href="#decision-evidence"]').count()) > 0, first.label);
+    } else {
+      const workHref = (await recommendation.getAttribute("href")) ?? "";
+      const workPath = pathOf(workHref);
+      record("recommended action points to a known work screen", WORK_ROUTES.includes(workPath) && /from=today/.test(workHref), `${workPath} · context=${/from=today/.test(workHref)}`);
+      await Promise.all([
+        page.waitForURL((url) => url.pathname === workPath, { timeout: 30000 }),
+        recommendation.click(),
+      ]);
+
+      const banner = page.getByTestId("action-context");
+      const onArrival = (await banner.count()) > 0;
+      const headline = onArrival ? (await page.getByTestId("action-context-headline").innerText().catch(() => "")).trim() : "";
+      record("work screen preserves the Today context", onArrival && headline.length > 0, `headline: ${headline || "(none)"}`);
+
+      await page.reload({ waitUntil: "networkidle" });
+      const survives = (await page.getByTestId("action-context").count()) > 0;
+      record("action context survives a refresh", survives, survives ? "context still present" : "context lost");
+
+      await page.goBack({ waitUntil: "networkidle" });
+      record("Browser Back returns to the decision", new URL(page.url()).pathname === first.path, page.url());
+    }
+
     await Promise.all([
       page.waitForURL("**/admin/today", { timeout: 30000 }).catch(() => {}),
-      page.getByTestId("action-context-back").click().catch(() => {}),
+      page.getByRole("link", { name: "Not now", exact: true }).click().catch(() => {}),
     ]);
-    record("completion path returns to TODAY", /\/admin\/today$/.test(page.url()), page.url());
+    record("Not now returns to Today", /\/admin\/today$/.test(page.url()), page.url());
   }
 
   await browser.close();
@@ -127,17 +146,17 @@ async function main() {
 
   function finish(data = {}) {
     const lines = [];
-    lines.push("# V15.2 · One-Tap Action Layer — Operator-Journey Proof");
+    lines.push("# Owner decision → action hand-off — Journey Proof");
     lines.push("");
     lines.push(`Generated: ${new Date().toISOString()}`);
     lines.push(`App: ${BASE} · operator: ${EMAIL}`);
     lines.push("");
     lines.push("A real start-of-day journey against the running app on live data. Screenshot in");
-    lines.push("`./screens/one-tap-destination.png`.");
+    lines.push("`./screens/decision-first.png`.");
     lines.push("");
-    lines.push("## TODAY's primary actions and where one tap takes the operator");
+    lines.push("## TODAY's primary actions and their decision pages");
     lines.push("");
-    for (const l of data.links ?? []) lines.push(`- **${l.label}** → \`${l.path}\`${l.oneTap ? " (one tap to the work)" : " (review)"}`);
+    for (const l of data.links ?? []) lines.push(`- **${l.label}** → \`${l.path}\``);
     if (!(data.links ?? []).length) lines.push("- (none — all clear today)");
     lines.push("");
     lines.push("## Journey checks");
@@ -153,7 +172,7 @@ async function main() {
     const outPath = resolve(OUT_DIR, "one-tap-actions-journey-proof.md");
     writeFileSync(outPath, lines.join("\n"), "utf8");
     console.log(`\nWrote ${outPath}`);
-    console.log(failures.length === 0 ? "One-tap action journey PASSED" : `Completed with ${failures.length} failure(s)`);
+    console.log(failures.length === 0 ? "Decision-to-action journey PASSED" : `Completed with ${failures.length} failure(s)`);
     process.exit(failures.length === 0 ? 0 : 1);
   }
 }

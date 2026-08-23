@@ -31,7 +31,9 @@ describe("resolveNav", () => {
     for (const role of ["manager", "owner"] as const) {
       const nav = resolveNav(role);
       const hrefs = nav.primary.map((link) => link.href);
-      expect(hrefs).toEqual([...STAFF_LINKS, ...MANAGER_LINKS].map((link) => link.href));
+      expect(hrefs).toEqual(MANAGER_LINKS.map((link) => link.href));
+      expect(hrefs).not.toContain("/counter");
+      expect(hrefs).not.toContain("/counter/compliance");
       for (const customerHref of PUBLIC_HREFS) {
         expect(hrefs).not.toContain(customerHref);
       }

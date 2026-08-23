@@ -3,7 +3,11 @@ import { type NextFetchEvent, type NextRequest, NextResponse } from "next/server
 
 import { canAccessStaffPath, isStaffFacingPath, type StaffRole } from "@/lib/domain/route-access";
 import { SECURITY_REASON, securityEventForSession } from "@/lib/domain/security-events";
-import { slideEnvelope } from "@/lib/domain/session-envelope";
+import {
+  issueEnvelope,
+  slideEnvelope,
+  STAFF_SESSION_ABSOLUTE_TIMEOUT_MS,
+} from "@/lib/domain/session-envelope";
 import { recordSecurityEvent, type SecurityEventInput } from "@/lib/server/security-audit";
 import {
   evaluateStaffSession,
@@ -76,13 +80,15 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
       return redirectToLogin(request);
     }
 
-    // Signed, timestamped, user-bound activity envelope. A MISSING envelope is
-    // treated as EXPIRED (never silently accepted); a tampered/forged or
-    // cross-user envelope is INVALID.
+    // Signed, timestamped, user-bound activity envelope. Supabase remains the
+    // source of truth for authentication: if its server-validated session is
+    // still live, a missing or timed-out activity envelope is renewed without
+    // asking the person to enter their password again. A tampered/forged or
+    // cross-user envelope is still an authority failure and fails closed.
     const sessionToken = request.cookies.get(STAFF_SESSION_COOKIE)?.value;
     const session = await evaluateStaffSession(sessionToken, user.id);
 
-    if (session.status !== "valid") {
+    if (session.status === "invalid") {
       const securityEvent = securityEventForSession(session);
       if (securityEvent) {
         audit({
@@ -94,11 +100,21 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
       }
 
       await supabase.auth.signOut();
-      // Timeouts (idle/absolute/missing) send the user back to sign in; a forged or
-      // cross-user envelope is a hard authority failure and lands on /unauthorised.
-      const target = session.status === "expired" ? redirectToLogin(request) : redirectUnauthorised(request);
+      const target = redirectUnauthorised(request);
       target.cookies.delete(STAFF_SESSION_COOKIE);
       return target;
+    }
+
+    if (session.status === "expired") {
+      const securityEvent = securityEventForSession(session);
+      if (securityEvent) {
+        audit({
+          reason: securityEvent.reason,
+          targetType: "session",
+          targetId: user.id,
+          metadata: { route: pathname, ...(securityEvent.detail ? { detail: securityEvent.detail } : {}) },
+        });
+      }
     }
 
     const { data: profile } = await supabase
@@ -125,14 +141,16 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
       return redirectUnauthorised(request);
     }
 
-    // Slide the activity marker forward (idle window) while preserving the original
-    // issue time (absolute window), then re-sign.
-    const next = slideEnvelope(session.envelope);
+    // Slide a valid activity marker forward. If the marker was missing or timed
+    // out, issue a fresh one because getUser() already revalidated the underlying
+    // Supabase identity above.
+    const next = session.status === "valid" ? slideEnvelope(session.envelope) : issueEnvelope(user.id);
     response.cookies.set(STAFF_SESSION_COOKIE, await signEnvelope(next), {
       httpOnly: true,
       sameSite: "lax",
       secure: request.nextUrl.protocol === "https:",
       path: "/",
+      maxAge: STAFF_SESSION_ABSOLUTE_TIMEOUT_MS / 1000,
     });
 
     return response;

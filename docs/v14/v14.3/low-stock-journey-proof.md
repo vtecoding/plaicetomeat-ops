@@ -1,6 +1,6 @@
 # V14.3 · Low-Stock & Confidence-Routing Journey Proof (Workstream C)
 
-Generated: 2026-07-14T19:17:28.963Z
+Generated: 2026-08-22T20:21:57.693Z
 App: http://127.0.0.1:3001 · Supabase: http://127.0.0.1:54321 · operator: owner@ptm.test
 
 This is a real rendered operator journey against the running app on live
@@ -8,8 +8,8 @@ data — not a unit test. Screenshots in `./screens/`.
 
 ## Live inventory-truth signals (source: inventory_confidence_monitor)
 
-- Low-confidence products on file: **2**
-  - v6.4 intake lamb leg 1784056324770, v18 catch weight 0fa9d2d3
+- Low-confidence products on file: **9**
+  - chicken breast fillets, shortfall shortfall-raqx58ek, shortfall shortfall-mt7gu7v1, shortfall shortfall-s9qezpo6, v18 catch weight d21c2561, shortfall shortfall-94kzi2uv, shortfall shortfall-f6qltw7p, shortfall shortfall-uiqj0o7f, shortfall shortfall-nxedt7g7
 
 ## What the operator saw
 
@@ -33,7 +33,7 @@ data — not a unit test. Screenshots in `./screens/`.
 
 ## Control proofs
 
-- PASS: read live inventory-truth signals — 2 low-confidence product(s) on file
+- PASS: read live inventory-truth signals — 9 low-confidence product(s) on file
 - PASS: operator signs in — http://127.0.0.1:3001/admin/today
 - PASS: purchasing page renders for operator — 0 order recommendation(s): none
 - PASS: confidence→verb contract holds on the purchasing page — no low-confidence product is told to Order
