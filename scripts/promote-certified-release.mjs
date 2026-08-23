@@ -18,6 +18,7 @@ const certificateErrors = validateReleaseCertificate(certificate, { expectedSha:
 if (certificateErrors.length > 0) throw new Error(`promotion denied: ${certificateErrors.join("; ")}`);
 const productionUrl = process.env.PTM_PRODUCTION_URL;
 if (!productionUrl) throw new Error("promotion denied: PTM_PRODUCTION_URL is required for exact post-promotion verification");
+const productionDomain = new URL(productionUrl).hostname;
 
 function run(command, args, extraEnv = {}) {
   const result = spawnSync(command, args, {
@@ -41,12 +42,27 @@ run("node", ["scripts/verify-release-gate.mjs"], {
   EXPECTED_RELEASE_SHA: commitSha,
   EXPECTED_DEPLOYMENT_URL: certificate.deploymentUrl,
 });
+const vercelAuthArgs = [
+  ...(process.env.VERCEL_TOKEN ? ["--token", process.env.VERCEL_TOKEN] : []),
+  ...(process.env.VERCEL_ORG_ID ? ["--scope", process.env.VERCEL_ORG_ID] : []),
+];
 run("npx", [
   "vercel",
   "promote",
   certificate.deploymentUrl,
   "--yes",
-  ...(process.env.VERCEL_TOKEN ? ["--token", process.env.VERCEL_TOKEN] : []),
+  ...vercelAuthArgs,
+]);
+// autoAssignCustomDomains is deliberately disabled so an uncertified deploy can
+// never take production. Point the public domain at this exact certified build.
+run("npx", [
+  "vercel",
+  "alias",
+  "set",
+  certificate.deploymentUrl,
+  productionDomain,
+  "--non-interactive",
+  ...vercelAuthArgs,
 ]);
 const productionReport = await fetchDeploymentHealth(productionUrl);
 const productionErrors = validateDeploymentHealth(productionReport, { expectedSha: commitSha, applicationGeneration });
