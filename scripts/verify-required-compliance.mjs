@@ -113,10 +113,9 @@ async function main() {
   let { data: s2 } = await admin.from("ops_checklist_sessions").select("status").eq("id", sessionId).single();
   check("session is completed after valid reading", s2.status === "completed", `status=${s2.status}`);
 
-  await cleanupOpeningSession();
-
   // V18 A1: the closing money readings are required numerics too — the card
-  // machine total (terminal_total) cannot be silently skipped.
+  // machine total (terminal_total) cannot be silently skipped. Keep the just-
+  // completed opening in place: a real Shop Day cannot begin closing without it.
   await cleanupSession("closing");
   const { data: closeId, error: closeStartErr } = await mgr.rpc("ops_start_or_resume_session", {
     p_branch_id: BRANCH,
@@ -158,6 +157,7 @@ async function main() {
 
   await admin.from("owner_alerts").delete().eq("kind", "till_variance").eq("entity_ref", `close:${closeId}`);
   await cleanupSession("closing");
+  await cleanupOpeningSession();
 
   console.log("");
   console.log(`Required-compliance guard: ${pass} passed, ${fail} failed.`);
