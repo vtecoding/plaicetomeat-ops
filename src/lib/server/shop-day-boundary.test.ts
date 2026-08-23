@@ -8,6 +8,10 @@ const migration = readFileSync(
   join(process.cwd(), "supabase/migrations/202608231300_shop_day_trading_guards.sql"),
   "utf8",
 );
+const serveIdentityFix = readFileSync(
+  join(process.cwd(), "supabase/migrations/202608231400_shop_day_serve_guard_identity.sql"),
+  "utf8",
+);
 
 describe("Shop Day server boundary", () => {
   it("derives the day from persisted rituals on the authoritative branch-local date", () => {
@@ -46,5 +50,13 @@ describe("Shop Day server boundary", () => {
   it("keeps the old atomic writers private behind the guarded names", () => {
     expect(migration).toMatch(/REVOKE ALL ON FUNCTION public\.create_operator_serve_order_unguarded_v18[\s\S]*service_role/);
     expect(migration).toContain("RETURN public.create_operator_serve_order_unguarded_v18");
+  });
+
+  it("guards an atomic sale even when its background draft does not exist yet", () => {
+    expect(serveIdentityFix).toContain("v_actor uuid := auth.uid()");
+    expect(serveIdentityFix).toContain("WHERE id = v_actor");
+    expect(serveIdentityFix).toContain("AND is_active = true");
+    expect(serveIdentityFix).toContain("PERFORM public.assert_shop_day_trading_v19(v_branch_id)");
+    expect(serveIdentityFix).toContain("RETURN public.create_operator_serve_order_unguarded_v18");
   });
 });

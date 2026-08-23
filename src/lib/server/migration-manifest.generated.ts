@@ -307,6 +307,11 @@ export const REQUIRED_MIGRATIONS: readonly MigrationManifestEntry[] = [
     "version": "202608231300",
     "file": "202608231300_shop_day_trading_guards.sql",
     "checksum": "afa42db26ad83bf539e1cd7bc3861a4f9157787c3f1ab5df74f26f208cd68a60"
+  },
+  {
+    "version": "202608231400",
+    "file": "202608231400_shop_day_serve_guard_identity.sql",
+    "checksum": "463723635cf72c2e654a31d81573688ace90ee333a1260e5a5ea73fdd0632451"
   }
 ] as const;
 
@@ -369,11 +374,12 @@ export const REQUIRED_MIGRATION_VERSIONS: readonly string[] = [
   "202607152315",
   "202607161505",
   "202608130900",
-  "202608231300"
+  "202608231300",
+  "202608231400"
 ] as const;
 
-export const REQUIRED_MIGRATION_HEAD = "202608231300" as const;
+export const REQUIRED_MIGRATION_HEAD = "202608231400" as const;
 
-export const MIGRATION_MANIFEST_CHECKSUM = "d7703a36283f43a72f0789a748c9afa2144b849c4cacf284d64a084df5cc2c70" as const;
+export const MIGRATION_MANIFEST_CHECKSUM = "963b0d335218bb4831c5e4c13faf3e827b2ae09883801447b37b5710f14fa5ed" as const;
 
-export const REQUIRED_MIGRATION_COUNT = 59 as const;
+export const REQUIRED_MIGRATION_COUNT = 60 as const;
