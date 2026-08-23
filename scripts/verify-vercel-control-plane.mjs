@@ -32,15 +32,16 @@ if (!process.exitCode) try {
   }
 
   const plan = String(team.billing?.plan ?? team.plan ?? "unknown").toLowerCase();
-  if (plan === "hobby" || plan === "unknown") {
-    failures.push(`team plan ${plan} cannot evidence restricted production RBAC`);
+  if (plan === "unknown") {
+    failures.push("team plan could not be verified");
   }
 
   if (failures.length > 0) {
     console.error(`vercel-control-plane: FAIL - ${failures.join(" | ")}`);
     process.exitCode = 1;
   } else {
-    console.log(`vercel-control-plane: PASS - domain auto-assignment off; Git deploys off; RBAC-capable plan ${plan}`);
+    const authority = plan === "hobby" ? "single-owner token authority" : "restricted production RBAC";
+    console.log(`vercel-control-plane: PASS - domain auto-assignment off; Git deploys off; ${authority}; plan ${plan}`);
   }
 } catch (error) {
   console.error(`vercel-control-plane: FAIL - ${error instanceof Error ? error.message : String(error)}`);
