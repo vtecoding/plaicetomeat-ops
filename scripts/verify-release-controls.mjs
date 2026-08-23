@@ -9,6 +9,7 @@ const workflow = read(".github/workflows/production-release.yml");
 const controlPlane = read("scripts/verify-vercel-control-plane.mjs");
 const playwright = read("playwright.config.ts");
 const releaseArtifact = read("scripts/lib/release-artifact.mjs");
+const releaseGate = read("scripts/verify-release-gate.mjs");
 const migration = read("supabase/migrations/202608130900_p0_truth_and_schema_compatibility.sql");
 const runbook = read("docs/release-runbook.md");
 const config = JSON.parse(read("config/release-contract.json"));
@@ -20,6 +21,7 @@ if (!controlPlane.includes("autoAssignCustomDomains !== false") || !controlPlane
 if (!stage.includes("validateDeploymentHealth") || !stage.includes("verify-release-gate.mjs")) failures.push("staging does not certify the exact deployment");
 if (!workflow.includes("VERCEL_AUTOMATION_BYPASS_SECRET") || !playwright.includes("x-vercel-protection-bypass") || !releaseArtifact.includes("x-vercel-protection-bypass")) failures.push("protected staged deployments are not authenticated during certification");
 if (!workflow.includes("playwright install --with-deps chromium")) failures.push("production release does not provision the hosted certification browser");
+if (!releaseGate.includes("fetchDeploymentHealth") || !releaseGate.includes("validateDeploymentHealth")) failures.push("promotion gate bypasses the shared protected-deployment health verifier");
 if (!promote.includes("validateReleaseCertificate") || !promote.includes('"promote"')) failures.push("promotion is not certificate-bound");
 if (workflow.indexOf("release:stage") < 0 || workflow.indexOf("release:promote") <= workflow.indexOf("release:stage")) failures.push("authoritative workflow does not stage before promote");
 if (!workflow.includes("environment: production") || !workflow.includes("github.ref == 'refs/heads/main'")) failures.push("production workflow lacks protected main/environment boundary");
