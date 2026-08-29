@@ -91,7 +91,7 @@ async function run() {
     check("operator audit written", !!audit, audit?.id ?? "");
 
     const owner = await browser.newPage();
-    await login(owner, "owner@ptm.test", "/admin/compliance#supporting-files");
+    await login(owner, "owner@ptm.test", "/admin/compliance");
     await owner.locator("details#supporting-files > summary").click();
     await owner.getByText("Certificate").first().waitFor();
     await owner.getByText("Needs review").first().waitFor();
