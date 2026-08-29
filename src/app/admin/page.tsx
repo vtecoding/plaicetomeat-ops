@@ -2,210 +2,187 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
-  CalendarOff,
-  ClipboardList,
-  FileClock,
-  FlaskConical,
-  LayoutDashboard,
-  ListChecks,
   PackageCheck,
-  PackageSearch,
   PoundSterling,
   Recycle,
-  Scissors,
-  Settings,
   ShoppingBag,
   TrendingUp,
   Users,
 } from "lucide-react";
 
-import { BusinessInsightsSections } from "@/components/admin/business-insights";
 import { PageFrame } from "@/components/site-header";
 import { Masthead } from "@/components/ui/page";
 import type { DataState } from "@/lib/domain/data-result";
-import type { DashboardMetrics } from "@/lib/server/dashboard";
-import type { OpsIntelligence } from "@/lib/server/operations-intelligence";
 import { getOperationalSnapshotV1 } from "@/lib/server/operational-snapshot";
 import { requireStaffContext } from "@/lib/server/staff-context";
 import { formatCurrency, formatDisplayDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-// V11.3 — "One door per job". /admin is the SINGLE analysis hub ("Business Insights",
-// a.k.a. Review Business): historical analysis only. Daily operations (what needs
-// attention, what to do today, the morning walk, setup) live on Today. The counter
-// is /counter. There is no longer a counter-service mode or a launch-readiness card
-// here, and no duplicate "what needs fixing" operational board.
-
-type InsightPanel = {
+type ReviewCardProps = {
   icon: typeof ShoppingBag;
   title: string;
   summary: string;
-  content: ReactNode;
+  children: ReactNode;
+  href: string;
+  action: string;
 };
 
-type ToolLink = { href: string; label: string; detail: string; icon: typeof ShoppingBag; ownerOnly?: boolean };
-
-const analysisToolLinks = [
-  { href: "/admin/purchasing", label: "What should I buy next?", detail: "Stock to order before you call your supplier", icon: TrendingUp },
-  { href: "/admin/cutting-guide", label: "Cutting & Pricing", detail: "What a whole animal is worth & what to charge", icon: Scissors },
-  { href: "/admin/products", label: "Products & Prices", detail: "What you sell and what it costs", icon: PackageSearch },
-  { href: "/admin/inventory", label: "What stock do I have?", detail: "What's in, what's going off", icon: PackageCheck },
-  { href: "/admin/orders", label: "Order history", detail: "Past orders, search and exceptions", icon: ShoppingBag },
-  { href: "/admin/compliance", label: "Supplier Certificates", detail: "Halal and food-safety paperwork", icon: ClipboardList },
-  { href: "/admin/evidence", label: "Evidence", detail: "Operator photos and document proof", icon: FileClock },
-  { href: "/admin/settings", label: "Shop Settings", detail: "Shop details and customer texts", icon: Settings },
-] as const;
-
-const moreToolLinks: ToolLink[] = [
-  { href: "/admin/away", label: "Owner Away", detail: "Check the shop while you are out", icon: AlertTriangle, ownerOnly: true },
-  { href: "/admin/pickup-windows", label: "Collection Times", detail: "Time slots customers can choose", icon: ClipboardList },
-  { href: "/admin/shop-closures", label: "Closed Days", detail: "Holidays and days the shop is shut", icon: CalendarOff },
-  { href: "/admin/audit", label: "Activity History", detail: "Every change — who did it and when", icon: FileClock, ownerOnly: true },
-  { href: "/admin/releases", label: "System Checks", detail: "Technical checks for support — safe to skip", icon: ClipboardList, ownerOnly: true },
-];
-
-export default async function AdminPage() {
-  const { profile, branchId } = await requireStaffContext("manager", { branchScoped: true });
+export default async function AdminReviewPage() {
+  const { branchId } = await requireStaffContext("manager", { branchScoped: true });
   const snapshot = await getOperationalSnapshotV1(branchId);
+
   if (!snapshot.result.data) {
     return (
       <PageFrame>
-        <main className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid="owner-dashboard">
+        <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8" data-testid="owner-dashboard">
+          <Masthead eyebrow="Review" title="Review the business" subtitle="A periodic view of the outcomes that matter." />
           <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />
         </main>
       </PageFrame>
     );
   }
 
-  const { metrics, intelligence, shopIntelligence: intel } = snapshot.result.data;
-
-  const insightPanels = buildInsightPanels(metrics, intelligence);
+  const { metrics, intelligence, shopIntelligence } = snapshot.result.data;
+  const expiringCertificates = intelligence.compliance.rows.filter(
+    (row) => row.daysToExpiry !== null && row.daysToExpiry >= 0 && row.daysToExpiry <= 30,
+  ).length;
+  const missingCertificates = intelligence.compliance.rows.filter((row) => row.daysToExpiry === null).length;
 
   return (
     <PageFrame>
-      <main className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid="owner-dashboard">
+      <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 lg:px-8" data-testid="owner-dashboard">
         <Masthead
-          eyebrow="Shop detail"
-          title="Check the shop"
-          subtitle={`Money, stock, waste, margin, customers and certificates. For today's jobs, use Today. · ${formatDisplayDate(metrics.date)}`}
+          eyebrow="Review"
+          title="Review the business"
+          subtitle={`${shopIntelligence.weekly.rangeLabel} · Updated ${formatDisplayDate(metrics.date)}. Today remains the place for live jobs.`}
           actions={
-            <div className="flex flex-wrap gap-2"><Link
+            <Link
               href="/admin/today"
-              className="inline-flex h-10 items-center rounded-lg bg-[var(--brand)] px-4 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_22px_-12px_rgba(15,81,50,0.6)] transition hover:bg-[var(--brand-700)]"
+              className="inline-flex min-h-11 items-center rounded-lg bg-[var(--brand)] px-4 text-sm font-bold text-white"
             >
               Back to Today
-            </Link><Link href="/admin/tutorial" className="inline-flex h-10 items-center rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--brand)]">Owner Tutorial</Link></div>
+            </Link>
           }
         />
 
-        {snapshot.result.state !== "HEALTHY" && <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />}
+        {snapshot.result.state !== "HEALTHY" ? (
+          <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />
+        ) : null}
 
-        <section className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Business snapshot">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">Shop numbers</p>
-            <h2 className="mt-1 text-xl font-semibold">What happened today?</h2>
-            <p className="mt-1 text-sm text-[#6c5e52]">Money, waste, stock risk and certificates.</p>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <SnapshotStat label="Orders today" value={String(metrics.orderCount)} testid="metric-order-count" />
-            <SnapshotStat label="Revenue today" value={formatCurrency(metrics.estimatedRevenue)} testid="metric-revenue" />
-            <SnapshotStat label="Waste this week" value={formatCurrency(intelligence.waste.weekValue)} testid="metric-waste-week" />
-            <SnapshotStat label="Stock to use first" value={formatCurrency(metrics.stockValueAtRisk)} testid="metric-stock-risk" />
-            <SnapshotStat label="Certificates expiring" value={String(metrics.expiringCertificates)} testid="metric-expiring-certificates" />
-          </div>
+        <section className="mt-6 grid gap-4 md:grid-cols-2" aria-label="Business outcomes">
+          <ReviewCard
+            icon={PoundSterling}
+            title="Sales"
+            summary={shopIntelligence.weekly.revenue === null ? "Still building a reliable view" : formatCurrency(shopIntelligence.weekly.revenue)}
+            href="/admin/orders"
+            action="Open money and orders"
+          >
+            <ReviewFact label="Top product" value={shopIntelligence.weekly.topProduct ?? "No sales data yet"} />
+            <ReviewFact label="Lowest performer" value={shopIntelligence.weekly.lowestProduct ?? "Not enough data"} />
+            <ReviewFact label="Average customer spend" value={formatCurrency(intelligence.customers.averageOrderValue)} />
+          </ReviewCard>
+
+          <ReviewCard
+            icon={PackageCheck}
+            title="Stock"
+            summary={`${intelligence.expiry.expiresThisWeek.length} batch${intelligence.expiry.expiresThisWeek.length === 1 ? "" : "es"} to use first`}
+            href="/admin/inventory"
+            action="Open stock"
+          >
+            <ReviewFact label="Expired" value={String(intelligence.expiry.expired.length)} />
+            <ReviewFact label="Value at risk" value={formatCurrency(intelligence.expiry.valueAtRisk)} />
+            <ReviewFact label="Stock lines being watched" value={String(intelligence.depletion.length)} />
+          </ReviewCard>
+
+          <ReviewCard
+            icon={Recycle}
+            title="Waste"
+            summary={`${formatCurrency(intelligence.waste.weekValue)} recorded this week`}
+            href="/admin/inventory"
+            action="Open stock and waste"
+          >
+            <ReviewFact label="This month" value={formatCurrency(intelligence.waste.monthValue)} />
+            <ReviewFact label="Biggest source" value={intelligence.waste.mostWastedProduct ?? "No waste recorded"} />
+            <ReviewFact label="Weekly review" value={shopIntelligence.weekly.biggestWasteSource ?? "Nothing standing out"} />
+          </ReviewCard>
+
+          <ReviewCard
+            icon={TrendingUp}
+            title="Buying"
+            summary={intelligence.depletion.length === 0 ? "No active stock lines need watching" : `${intelligence.depletion.length} stock line${intelligence.depletion.length === 1 ? "" : "s"} forecast`}
+            href="/admin/purchasing"
+            action="Open buying"
+          >
+            <ReviewFact label="Most frequent stock risk" value={shopIntelligence.weekly.mostFrequentStockRisk ?? "None"} />
+            <ReviewFact label="Best margin line" value={intelligence.margin.best[0]?.productName ?? "Add costs to see this"} />
+            <ReviewFact label="Needs price or cost data" value={String(intelligence.margin.unavailable.length)} />
+          </ReviewCard>
+
+          <ReviewCard
+            icon={Users}
+            title="Customers"
+            summary={`${intelligence.customers.repeatCustomers} returning customer${intelligence.customers.repeatCustomers === 1 ? "" : "s"}`}
+            href="/admin/orders"
+            action="Open customer orders"
+          >
+            <ReviewFact label="First-time customers" value={String(intelligence.customers.firstTimeCustomers)} />
+            <ReviewFact label="Orders analysed" value={String(intelligence.basket.realOrderCount)} />
+            <ReviewFact label="Average basket" value={formatCurrency(intelligence.basket.averageBasketValue)} />
+          </ReviewCard>
+
+          <ReviewCard
+            icon={AlertTriangle}
+            title="Suppliers and safety"
+            summary={intelligence.compliance.status}
+            href="/admin/compliance"
+            action="Open suppliers and safety"
+          >
+            <ReviewFact label="Certificates expiring soon" value={String(expiringCertificates)} />
+            <ReviewFact label="Certificates missing" value={String(missingCertificates)} />
+            <ReviewFact label="Weekly position" value={shopIntelligence.weekly.complianceSummary} />
+          </ReviewCard>
         </section>
 
-        <details className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-            <span>
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">Shop check</span>
-              <span className="mt-1 block text-xl font-semibold">Open the weekly review</span>
-            </span>
-            <span className="text-sm font-semibold text-[#0f5132]">Open</span>
-          </summary>
-          <div className="mt-5 border-t border-[#eee4d8] pt-1">
-            <BusinessInsightsSections intel={intel} />
-          </div>
-        </details>
-
-        <details id="business-insights" className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Shop detail">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-            <span>
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">The detail</span>
-              <span className="mt-1 block text-xl font-semibold">Open what to watch</span>
-            </span>
-            <span className="text-sm font-semibold text-[#0f5132]">Open</span>
-          </summary>
-          <div>
-            <p className="mt-1 text-sm text-[#6c5e52]">Stock, buying, margin, waste, customers and certificates.</p>
-          </div>
-
-          <div className="mt-4 grid gap-4 lg:hidden">
-            {insightPanels.map((panel) => (
-              <details key={panel.title} className="group rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <panel.icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
-                    <div>
-                      <p className="text-sm font-semibold">{panel.title}</p>
-                      <p className="mt-0.5 text-xs text-[#6c5e52]">{panel.summary}</p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-semibold text-[#0f5132] transition group-open:rotate-180">v</span>
-                </summary>
-                <div className="mt-4 border-t border-[#eee4d8] pt-4">{panel.content}</div>
-              </details>
-            ))}
-          </div>
-
-          <div className="mt-4 hidden gap-4 lg:grid xl:grid-cols-3">
-            {insightPanels.map((panel) => (
-              <IntelligencePanel key={panel.title} icon={panel.icon} title={panel.title}>
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">{panel.summary}</p>
-                <div className="mt-4">{panel.content}</div>
-              </IntelligencePanel>
-            ))}
-          </div>
-        </details>
-
-        <details className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="Shop tools">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-            <span>
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">Shop tools</span>
-              <span className="mt-1 block text-xl font-semibold">Open buying, pricing and stock</span>
-            </span>
-            <span className="text-sm font-semibold text-[#0f5132]">Open</span>
-          </summary>
-          <p className="mt-3 text-sm text-[#6c5e52]">Buying, pricing, products, stock and history.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {analysisToolLinks.map((item) => (
-              <QuickActionCard key={item.href} {...item} />
-            ))}
-          </div>
-        </details>
-
-        <details className="mt-6 rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm" aria-label="More shop tools">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-            <span>
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0f5132]">More tools</span>
-              <span className="mt-1 block text-xl font-semibold">Open the rest</span>
-            </span>
-            <span className="text-sm font-semibold text-[#0f5132]">Open</span>
-          </summary>
-          <p className="mt-3 text-sm text-[#6c5e52]">Settings, closed days and support checks.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {moreToolLinks
-              .filter((item) => !item.ownerOnly || profile.role === "owner")
-              .map((item) => (
-                <QuickActionCard key={item.href} href={item.href} label={item.label} detail={item.detail} icon={item.icon} />
-              ))}
-          </div>
-        </details>
+        {shopIntelligence.weekly.notes.length > 0 ? (
+          <details className="mt-6 rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm">
+            <summary className="cursor-pointer font-display text-xl font-semibold text-[var(--ink)]">Notes behind this review</summary>
+            <ul className="mt-4 grid gap-2 text-sm text-[var(--muted)]">
+              {shopIntelligence.weekly.notes.map((note) => <li key={note}>• {note}</li>)}
+            </ul>
+          </details>
+        ) : null}
       </main>
-
-      <MobileActionBar />
     </PageFrame>
+  );
+}
+
+function ReviewCard({ icon: Icon, title, summary, children, href, action }: ReviewCardProps) {
+  return (
+    <article className="flex flex-col rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--brand-50)] text-[var(--brand)] ring-1 ring-[#c5ddd0]">
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
+        <div>
+          <h2 className="font-display text-xl font-semibold text-[var(--ink)]">{title}</h2>
+          <p className="mt-1 text-sm font-bold text-[var(--brand)]">{summary}</p>
+        </div>
+      </div>
+      <dl className="mt-5 grid gap-3">{children}</dl>
+      <Link href={href} className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--cream)] px-4 text-sm font-bold text-[var(--brand)]">
+        {action}
+      </Link>
+    </article>
+  );
+}
+
+function ReviewFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-[var(--line)] pb-2 text-sm last:border-0 last:pb-0">
+      <dt className="text-[var(--muted)]">{label}</dt>
+      <dd className="max-w-[60%] text-right font-bold text-[var(--ink)]">{value}</dd>
+    </div>
   );
 }
 
@@ -220,301 +197,9 @@ function TruthStateBanner({ state, message }: { state: DataState; message: strin
   };
 
   return (
-    <section className="mt-4 rounded-xl border border-[#f0c66e] bg-[#fff8e6] p-4 text-sm text-[#5a3900]" data-testid="truth-state-banner">
+    <section className="mt-6 rounded-xl border border-[#f0c66e] bg-[#fff8e6] p-4 text-sm text-[#5a3900]" data-testid="truth-state-banner">
       <p className="font-semibold">{label[state]}</p>
-      <p className="mt-1 font-semibold">{message}</p>
+      <p className="mt-1 font-medium">{message}</p>
     </section>
   );
-}
-
-function buildInsightPanels(
-  metrics: DashboardMetrics,
-  intelligence: OpsIntelligence,
-): InsightPanel[] {
-  return [
-    {
-      icon: PackageCheck,
-      title: "What expires soon?",
-      summary: `${intelligence.expiry.expiresThisWeek.length} batches at risk`,
-      content: (
-        <>
-          <StatLine label="Expires today" value={String(intelligence.expiry.expiresToday.length)} />
-          <StatLine label="Expires this week" value={String(intelligence.expiry.expiresThisWeek.length)} />
-          <StatLine label="Expired" value={String(intelligence.expiry.expired.length)} />
-          <StatLine label="Value at risk" value={formatCurrency(intelligence.expiry.valueAtRisk)} />
-          {intelligence.expiry.expiresThisWeek.slice(0, 3).map((item) => (
-            <p key={`${item.productName}-${item.expiryDate}`} className="mt-3 text-sm text-[#5c5148]">
-              <strong>{item.productName}</strong> - {item.remainingWeightKg.toFixed(3)}kg -{" "}
-              {formatCurrency(item.valueAtRisk)} at risk -{" "}
-              {item.daysToExpiry < 0 ? "Expired" : item.daysToExpiry === 0 ? "Expires today" : `Expires in ${item.daysToExpiry} days`}
-            </p>
-          ))}
-        </>
-      ),
-    },
-    {
-      icon: Recycle,
-      title: "What am I losing money on?",
-      summary: `${formatCurrency(intelligence.waste.weekValue)} this week`,
-      content: (
-        <>
-          <StatLine label="Most wasted product" value={intelligence.waste.mostWastedProduct ?? "No waste recorded"} />
-          <StatLine label="Waste this week" value={formatCurrency(intelligence.waste.weekValue)} />
-          <StatLine label="Waste this month" value={formatCurrency(intelligence.waste.monthValue)} />
-          {intelligence.waste.byReason.slice(0, 4).map((reason) => (
-            <StatLine key={reason.label} label={reason.label} value={formatCurrency(reason.value)} />
-          ))}
-        </>
-      ),
-    },
-    {
-      icon: PoundSterling,
-      title: "What money can I make?",
-      summary: metrics.configured ? "Live margin snapshot" : "Database not configured",
-      content: (
-        <>
-          <StatLine label="Revenue" value={formatCurrency(intelligence.financial.revenue)} />
-          <StatLine label="Inventory cost" value={formatNullableCurrency(intelligence.financial.inventoryCost)} />
-          <StatLine label="Waste cost" value={formatCurrency(intelligence.financial.wasteCost)} />
-          <StatLine label="Estimated gross profit" value={formatNullableCurrency(intelligence.financial.estimatedGrossProfit)} />
-          {intelligence.financial.unavailableReason && (
-            <p className="mt-3 text-sm font-bold text-[#7a271a]">{intelligence.financial.unavailableReason}</p>
-          )}
-        </>
-      ),
-    },
-    {
-      icon: TrendingUp,
-      title: "What makes me money?",
-      summary: "Profit, waste, and margin",
-      content: (
-        <>
-          <StatLine label="Most profitable product" value={intelligence.margin.best[0]?.productName ?? "Margin unavailable"} />
-          <StatLine label="Least profitable product" value={intelligence.margin.worst[0]?.productName ?? "Margin unavailable"} />
-          <StatLine label="Product causing most waste" value={intelligence.margin.highestWasteDrag?.productName ?? "No waste recorded"} />
-          <StatLine label="Total estimated profit" value={formatNullableCurrency(intelligence.financial.estimatedGrossProfit)} />
-          <StatLine label="Total estimated waste cost" value={formatCurrency(intelligence.financial.wasteCost)} />
-          {intelligence.margin.unavailable.slice(0, 2).map((product) => (
-            <p key={`unavailable-${product.productName}`} className="mt-3 text-sm text-[#7a271a]">
-              <strong>{product.productName}</strong>: {product.marginUnavailableReason}
-            </p>
-          ))}
-        </>
-      ),
-    },
-    {
-      icon: PackageCheck,
-      title: "What stock do I have?",
-      summary: `Expected demand on ${intelligence.depletion.length} stock line${intelligence.depletion.length === 1 ? "" : "s"}`,
-      content: (
-        <>
-          {intelligence.depletion.length === 0 ? (
-            <p className="text-sm text-[#6c5e52]">No active stock to check.</p>
-          ) : (
-            intelligence.depletion.slice(0, 5).map((row) => (
-              <p key={row.batchId} className="mt-3 text-sm text-[#5c5148]">
-                <strong>{row.productName}</strong> - {row.message}
-                {row.state === "enough_data" ? " Suggested action: Consider ordering more stock." : ""}
-              </p>
-            ))
-          )}
-        </>
-      ),
-    },
-    {
-      icon: Users,
-      title: "Customer Loyalty",
-      summary: `${intelligence.customers.repeatRate}% repeat rate`,
-      content: (
-        <>
-          <StatLine label="First time customers" value={String(intelligence.customers.firstTimeCustomers)} />
-          <StatLine label="Returning customers" value={String(intelligence.customers.repeatCustomers)} />
-          <StatLine label="Repeat customer rate" value={`${intelligence.customers.repeatRate}%`} />
-          <StatLine label="Average spend per customer" value={formatCurrency(intelligence.customers.averageOrderValue)} />
-          {intelligence.customers.topCustomers.slice(0, 3).map((customer) => (
-            <p key={customer.customerPhone} className="mt-3 text-sm text-[#5c5148]">
-              <strong>{customer.customerName}</strong>
-              <br />
-              {formatCurrency(customer.spend)} spent
-              <br />
-              Last order: {new Date(customer.lastOrder).toLocaleDateString("en-GB")}
-            </p>
-          ))}
-        </>
-      ),
-    },
-    {
-      icon: ShoppingBag,
-      title: "What Customers Buy Together",
-      summary: `${intelligence.basket.realOrderCount} orders analysed`,
-      content: (
-        <>
-          <StatLine label="Real orders analysed" value={String(intelligence.basket.realOrderCount)} />
-          <StatLine label="Average basket value" value={formatCurrency(intelligence.basket.averageBasketValue)} />
-          {intelligence.basket.bundleSuggestion ? (
-            <p className="mt-3 text-sm font-bold text-[#0f5132]">{intelligence.basket.bundleSuggestion}</p>
-          ) : (
-            <p className="mt-3 text-sm text-[#6c5e52]">{intelligence.basket.message}</p>
-          )}
-          {intelligence.basket.topPairings.slice(0, 3).map((pairing) => (
-            <StatLine
-              key={`${pairing.productA}-${pairing.productB}`}
-              label={`${pairing.productA} + ${pairing.productB}`}
-              value={`${pairing.count} orders`}
-            />
-          ))}
-        </>
-      ),
-    },
-    {
-      icon: AlertTriangle,
-      title: "What certificates expire soon?",
-      summary: intelligence.compliance.status,
-      content: (
-        <>
-          <StatLine label="Status" value={intelligence.compliance.status} />
-          <StatLine
-            label="Certificates expiring soon"
-            value={String(
-              intelligence.compliance.rows.filter(
-                (row) => row.daysToExpiry !== null && row.daysToExpiry >= 0 && row.daysToExpiry <= 30,
-              ).length,
-            )}
-          />
-          <StatLine
-            label="Certificates expired"
-            value={String(intelligence.compliance.rows.filter((row) => row.daysToExpiry !== null && row.daysToExpiry < 0).length)}
-          />
-          <StatLine
-            label="Missing certificates"
-            value={String(intelligence.compliance.rows.filter((row) => row.daysToExpiry === null).length)}
-          />
-          {intelligence.compliance.rows.slice(0, 4).map((supplier) => (
-            <StatLine
-              key={supplier.supplierName}
-              label={supplier.supplierName}
-              value={
-                supplier.daysToExpiry === null
-                  ? "Missing"
-                  : supplier.daysToExpiry < 0
-                    ? "Expired"
-                    : `${supplier.daysToExpiry} days remaining`
-              }
-            />
-          ))}
-          {intelligence.compliance.rows.some((row) => row.daysToExpiry === null || row.daysToExpiry <= 30) && (
-            <p className="mt-3 text-sm font-bold text-[#0f5132]">Required action: contact supplier and upload updated certificate.</p>
-          )}
-        </>
-      ),
-    },
-    {
-      icon: FlaskConical,
-      title: "Product Performance",
-      summary: "Best and worst movers",
-      content: (
-        <>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Best performers</p>
-          {intelligence.productPerformance.best.slice(0, 3).map((product, index) => (
-            <StatLine key={`best-${product.productId ?? product.productName}-${index}`} label={product.productName} value={formatNullableCurrency(product.grossProfit)} />
-          ))}
-          <p className="mt-4 text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">Worst performers</p>
-          {intelligence.productPerformance.worst.slice(0, 3).map((product, index) => (
-            <StatLine key={`worst-${product.productId ?? product.productName}-${index}`} label={product.productName} value={formatNullableCurrency(product.grossProfit)} />
-          ))}
-        </>
-      ),
-    },
-  ];
-}
-
-function SnapshotStat({ label, value, testid }: { label: string; value: string; testid?: string }) {
-  return (
-    <div className="rounded-xl bg-[#f7f3ed] p-4">
-      <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#6c5e52]">{label}</p>
-      <p className="mt-1 text-lg font-semibold" data-testid={testid}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function StatLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="mt-2 flex items-start justify-between gap-3 text-sm">
-      <span className="text-[#6c5e52]">{label}</span>
-      <strong className="text-right">{value}</strong>
-    </div>
-  );
-}
-
-function QuickActionCard({
-  icon: Icon,
-  label,
-  detail,
-  href,
-}: {
-  icon: typeof ShoppingBag;
-  label: string;
-  detail: string;
-  href: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex min-h-28 flex-col rounded-2xl border border-[#ded6ca] bg-[#fbfaf7] p-4 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
-    >
-      <Icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
-      <p className="mt-4 text-lg font-semibold">{label}</p>
-      <p className="mt-1 text-sm text-[#6c5e52]">{detail}</p>
-    </Link>
-  );
-}
-
-function IntelligencePanel({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: typeof ShoppingBag;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <article className="rounded-2xl border border-[#ded6ca] bg-white p-5 shadow-sm">
-      <Icon className="h-5 w-5 text-[#0f5132]" aria-hidden />
-      <h3 className="mt-3 text-lg font-semibold">{title}</h3>
-      <div className="mt-4">{children}</div>
-    </article>
-  );
-}
-
-function MobileActionBar() {
-  const links = [
-    { href: "/admin/today", label: "Today", icon: ListChecks },
-    { href: "/counter", label: "Counter", icon: LayoutDashboard },
-    { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
-    { href: "/admin/inventory", label: "Inventory", icon: PackageCheck },
-  ] as const;
-
-  return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ded6ca] bg-[#fbfaf7]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur lg:hidden">
-      <div className="mx-auto grid max-w-3xl grid-cols-4 gap-2">
-        {links.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="flex min-h-16 flex-col items-center justify-center rounded-2xl border border-[#ded6ca] bg-white text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0f5132] shadow-sm"
-          >
-            <item.icon className="h-4 w-4" aria-hidden />
-            <span className="mt-1">{item.label}</span>
-          </Link>
-        ))}
-      </div>
-    </nav>
-  );
-}
-
-function formatNullableCurrency(value: number | null) {
-  return value === null ? "Add a cost to see profit" : formatCurrency(value);
 }

@@ -1,14 +1,14 @@
 # V16 · Surface Convergence — Stream A Lock
 
-Generated: 2026-08-23T10:51:16.348Z
+Generated: 2026-08-29T13:55:08.102Z
 
 Static guard over `src/app/admin/**/page.tsx`. Keeps the secondary admin surfaces inside the
 one craft-butcher visual language the V16 compression pass established — no return to the old
 dense, system-font headers.
 
-- Pages scanned: **30**
-- On the shared `<Masthead>`: **16**
-- Delegate their UI (and header) to a client component: **12**
+- Pages scanned: **31**
+- On the shared `<Masthead>`: **15**
+- Delegate their UI (and header) to a client component: **14**
 - Bespoke editorial surfaces (allow-listed): **2** — `today/page.tsx`, `today/walk/page.tsx`
 
 ## Rules enforced

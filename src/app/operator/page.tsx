@@ -230,7 +230,7 @@ function OwnerJobsCard({ count, job }: { count: number; job: ReconcileItem | nul
           <JobFact copyKey="owner.decisions.why" value={job.whyItMatters} />
           <JobFact copyKey="owner.decisions.recommendation" value={job.recommendation} accent />
           <JobFact copyKey="owner.decisions.ignored" value={job.ifIgnored} />
-          <Link href="/admin/reconcile" className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--brand)] px-5 font-bold text-white">
+          <Link href="/admin/today#owner-jobs" className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--brand)] px-5 font-bold text-white">
             <OperatorText k="owner.decisions.openAll" values={{ count }} />
             <ArrowRight className="h-5 w-5" aria-hidden />
           </Link>

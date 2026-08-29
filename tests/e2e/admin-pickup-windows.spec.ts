@@ -9,7 +9,7 @@ function windowRow(page: Page, label: string) {
 test.describe("admin pickup windows", () => {
   test("disabling a window removes it from checkout; re-enabling restores it", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
-    await page.goto("/admin/pickup-windows");
+    await page.goto("/admin/schedule#collection-times");
 
     const target = windowRow(page, "Lunchtime");
     await expect(target).toBeVisible();
@@ -19,7 +19,7 @@ test.describe("admin pickup windows", () => {
     await expect(page.getByTestId("pickup-window-select")).toContainText("Lunchtime");
 
     // Disable it.
-    await page.goto("/admin/pickup-windows");
+    await page.goto("/admin/schedule#collection-times");
     await windowRow(page, "Lunchtime").getByTestId("window-toggle-active").click();
     await expect(page.getByTestId("window-feedback")).toContainText(/disabled/i);
     await expect(windowRow(page, "Lunchtime").getByTestId("window-active-state")).toHaveText("Disabled");
@@ -29,7 +29,7 @@ test.describe("admin pickup windows", () => {
     await expect(page.getByTestId("pickup-window-select")).not.toContainText("Lunchtime");
 
     // Re-enable it.
-    await page.goto("/admin/pickup-windows");
+    await page.goto("/admin/schedule#collection-times");
     await windowRow(page, "Lunchtime").getByTestId("window-toggle-active").click();
     await expect(page.getByTestId("window-feedback")).toContainText(/enabled/i);
 
@@ -39,7 +39,7 @@ test.describe("admin pickup windows", () => {
 
   test("invalid pickup window (start after end) is rejected", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
-    await page.goto("/admin/pickup-windows");
+    await page.goto("/admin/schedule#collection-times");
 
     await page.getByTestId("add-window-button").click();
     await page.getByTestId("new-window-label").fill("Broken Window");
@@ -52,7 +52,7 @@ test.describe("admin pickup windows", () => {
 
   test("staff cannot reach pickup-window admin", async ({ page }) => {
     await login(page, USERS.staff, { expectLanding: /\/counter/ });
-    await page.goto("/admin/pickup-windows");
+    await page.goto("/admin/schedule#collection-times");
     await expect(page).not.toHaveURL(/\/admin\/pickup-windows/);
     await expect(page.getByTestId("add-window-button")).toHaveCount(0);
   });

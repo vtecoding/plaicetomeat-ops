@@ -29,7 +29,7 @@ const statusLabels: Record<string, string> = {
   failed: "Failed",
 };
 
-export function AdminEvidenceClient({ evidence }: { evidence: OperatorEvidence[] }) {
+export function AdminEvidenceClient({ evidence, embedded = false }: { evidence: OperatorEvidence[]; embedded?: boolean }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Feedback>(null);
 
@@ -42,11 +42,11 @@ export function AdminEvidenceClient({ evidence }: { evidence: OperatorEvidence[]
 
   return (
     <div>
-      <Masthead
+      {!embedded ? <Masthead
         eyebrow="Admin"
         title="Evidence"
         subtitle="Operator photos and documents that back deliveries, waste, certificates and compliance checks."
-      />
+      /> : null}
 
       {feedback && (
         <div

@@ -2,22 +2,20 @@ import { expect, test } from "@playwright/test";
 
 import { login, USERS } from "./helpers";
 
-// V7.0 Parts 11 & 12: a short how-to guide plus a printable dry-run script.
-test.describe("owner guide", () => {
-  test("manager sees the everyday job guides and the dry-run script", async ({ page }) => {
+test.describe("retired owner guide", () => {
+  test("legacy guide links return to the simplified Work screen", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
     await page.goto("/admin/guide");
 
-    await expect(page.getByTestId("owner-guide")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "How to handle an order" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "How to add stock" })).toBeVisible();
-    await expect(page.getByTestId("dry-run-script")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Full order test" })).toBeVisible();
+    await expect(page).toHaveURL(/\/admin\/menu/);
+    await expect(page.getByTestId("owner-menu")).toBeVisible();
   });
 
-  test("reachable from the Dad Mode home", async ({ page }) => {
+  test("Work exposes the four real business areas instead of a help directory", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
-    await page.getByRole("link", { name: "Help & guide" }).click();
-    await expect(page).toHaveURL(/\/admin\/guide/);
+    await page.getByTestId("owner-menu-link").click();
+    await expect(page.getByRole("heading", { name: "Money & orders" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Buying" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Suppliers & safety" })).toBeVisible();
   });
 });

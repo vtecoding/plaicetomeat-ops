@@ -15,12 +15,12 @@ describe("Owner CTA contrast", () => {
     expect(css.indexOf("color: inherit")).toBeGreaterThan(layerIndex);
   });
 
-  it("renders the Menu CTA as visible green text on white, not white-on-white", () => {
-    const page = read("src/app/admin/today/page.tsx");
-    const marker = page.indexOf("owner-menu-link");
+  it("keeps the shared mobile owner navigation visible and touch-sized", () => {
+    const header = read("src/components/site-header.tsx");
+    const marker = header.indexOf("owner-menu-link-mobile");
     expect(marker).toBeGreaterThan(-1);
-    const opening = page.slice(page.lastIndexOf("<Link", marker), page.indexOf(">", marker) + 1);
-    expect(opening).toContain("bg-white");
+    const opening = header.slice(header.lastIndexOf("<Link", marker), header.indexOf(">", marker) + 1);
+    expect(opening).toContain("min-h-11");
     expect(opening).toContain("text-[var(--brand)]");
     expect(opening).not.toContain("text-white");
   });

@@ -14,9 +14,11 @@ type Feedback = { tone: "ok" | "error"; message: string } | null;
 export function AdminShopClosuresClient({
   branchId,
   initialClosures,
+  embedded = false,
 }: {
   branchId: string;
   initialClosures: ShopClosure[];
+  embedded?: boolean;
 }) {
   const [closures, setClosures] = useState(initialClosures);
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -56,12 +58,12 @@ export function AdminShopClosuresClient({
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      {!embedded ? <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Admin</p>
           <h1 className="mt-2 text-3xl font-black">Shop closures</h1>
         </div>
-      </div>
+      </div> : null}
 
       {feedback && (
         <div

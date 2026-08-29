@@ -155,8 +155,10 @@ test.describe("V18 Owner jobs", () => {
 
     try {
       await login(page, USERS.owner, { expectLanding: /\/operator/ });
-      await page.goto("/admin/reconcile");
-      await expect(page.getByRole("heading", { name: "Jobs waiting for you" })).toBeVisible();
+      await page.goto("/admin/today#owner-jobs");
+      const ownerJobs = page.getByTestId("owner-jobs-on-today");
+      await expect(ownerJobs).toBeVisible();
+      await ownerJobs.locator("summary").click();
       await expect(page.getByTestId("owner-job-group-operator_delivery_cost_pending")).toContainText("2 jobs");
       await expect(page.getByText(foreignProductName)).toHaveCount(0);
       const automaticGroup = page.getByTestId("owner-job-group-inventory_shortfall");

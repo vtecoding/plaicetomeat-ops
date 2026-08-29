@@ -75,39 +75,24 @@ test.describe("v9 owner brain — today", () => {
     }
   });
 
-  test("offers an optional guided walk through the day (V10)", async ({ page }) => {
+  test("retires the duplicate guided walk back to Today", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 
-    test.skip((await page.getByTestId("setup-mode").count()) > 0, "Shop is in setup mode — nothing to walk");
-
-    await page.getByTestId("owner-menu-link").click();
-    await page.getByRole("link", { name: /Walk me through today/ }).click();
-    await expect(page).toHaveURL(/\/admin\/today\/walk/);
-    await expect(page.getByTestId("guided-walk")).toBeVisible();
-    await expect(page.getByTestId("guided-step")).toBeVisible();
-    await expect(page.getByTestId("guided-progress")).toBeVisible();
-
-    // Walk through one item at a time until the finish screen appears.
-    for (let i = 0; i < 20; i += 1) {
-      const next = page.getByTestId("guided-next");
-      if ((await next.count()) === 0) break;
-      await next.click();
-    }
-
-    await expect(page.getByTestId("guided-finish")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Ready for trading" })).toBeVisible();
+    await page.goto("/admin/today/walk");
+    await expect(page).toHaveURL(/\/admin\/today$/);
+    await expect(page.getByTestId("owner-brain-home")).toBeVisible();
+    await expect(page.getByTestId("guided-walk")).toHaveCount(0);
   });
 
-  test("keeps analytics behind the Menu", async ({ page }) => {
+  test("keeps Work and Review as separate simple destinations", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 
-    await expect(page.getByTestId("business-insights-link")).toHaveCount(0);
     await page.getByTestId("owner-menu-link").click();
     await expect(page).toHaveURL(/\/admin\/menu/);
     await expect(page.getByTestId("owner-menu")).toBeVisible();
-    const insights = page.getByTestId("business-insights-link");
-    await expect(insights).toBeVisible();
-    await insights.click();
+    await expect(page.getByRole("heading", { name: "Money & orders" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Stock" })).toBeVisible();
+    await page.getByRole("link", { name: "Review", exact: true }).click();
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByTestId("owner-dashboard")).toBeVisible();
   });

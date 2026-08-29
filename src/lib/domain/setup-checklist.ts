@@ -86,7 +86,7 @@ export function buildSetupChecklist(signals: SetupSignals): SetupSection[] {
           label: "Opening hours confirmed",
           why: "Customers should only be able to order when you can actually prepare it.",
           status: "manual",
-          href: "/admin/pickup-windows",
+          href: "/admin/schedule#collection-times",
           actionLabel: "Open collection times",
         },
         {
@@ -94,7 +94,7 @@ export function buildSetupChecklist(signals: SetupSignals): SetupSection[] {
           label: "Collection times set",
           why: "Customers can't place an order until at least one collection time exists.",
           status: auto(signals.activePickupWindowCount > 0),
-          href: "/admin/pickup-windows",
+          href: "/admin/schedule#collection-times",
           actionLabel: "Open collection times",
         },
       ],
@@ -213,7 +213,7 @@ export function buildSetupChecklist(signals: SetupSignals): SetupSection[] {
           label: "Tablet tested",
           why: "The counter runs on the tablet — log in and try it before opening.",
           status: "manual",
-          href: "/admin/guide",
+          href: "/admin/menu",
           actionLabel: "Open the guide",
         },
         {

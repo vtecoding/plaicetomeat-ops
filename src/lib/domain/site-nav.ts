@@ -1,4 +1,4 @@
-import { Beef, ClipboardCheck, LayoutDashboard, ListChecks, Menu, ShieldCheck, ShoppingBasket } from "lucide-react";
+import { Beef, ClipboardCheck, LayoutDashboard, ListChecks, Settings, ShieldCheck, ShoppingBag, ShoppingBasket } from "lucide-react";
 
 import type { StaffRole } from "@/lib/domain/route-access";
 
@@ -16,11 +16,14 @@ export const STAFF_LINKS: NavLink[] = [
   { href: "/counter/compliance", label: "Food safety", icon: ShieldCheck },
 ];
 
-// One door per job: Today is the only operational home; Business Insights is the
-// single analysis destination. (Briefing was retired — it redirects to Today.)
+// The owner sees four stable destinations. Task routes such as opening, closing,
+// stock count and order correction stay contextual so the navigation reflects
+// business intent instead of the app's internal route structure.
 export const MANAGER_LINKS: NavLink[] = [
   { href: "/admin/today", label: "Today", icon: ListChecks },
-  { href: "/admin/menu", label: "Menu", icon: Menu },
+  { href: "/admin/menu", label: "Work", icon: ShoppingBag },
+  { href: "/admin", label: "Review", icon: LayoutDashboard },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export type ResolvedNav = {

@@ -5,8 +5,8 @@ import { resetStateBeforeEach } from "./reset-state";
 
 // V11.3 — Briefing retired. /admin/briefing now redirects to Today (the sole
 // operational home), and the V8 shop-intelligence analysis (health score,
-// explain-everything findings, weekly report, confidence) lives on the single
-// analysis hub at /admin ("Business Insights"). Knowledge-layer playbooks unchanged.
+// useful weekly outcomes live on the periodic Review at /admin. Internal scores,
+// duplicate action lists and the permanent playbook index are intentionally absent.
 test.describe("shop intelligence after consolidation", () => {
   resetStateBeforeEach();
 
@@ -18,24 +18,16 @@ test.describe("shop intelligence after consolidation", () => {
     await expect(page.getByTestId("owner-brain-home")).toBeVisible();
   });
 
-  test("the analysis lives behind Menu", async ({ page }) => {
+  test("the periodic Review is separate from Today and Work", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
 
-    await expect(page.getByTestId("business-insights-link")).toHaveCount(0);
-    await page.getByTestId("owner-menu-link").click();
-    const link = page.getByTestId("business-insights-link");
-    await expect(link).toBeVisible();
-    await link.click();
+    await page.getByRole("link", { name: "Review", exact: true }).click();
 
     await expect(page).toHaveURL(/\/admin$/);
-    await expect(page.getByRole("heading", { name: "Check the shop" })).toBeVisible();
-    const weeklyReview = page.getByText("Open the weekly review");
-    await weeklyReview.click();
-    await expect(page.getByRole("heading", { name: "How the shop is doing" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Things to review" })).toBeVisible();
-    await expect(page.getByTestId("health-score")).toBeVisible();
-    await expect(page.getByTestId("weekly-report")).toBeVisible();
-    await expect(page.getByTestId("confidence-banner")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Review the business" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sales" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Stock" })).toBeVisible();
+    await expect(page.getByText(/\/ 100/)).toHaveCount(0);
   });
 
   test("never shows raw severity or developer wording to the owner", async ({ page }) => {
@@ -49,14 +41,9 @@ test.describe("shop intelligence after consolidation", () => {
     await expect(page.getByText(/^(low|medium|high)$/)).toHaveCount(0);
   });
 
-  test("links findings to the operational playbooks", async ({ page }) => {
+  test("keeps contextual playbooks reachable without a permanent index", async ({ page }) => {
     await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
-    await page.goto("/admin/playbooks");
-
-    await expect(page.getByTestId("playbooks-page")).toBeVisible();
-    await page.getByRole("link", { name: /Carcass intake/ }).first().click();
-
-    await expect(page).toHaveURL(/\/admin\/playbooks\/carcass-intake/);
+    await page.goto("/admin/playbooks/carcass-intake");
     await expect(page.getByTestId("playbook-detail")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Step by step" })).toBeVisible();
   });

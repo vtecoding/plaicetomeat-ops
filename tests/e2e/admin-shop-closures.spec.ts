@@ -24,7 +24,7 @@ test.describe("admin shop closures", () => {
     const closeDate = nextDateForIsoDow(3);
 
     await login(page, USERS.manager, { expectLanding: /\/admin/ });
-    await page.goto("/admin/shop-closures");
+    await page.goto("/admin/schedule#closed-days");
 
     await page.getByTestId("new-closure-date").fill(closeDate);
     await page.getByTestId("new-closure-submit").click();
@@ -46,7 +46,7 @@ test.describe("admin shop closures", () => {
 
   test("staff cannot reach shop-closure admin", async ({ page }) => {
     await login(page, USERS.staff, { expectLanding: /\/counter/ });
-    await page.goto("/admin/shop-closures");
+    await page.goto("/admin/schedule#closed-days");
     await expect(page).not.toHaveURL(/\/admin\/shop-closures/);
     await expect(page.getByTestId("new-closure-submit")).toHaveCount(0);
   });

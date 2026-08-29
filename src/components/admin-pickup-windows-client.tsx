@@ -30,9 +30,11 @@ type Feedback = { tone: "ok" | "error"; message: string } | null;
 export function AdminPickupWindowsClient({
   branchId,
   initialWindows,
+  embedded = false,
 }: {
   branchId: string;
   initialWindows: PickupWindow[];
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
@@ -48,10 +50,12 @@ export function AdminPickupWindowsClient({
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Admin</p>
-          <h1 className="mt-2 text-3xl font-black">Pickup windows</h1>
-        </div>
+        {!embedded ? (
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.12em] text-[#0f5132]">Admin</p>
+            <h1 className="mt-2 text-3xl font-black">Pickup windows</h1>
+          </div>
+        ) : <span />}
         <Button type="button" data-testid="add-window-button" onClick={() => setShowAdd((v) => !v)}>
           {showAdd ? "Close" : "Add window"}
         </Button>

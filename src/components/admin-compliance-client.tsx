@@ -15,7 +15,7 @@ import type { Supplier } from "@/lib/server/compliance-inventory";
 
 type Feedback = { tone: "ok" | "error"; message: string } | null;
 
-export function AdminComplianceClient({ branchId, suppliers }: { branchId: string; suppliers: Supplier[] }) {
+export function AdminComplianceClient({ branchId, suppliers, embedded = false }: { branchId: string; suppliers: Supplier[]; embedded?: boolean }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Feedback>(null);
 
@@ -50,11 +50,11 @@ export function AdminComplianceClient({ branchId, suppliers }: { branchId: strin
 
   return (
     <div>
-      <Masthead
+      {!embedded ? <Masthead
         eyebrow="Admin"
         title="Supplier compliance"
         subtitle="Track halal certificate metadata. Public trust pages only show non-sensitive certificate status."
-      />
+      /> : null}
 
       {feedback && (
         <div

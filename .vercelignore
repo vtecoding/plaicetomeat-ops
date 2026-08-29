@@ -1,0 +1,8 @@
+# Local review and audit artefacts are not part of the deployed application.
+audit-results/
+*.zip
+
+# Test output is regenerated and must not be uploaded with production source.
+test-results/
+playwright-report/
+coverage/

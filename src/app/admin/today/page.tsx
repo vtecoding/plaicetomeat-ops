@@ -2,22 +2,24 @@ import Link from "next/link";
 import {
   Archive,
   ArrowRight,
-  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   Circle,
-  Menu,
   Sprout,
   Sunrise,
 } from "lucide-react";
 
 import { PageFrame } from "@/components/site-header";
+import { OwnerOversightPanel } from "@/components/admin-owner-away-client";
+import { ReconcileClient } from "@/components/reconcile-client";
 import { acknowledgeOwnerAlert } from "@/app/actions/owner-alert";
 import type { DataState } from "@/lib/domain/data-result";
 import { buildMorningBriefing } from "@/lib/owner-brain/brain";
 import { getOperationalSnapshotV1 } from "@/lib/server/operational-snapshot";
-import { getOwnerAwaySummary, type OwnerAwaySummary } from "@/lib/server/owner-away";
+import { getOwnerAwaySummary } from "@/lib/server/owner-away";
+import { getOwnerAlertDeliveryHealth } from "@/lib/server/alert-dispatch";
+import { getReconciliationItems, type ReconcileTray } from "@/lib/server/reconciliation";
 import { requireStaffContext } from "@/lib/server/staff-context";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { MorningBriefing, OperatorAction } from "@/lib/owner-brain/types";
@@ -37,9 +39,11 @@ export default async function TodayPage({searchParams}:{searchParams:Promise<{al
     const {data}=await createSupabaseServiceClient().from("owner_alerts").select("id,summary,severity,acknowledged_at,resolved_at").eq("id",linkedId).eq("branch_id",branchId).maybeSingle<LinkedAlert>();
     linkedAlert=data;
   }
-  const [snapshot, ownerAway] = await Promise.all([
+  const [snapshot, ownerAway, deliveryHealth, ownerJobs] = await Promise.all([
     getOperationalSnapshotV1(branchId),
     profile.role === "owner" ? getOwnerAwaySummary(branchId) : Promise.resolve(null),
+    profile.role === "owner" ? getOwnerAlertDeliveryHealth(branchId) : Promise.resolve(null),
+    profile.role === "owner" ? getReconciliationItems(branchId, { markSeen: false }) : Promise.resolve(null),
   ]);
   const brain = snapshot.result.data?.brain;
   const morning = snapshot.result.data?.intelligence.morning;
@@ -56,21 +60,13 @@ export default async function TodayPage({searchParams}:{searchParams:Promise<{al
   return (
     <PageFrame>
       <main className="mx-auto max-w-4xl px-4 pb-28 pt-4 sm:px-6 sm:pt-6 lg:px-8" data-testid="owner-brain-home">
-        <header className="flex items-end justify-between gap-4 px-1">
+        <header className="px-1">
           <div>
             <p className="eyebrow text-[var(--brand)]">Today · {date}</p>
             <h1 className="mt-2 font-display text-[2rem] font-semibold leading-[1.04] tracking-[-0.02em] text-[var(--ink)] sm:text-[2.45rem]">
               What needs you today
             </h1>
           </div>
-          <Link
-            href="/admin/menu"
-            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-4 text-sm font-bold text-[var(--brand)] shadow-sm transition hover:border-[#c5ddd0] hover:bg-[var(--brand-50)]"
-            data-testid="owner-menu-link"
-          >
-            <Menu className="h-5 w-5" aria-hidden />
-            Menu
-          </Link>
         </header>
         <div className="rule-engraved mt-4" />
 
@@ -78,11 +74,11 @@ export default async function TodayPage({searchParams}:{searchParams:Promise<{al
           <p className="eyebrow text-[#8b5e00]">Opened from notification</p>
           <h2 className="mt-1 font-display text-xl font-semibold text-[var(--ink)]">Owner alert</h2>
           <p className="mt-2 text-sm font-medium text-[var(--muted)]">{linkedAlert.summary}</p>
-          {linkedAlert.resolved_at?<p className="mt-3 text-sm font-bold text-[var(--brand)]">Resolved</p>:linkedAlert.acknowledged_at?<div className="mt-3 flex flex-wrap items-center gap-3"><p className="text-sm font-bold text-[var(--brand)]">Acknowledged — still open until resolved.</p><Link href={`/admin/reconcile?alert=${linkedAlert.id}`} className="text-sm font-bold text-[var(--brand)] underline">Open owner job</Link></div>:<div className="mt-3 flex flex-wrap items-center gap-3"><form action={acknowledgeOwnerAlert}><input type="hidden" name="alertId" value={linkedAlert.id}/><button className="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-bold text-white">Acknowledge alert</button></form><Link href={`/admin/reconcile?alert=${linkedAlert.id}`} className="text-sm font-bold text-[var(--brand)] underline">Open owner job</Link></div>}
+          {linkedAlert.resolved_at?<p className="mt-3 text-sm font-bold text-[var(--brand)]">Resolved</p>:linkedAlert.acknowledged_at?<div className="mt-3 flex flex-wrap items-center gap-3"><p className="text-sm font-bold text-[var(--brand)]">Acknowledged — still open until resolved.</p><Link href="#owner-jobs" className="text-sm font-bold text-[var(--brand)] underline">Open owner job</Link></div>:<div className="mt-3 flex flex-wrap items-center gap-3"><form action={acknowledgeOwnerAlert}><input type="hidden" name="alertId" value={linkedAlert.id}/><button className="rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-bold text-white">Acknowledge alert</button></form><Link href="#owner-jobs" className="text-sm font-bold text-[var(--brand)] underline">Open owner job</Link></div>}
         </section>}
 
         {snapshot.result.state !== "HEALTHY" && <TruthStateBanner state={snapshot.result.state} message={snapshot.result.message} />}
-        {ownerAway?.settings.ownerAway && <OwnerAwayTodayPanel summary={ownerAway} />}
+        {ownerAway?.settings.ownerAway && deliveryHealth ? <OwnerOversightPanel summary={ownerAway} deliveryHealth={deliveryHealth} /> : null}
 
         {!brain ? null : brain.setupMode ? (
           <SetupMode gettingStarted={brain.gettingStarted} />
@@ -99,38 +95,28 @@ export default async function TodayPage({searchParams}:{searchParams:Promise<{al
             <LaterReserve actions={brain.later} />
           </>
         )}
+
+        {ownerJobs && ownerJobs.count > 0 ? <OwnerJobsPanel tray={ownerJobs} focused={linkedAlert !== null} /> : null}
+        {ownerAway && !ownerAway.settings.ownerAway && deliveryHealth ? <OwnerOversightPanel summary={ownerAway} deliveryHealth={deliveryHealth} /> : null}
       </main>
     </PageFrame>
   );
 }
 
-function OwnerAwayTodayPanel({ summary }: { summary: OwnerAwaySummary }) {
-  const needsOwner =
-    summary.alerts.openCount + summary.evidence.needsReview + summary.evidence.failed + summary.certificates.needsReview;
-
+function OwnerJobsPanel({ tray, focused }: { tray: ReconcileTray; focused: boolean }) {
   return (
-    <Link
-      href="/admin/away"
-      className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#c5ddd0] bg-[var(--brand-50)] px-5 py-4 shadow-[0_1px_0_rgba(255,255,255,0.7)] transition hover:border-[var(--brand)] hover:bg-white"
-      data-testid="owner-away-today-panel"
-    >
-      <span className="flex min-w-0 items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[var(--brand)] ring-1 ring-[#c5ddd0]">
-          <AlertTriangle className="h-5 w-5" aria-hidden />
-        </span>
-        <span className="min-w-0">
-          <span className="eyebrow block text-[var(--brand)]">{summary.statusLabel}</span>
-          <span className="mt-1 block text-lg font-bold text-[var(--ink)]">{summary.headline}</span>
-          <span className="mt-1 block text-sm font-medium text-[var(--muted)]">
-            {summary.sales.orderCount} sales, {summary.evidence.total} photos, {needsOwner} owner checks.
+    <details id="owner-jobs" open={focused} className="mt-6 scroll-mt-24 rounded-2xl border border-[#e1b86f] bg-[#fffaf0] p-5" data-testid="owner-jobs-on-today">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+        <span>
+          <span className="eyebrow text-[#8b5e00]">Needs your decision</span>
+          <span className="mt-1 block font-display text-xl font-semibold text-[var(--ink)]">
+            {tray.count} owner job{tray.count === 1 ? "" : "s"}
           </span>
         </span>
-      </span>
-      <span className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-[var(--brand)] ring-1 ring-[#c5ddd0]">
-        Review
-        <ChevronRight className="h-4 w-4" aria-hidden />
-      </span>
-    </Link>
+        <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-[#8b5e00] ring-1 ring-[#e1b86f]">Open</span>
+      </summary>
+      <ReconcileClient initialItems={tray.items} />
+    </details>
   );
 }
 

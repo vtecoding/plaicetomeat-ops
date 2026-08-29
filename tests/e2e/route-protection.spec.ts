@@ -9,6 +9,7 @@ const MANAGER_ONLY = [
   "/admin/cutting-guide",
   "/admin/pickup-windows",
   "/admin/shop-closures",
+  "/admin/schedule",
   "/admin/orders",
   "/admin/settings",
 ];

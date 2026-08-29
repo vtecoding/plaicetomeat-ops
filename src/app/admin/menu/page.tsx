@@ -1,20 +1,11 @@
 import Link from "next/link";
 import {
-  AlertTriangle,
-  BookOpen,
-  CalendarDays,
   ChevronRight,
   ClipboardCheck,
-  FileClock,
   LayoutDashboard,
-  ListChecks,
   PackageCheck,
-  PackageSearch,
-  PoundSterling,
-  Settings,
   ShieldCheck,
   ShoppingBag,
-  Store,
   Sunrise,
   Sunset,
   Truck,
@@ -26,137 +17,98 @@ import { requireStaffContext } from "@/lib/server/staff-context";
 
 export const dynamic = "force-dynamic";
 
-type MenuItem = {
-  href: string;
-  label: string;
-  detail?: string;
-  icon: typeof Store;
-  ownerOnly?: boolean;
-  testid?: string;
-};
-
-type MenuGroup = {
-  title: string;
-  items: MenuItem[];
-};
-
-const GROUPS: MenuGroup[] = [
+const WORK_AREAS = [
   {
-    title: "Shop",
-    items: [
-      { href: "/admin/open", label: "Open shop", detail: "Morning checklist", icon: Sunrise },
-      { href: "/admin/close", label: "Close shop", detail: "End-of-day checklist", icon: Sunset },
-      { href: "/counter", label: "Counter", detail: "Serve and prepare orders", icon: LayoutDashboard },
-    ],
+    title: "Money & orders",
+    detail: "Takings, customer orders, amendments and refunds.",
+    icon: ShoppingBag,
+    href: "/admin/orders",
+    action: "Open money & orders",
+    secondary: { href: "/counter", label: "Open counter" },
   },
   {
     title: "Stock",
-    items: [
-      { href: "/admin/stock-count", label: "Stock count", detail: "Count what is really there", icon: ClipboardCheck },
-      { href: "/admin/inventory", label: "Stock and deliveries", detail: "Stock on hand, dates and movements", icon: PackageCheck },
-      { href: "/admin/purchasing", label: "Purchasing", detail: "What may need ordering", icon: Truck },
-      { href: "/admin/products", label: "Products and prices", icon: PackageSearch },
-    ],
+    detail: "Receive stock, use short-dated batches, record waste and correct counts.",
+    icon: PackageCheck,
+    href: "/admin/inventory",
+    action: "Open stock",
+    secondary: { href: "/admin/stock-count", label: "Count stock" },
   },
   {
-    title: "Orders",
-    items: [
-      { href: "/admin/orders", label: "Orders", detail: "Find orders and exceptions", icon: ShoppingBag },
-      { href: "/admin/pickup-windows", label: "Collection times", icon: CalendarDays },
-    ],
+    title: "Buying",
+    detail: "See what may need ordering and what to check before calling a supplier.",
+    icon: Truck,
+    href: "/admin/purchasing",
+    action: "Open buying",
   },
   {
-    title: "Money",
-    items: [
-      { href: "/admin", label: "Sales and till", detail: "Takings, payments and shop performance", icon: PoundSterling, testid: "business-insights-link" },
-      { href: "/admin/reconcile", label: "Checks to resolve", detail: "Review open shop differences", icon: ListChecks },
-    ],
+    title: "Suppliers & safety",
+    detail: "Supplier certificates, expiry checks and the documents behind them.",
+    icon: ShieldCheck,
+    href: "/admin/compliance",
+    action: "Open suppliers & safety",
+    secondary: { href: "/admin/compliance#supporting-files", label: "Review supporting files" },
   },
-  {
-    title: "Food safety",
-    items: [
-      { href: "/admin/compliance", label: "Food safety and certificates", icon: ShieldCheck },
-      { href: "/admin/evidence", label: "Photos and documents", icon: ClipboardCheck },
-    ],
-  },
-  {
-    title: "Reports",
-    items: [
-      { href: "/admin#business-insights", label: "Week at a glance", detail: "Sales, stock and trends", icon: Store },
-      { href: "/admin/audit", label: "Activity history", detail: "Who changed what and when", icon: FileClock, ownerOnly: true },
-    ],
-  },
-  {
-    title: "Owner Away",
-    items: [
-      { href: "/admin/away", label: "Owner Away", detail: "Check the shop while you are out", icon: AlertTriangle, ownerOnly: true, testid: "owner-away-link" },
-    ],
-  },
-  {
-    title: "Help",
-    items: [
-      { href: "/admin/today/walk", label: "Walk me through today", detail: "Take today's priorities one at a time", icon: ListChecks },
-      { href: "/admin/guide", label: "Help", detail: "Quick answers and guidance", icon: BookOpen },
-      { href: "/admin/playbooks", label: "How to do each job", icon: BookOpen },
-      { href: "/admin/tutorial", label: "Owner practice", detail: "A short decision dry run", icon: ClipboardCheck },
-    ],
-  },
-  {
-    title: "Settings",
-    items: [
-      { href: "/admin/settings", label: "Shop settings", icon: Settings },
-      { href: "/admin/shop-closures", label: "Closed days", icon: CalendarDays },
-    ],
-  },
-];
+] as const;
 
-export default async function OwnerMenuPage() {
-  const { profile } = await requireStaffContext("manager", { branchScoped: true });
-  const groups = GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => !item.ownerOnly || profile.role === "owner"),
-  })).filter((group) => group.items.length > 0);
+export default async function OwnerWorkPage() {
+  await requireStaffContext("manager", { branchScoped: true });
 
   return (
     <PageFrame>
-      <main className="mx-auto max-w-4xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid="owner-menu">
+      <main className="mx-auto max-w-5xl px-4 pb-16 pt-6 sm:px-6 lg:px-8" data-testid="owner-menu">
         <Masthead
           back={<BackLink href="/admin/today">Back to Today</BackLink>}
-          eyebrow="Menu"
-          title="Where do you need to go?"
-          subtitle="Today holds your priorities. Everything else is here."
+          eyebrow="Work"
+          title="Choose the job"
+          subtitle="Four business areas. The system keeps the specialist steps underneath them."
         />
 
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
-          {groups.map((group) => (
-            <section key={group.title} aria-labelledby={`menu-${group.title.toLowerCase().replaceAll(" ", "-")}`}>
-              <h2 id={`menu-${group.title.toLowerCase().replaceAll(" ", "-")}`} className="px-1 text-sm font-bold uppercase tracking-[0.09em] text-[var(--muted)]">
-                {group.title}
-              </h2>
-              <ul className="mt-2 overflow-hidden rounded-2xl border border-[var(--line)] bg-white">
-                {group.items.map((item) => (
-                  <li key={`${item.href}-${item.label}`} className="border-b border-[var(--line)] last:border-b-0">
-                    <Link
-                      href={item.href}
-                      data-testid={item.testid}
-                      className="group flex min-h-16 items-center gap-3 px-4 py-3 transition hover:bg-[var(--brand-50)]"
-                    >
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--cream)] text-[var(--brand)] ring-1 ring-[var(--line)]">
-                        <item.icon className="h-5 w-5" aria-hidden />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-bold text-[var(--ink)]">{item.label}</span>
-                        {item.detail && <span className="mt-0.5 block text-sm text-[var(--muted)]">{item.detail}</span>}
-                      </span>
-                      <ChevronRight className="h-5 w-5 shrink-0 text-[var(--faint)] transition group-hover:translate-x-0.5 group-hover:text-[var(--brand)]" aria-hidden />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
+        <section className="mt-6 grid gap-4 md:grid-cols-2" aria-label="Owner work areas">
+          {WORK_AREAS.map((area) => (
+            <article key={area.href} className="flex flex-col rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm">
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--brand-50)] text-[var(--brand)] ring-1 ring-[#c5ddd0]">
+                <area.icon className="h-6 w-6" aria-hidden />
+              </span>
+              <h2 className="mt-4 font-display text-2xl font-semibold text-[var(--ink)]">{area.title}</h2>
+              <p className="mt-2 flex-1 text-sm leading-6 text-[var(--muted)]">{area.detail}</p>
+              <Link href={area.href} className="mt-5 flex min-h-12 items-center justify-between rounded-xl bg-[var(--brand)] px-4 font-bold text-white">
+                {area.action}
+                <ChevronRight className="h-5 w-5" aria-hidden />
+              </Link>
+              {"secondary" in area ? (
+                <Link href={area.secondary.href} className="mt-2 inline-flex min-h-11 items-center justify-center text-sm font-bold text-[var(--brand)] hover:underline">
+                  {area.secondary.label}
+                </Link>
+              ) : null}
+            </article>
           ))}
-        </div>
+        </section>
+
+        <section className="mt-8 rounded-2xl border border-[var(--line)] bg-[var(--cream)] p-5" aria-labelledby="daily-routines-title">
+          <div className="flex items-center gap-3">
+            <ClipboardCheck className="h-5 w-5 text-[var(--brand)]" aria-hidden />
+            <div>
+              <h2 id="daily-routines-title" className="font-display text-xl font-semibold text-[var(--ink)]">Daily routines</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">Today normally opens the right routine automatically. These are the direct doors.</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <RoutineLink href="/admin/open" label="Open shop" icon={Sunrise} />
+            <RoutineLink href="/admin/close" label="Close shop" icon={Sunset} />
+            <RoutineLink href="/counter" label="Counter" icon={LayoutDashboard} />
+          </div>
+        </section>
       </main>
     </PageFrame>
+  );
+}
+
+function RoutineLink({ href, label, icon: Icon }: { href: string; label: string; icon: typeof Sunrise }) {
+  return (
+    <Link href={href} className="flex min-h-12 items-center gap-3 rounded-xl border border-[var(--line)] bg-white px-4 font-bold text-[var(--brand)]">
+      <Icon className="h-5 w-5" aria-hidden />
+      {label}
+    </Link>
   );
 }

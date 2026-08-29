@@ -40,7 +40,7 @@ export async function SiteHeader() {
         <nav className="hidden min-w-0 flex-wrap items-center justify-end gap-1 md:flex" aria-label={shopView ? "Staff tools" : "Shop"}>
           {primary.map((link) => (
             <Button key={link.href} asChild variant="ghost" size="sm">
-              <Link href={link.href}>
+              <Link href={link.href} data-testid={link.href === "/admin/menu" ? "owner-menu-link" : undefined}>
                 <link.icon className="h-4 w-4" aria-hidden />
                 {link.label}
               </Link>
@@ -76,6 +76,33 @@ export async function SiteHeader() {
             </Button>
           )}
         </div>
+
+        <nav
+          className="order-last flex w-full items-center gap-1 overflow-x-auto border-t border-[var(--line)] pt-2 md:hidden"
+          aria-label={shopView ? "Staff tools" : "Shop"}
+        >
+          {primary.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              data-testid={link.href === "/admin/menu" ? "owner-menu-link-mobile" : undefined}
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-bold text-[var(--brand)] hover:bg-[var(--brand-50)]"
+            >
+              <link.icon className="h-4 w-4" aria-hidden />
+              {link.label}
+            </Link>
+          ))}
+          {shopView ? (
+            <Link
+              href={shopView.href}
+              className="ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-bold text-[var(--muted)] hover:bg-[var(--brand-50)]"
+              data-testid="nav-shop-view-mobile"
+            >
+              <shopView.icon className="h-4 w-4" aria-hidden />
+              Shop view
+            </Link>
+          ) : null}
+        </nav>
       </div>
     </header>
   );

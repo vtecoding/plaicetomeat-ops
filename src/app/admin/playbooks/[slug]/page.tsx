@@ -25,7 +25,7 @@ export default async function PlaybookPage({ params }: { params: Promise<{ slug:
     <PageFrame>
       <main className="mx-auto max-w-3xl px-4 pb-28 pt-6 sm:px-6 lg:px-8" data-testid="playbook-detail">
         <Masthead
-          back={<BackLink href="/admin/playbooks">All playbooks</BackLink>}
+          back={<BackLink href="/admin/menu">Back to Work</BackLink>}
           eyebrow="Playbook"
           title={playbook.title}
           subtitle={playbook.intro}

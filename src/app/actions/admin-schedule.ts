@@ -39,6 +39,7 @@ async function requireManager(): Promise<{ ok: true } | { ok: false; message: st
 function revalidateSchedule() {
   revalidatePath("/admin/pickup-windows");
   revalidatePath("/admin/shop-closures");
+  revalidatePath("/admin/schedule");
   revalidatePath("/checkout");
 }
 
