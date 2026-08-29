@@ -34,13 +34,33 @@ if (head < CERTIFIED_SCHEMA_BASELINE) {
 }
 
 if (existsSync(join(process.cwd(), ".git"))) {
+  let checkpointAvailable = true;
   try {
-    execFileSync("git", ["merge-base", "--is-ancestor", CERTIFIED_V18_CHECKPOINT, "HEAD"], {
+    execFileSync("git", ["cat-file", "-e", `${CERTIFIED_V18_CHECKPOINT}^{commit}`], {
       cwd: process.cwd(),
       stdio: "ignore",
     });
   } catch {
-    fail(`HEAD is not descended from certified checkpoint ${CERTIFIED_V18_CHECKPOINT.slice(0, 7)} (fetch full history in CI)`);
+    checkpointAvailable = false;
+  }
+
+  if (checkpointAvailable) {
+    try {
+      execFileSync("git", ["merge-base", "--is-ancestor", CERTIFIED_V18_CHECKPOINT, "HEAD"], {
+        cwd: process.cwd(),
+        stdio: "ignore",
+      });
+    } catch {
+      fail(`HEAD is not descended from certified checkpoint ${CERTIFIED_V18_CHECKPOINT.slice(0, 7)}`);
+    }
+  } else {
+    const shallow = execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    }).trim();
+    if (shallow !== "true") {
+      fail(`certified checkpoint ${CERTIFIED_V18_CHECKPOINT.slice(0, 7)} is missing from full Git history`);
+    }
   }
   if (requireClean) {
     const dirty = execFileSync("git", ["status", "--porcelain"], {
@@ -49,7 +69,10 @@ if (existsSync(join(process.cwd(), ".git"))) {
     }).trim();
     if (dirty) fail("release worktree is dirty; commit the exact artifact before promotion");
   }
-  console.log(`release-lineage: PASS - HEAD descends from ${CERTIFIED_V18_CHECKPOINT.slice(0, 7)}; schema head ${head}`);
+  const lineage = checkpointAvailable
+    ? `HEAD descends from ${CERTIFIED_V18_CHECKPOINT.slice(0, 7)}`
+    : `shallow CI clone contains certified schema baseline ${CERTIFIED_SCHEMA_BASELINE}`;
+  console.log(`release-lineage: PASS - ${lineage}; schema head ${head}`);
 } else {
   console.log(`release-lineage: PASS - source archive contains certified schema baseline; schema head ${head}`);
 }
