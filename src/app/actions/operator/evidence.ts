@@ -225,7 +225,7 @@ export async function uploadOperatorEvidence(formData: FormData): Promise<Operat
     };
   }
 
-  revalidatePath("/admin/evidence");
+  revalidateEvidenceRoutes();
   return { ok: true, id: finalized.id, fileName, message: "Photo saved." };
 }
 
@@ -264,7 +264,7 @@ export async function linkOperatorEvidence(input: {
     owner_alert_resolved?: boolean;
     replayed?: boolean;
   };
-  revalidatePath("/admin/evidence");
+  revalidateEvidenceRoutes();
   return {
     ok: true,
     message: "Photo linked.",
@@ -306,7 +306,7 @@ export async function deleteOperatorEvidence(input: { evidenceId: string }) {
   if (request.objectPath) {
     const remove = await supabase.storage.from(request.bucket ?? BUCKET).remove([request.objectPath]);
     if (remove.error) {
-      revalidatePath("/admin/evidence");
+      revalidateEvidenceRoutes();
       return { ok: false, message: "Photo deletion is waiting. Try delete again." };
     }
   }
@@ -318,10 +318,15 @@ export async function deleteOperatorEvidence(input: { evidenceId: string }) {
   });
   const completion = finalized as { id?: string } | null;
   if (finalizeError || !completion?.id) {
-    revalidatePath("/admin/evidence");
+    revalidateEvidenceRoutes();
     return { ok: false, message: "Photo was removed; its record is waiting to finish. Try delete again." };
   }
 
-  revalidatePath("/admin/evidence");
+  revalidateEvidenceRoutes();
   return { ok: true, message: "Photo deleted." };
+}
+
+function revalidateEvidenceRoutes() {
+  revalidatePath("/admin/compliance");
+  revalidatePath("/admin/evidence");
 }

@@ -29,7 +29,7 @@ const ADMIN_ORDERS = () => "/admin/orders";
 const INVENTORY = () => "/admin/inventory";
 const PURCHASING = () => "/admin/purchasing";
 const COMPLIANCE = () => "/admin/compliance";
-const EVIDENCE = () => "/admin/evidence";
+const EVIDENCE = () => "/admin/compliance#supporting-files";
 const RELEASES = () => "/admin/releases";
 const NO_LINK = () => null;
 

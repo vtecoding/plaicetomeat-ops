@@ -91,7 +91,8 @@ async function run() {
     check("operator audit written", !!audit, audit?.id ?? "");
 
     const owner = await browser.newPage();
-    await login(owner, "owner@ptm.test", "/admin/evidence");
+    await login(owner, "owner@ptm.test", "/admin/compliance#supporting-files");
+    await owner.locator("details#supporting-files > summary").click();
     await owner.getByText("Certificate").first().waitFor();
     await owner.getByText("Needs review").first().waitFor();
     check("owner can see it", true);
