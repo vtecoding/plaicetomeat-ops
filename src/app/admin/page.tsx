@@ -133,7 +133,7 @@ export default async function AdminReviewPage() {
 
           <ReviewCard
             icon={AlertTriangle}
-            title="Suppliers and safety"
+            title="Suppliers & safety"
             summary={intelligence.compliance.status}
             href="/admin/compliance"
             action="Open suppliers and safety"

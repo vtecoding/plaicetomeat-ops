@@ -2,9 +2,18 @@ import { expect, test } from "@playwright/test";
 
 import { login, USERS } from "./helpers";
 
+async function openOwnerToday(page: Parameters<typeof login>[0]) {
+  // Manager profiles may be intentionally locked to operator mode in production.
+  // Owners can always enter the owner console, whose default post-login landing
+  // remains the simple operator home.
+  await login(page, USERS.owner, { expectLanding: /\/operator/ });
+  await page.goto("/admin/today");
+  await page.waitForURL(/\/admin\/today/);
+}
+
 test.describe("simplified owner surface", () => {
   test("keeps four stable destinations and the main information", async ({ page }, testInfo) => {
-    await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
+    await openOwnerToday(page);
 
     await expect(page.getByRole("heading", { name: "What needs you today" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Today", exact: true })).toBeVisible();
@@ -34,7 +43,7 @@ test.describe("simplified owner surface", () => {
 
   test("makes all four destinations visible on a phone", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await login(page, USERS.manager, { expectLanding: /\/admin\/today/ });
+    await openOwnerToday(page);
 
     const mobileNav = page.locator('nav[aria-label="Staff tools"]:visible');
     for (const label of ["Today", "Work", "Review", "Settings"]) {
